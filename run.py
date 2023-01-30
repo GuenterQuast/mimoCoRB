@@ -1,5 +1,8 @@
 #! /usr/bin/env python3
-"""main program controlling DAQ
+"""main program controlling DAQ with buffer manager mimoCoRB
+
+   Script to start live data capturing and processing 
+   as specified in the 'setup.yaml' file.
 """
 
 import os
@@ -50,13 +53,128 @@ def get_config(config_file):
         config_str = yaml.load(f, Loader=yaml.FullLoader)  # SafeLoader
     return config_str
 
+def setup_buffers(ringbuffers_dict):
+    ringbuffers = {}
+    for i in range(1, number_of_ringbuffers):
+        # > Concescutive and concise ring buffer names are assumed! (aka: "RB_1", "RB_2", ...)
+        ringbuffer_name = "RB_" + str(i)
+        # > Check if the ring buffer exists in the setup_yaml file
+        try:
+            RB_exists = ringbuffers_dict[i-1][ringbuffer_name]
+        except KeyError:
+            raise RuntimeError("Ring buffer '{}' not found in setup file '{}'!\n".format(
+                ringbuffer_name, setup_filename))
+        num_slots = ringbuffers_dict[i-1][ringbuffer_name]['number_of_slots']
+        num_ch = ringbuffers_dict[i-1][ringbuffer_name]['channel_per_slot']
+        data_type = ringbuffers_dict[i-1][ringbuffer_name]['data_type']  # simple string type or list expected
+        # > Create the buffer data structure (data type of the underlying buffer array)
+        if type(data_type) == str:
+            rb_datatype = np.dtype(data_type)
+        elif type(data_type) == dict:
+            rb_datatype = list()
+            for key, value in data_type.items():
+                rb_datatype.append( (value[0], np.dtype(value[1])) )
+        else:
+            raise RuntimeError("Ring buffer data type '{}' is unknown! Please use canonical numpy data type names ('float', 'int', 'uint8', ...) or a list of tuples (see numpy.dtype()-API reference)".format(data_type))
+        
+        # > Create and store the new ring buffer object (one per ringbuffer definition in the setup yaml file)
+        ringbuffers[ringbuffer_name] = bm.NewBuffer(num_slots, num_ch, rb_datatype)
+    return ringbuffers
+        
+def setup_workers(parallel_functions_dict):
+    # > Set up all the (parallel) worker functions
+    process_list = list()
+    number_of_functions = len(parallel_functions_dict)
+    for i in range(1, number_of_functions):
+        # > Concescutive and concise function names are assumed! (aka: "Fkt_1", "Fkt_2", ...)
+        function_name = "Fkt_" + str(i)
+        file_py_name = parallel_functions_dict[i][function_name]['file_name']
+        fkt_py_name = parallel_functions_dict[i][function_name]['fkt_name']
+        # print("Load: "+function_name)
+        # print(" > "+file_py_name+" "+fkt_py_name)
+        number_of_processes = parallel_functions_dict[i][function_name]['num_process']
+        try:
+            assigned_ringbuffers = dict(parallel_functions_dict[i][function_name]['RB_assign'])
+        except KeyError:
+            assigned_ringbuffers = {}  # no ringbuffer assignment
+            # TODO: Do we really want this behaviour? Functions without ring buffers will never
+            # receive a 'shutdown()'-signal from the main thread, so they might run indefinitely
+            # and block closing the main application
+            # (for p in process_list: p.join() blocks until all processes terminate by themselfes!)
+        
+        # > Prepare function arguments
+        source_list = []
+        sink_list = []
+        observe_list = []
+        config_dict = {}
+        # > Check if this function needs external configuration (specified in a yaml file)
+        try:
+            # > Is there a function specific configuration file referenced in the setup_yaml? If yes, use this!
+            cfg_file_name = parallel_functions_dict[i][function_name]['config_file']
+        except KeyError:
+            # > If there is no specific configuration file, see if there is function specific data
+            # in the common configuration file
+            try:
+                config_dict = config_dict_common[fkt_py_name]
+            except (KeyError, TypeError):
+                print("Warning: no configuration found for file '{}'!".format(fkt_py_name))
+                pass  # If both are not present, no external configuration is passed to the function 
+        else:
+            # > In case of a function specific configuration file, copy it over into the target directory
+            shutil.copyfile(os.path.abspath(cfg_file_name),
+                            os.path.dirname(directory_prefix) + "/" + os.path.basename(cfg_file_name))
+            config_dict = get_config(cfg_file_name)
 
-if __name__ == '__main__':
+        # > Pass the target-directory created above to the worker function (so, if applicable,
+        #   it can safe own data in this directory and everything is contained in this)
+        config_dict["directory_prefix"] = directory_prefix
+        
+        # > Split ring buffers by usage (as sinks, sources, or observers) and instantiate the
+        #   appropriate object to be used by the worker function  (these calls will return
+        #   configuration dictionaries used by the bm.Reader(), bm.Writer() or bm.Observer() constructor)
+        for key, value in assigned_ringbuffers.items():
+            if value == 'read':
+                # append new reader dict to the list
+                source_list.append(ringbuffers[key].new_reader_group())
+            elif value == 'write':
+                # append new writer dict to the list
+                sink_list.append(ringbuffers[key].new_writer())
+            elif value == 'observe':
+                # append new observer dict to the list
+                observe_list.append(ringbuffers[key].new_observer())
+
+        if not source_list:
+            source_list = None
+        if not sink_list:
+            sink_list = None
+        if not observe_list:
+            observe_list = None
+        # > Create worker processes executing the specified functions in parallel
+        parallel_function = import_function(file_py_name, fkt_py_name)
+        for k in range(number_of_processes):
+            process_list.append(Process(target=parallel_function,
+                                        args=(source_list, sink_list, observe_list, config_dict),
+                                        kwargs=assigned_ringbuffers, name=fkt_py_name))
+      # start worker processes 
+      # > To avoid potential blocking during startup, processes are started in reverse data flow
+      #   order (so last item in the processing chain is started first)
+    process_list.reverse()
+    for p in process_list:
+        p.start()
+    print("{:d} workers started...".format(len(process_list)))
+
+    return process_list
+
+
+
+if __name__ == '__main__': # ---------------------------------------------------------------------------
+    
     print("Script: " + os.path.basename(sys.argv[0]))
-    print("Python: ", sys.version, "\n".ljust(22, '-'))
+    ## print("Python: ", sys.version, "\n".ljust(22, '-'))
     
     #  Setup command line arguments and help messages
-    parser = argparse.ArgumentParser(description="Script to start the live data capturing and processing of an experiment as specified in the 'setup.yaml' file")
+    parser = argparse.ArgumentParser(
+        description="start live data capturing and processing as specified in the 'setup.yaml' file")
     parser.add_argument("setup", type=str)
     arguments = parser.parse_args()
 
@@ -91,137 +209,33 @@ if __name__ == '__main__':
     ringbuffers_dict = setup_yaml['RingBuffer']
     parallel_functions_dict = setup_yaml['Functions']
     number_of_ringbuffers = len(ringbuffers_dict) + 1
-    ringbuffers = {}
-    process_list = list()
-    # > Execute user specific code "before ring buffer creation" if necessary (can be ignored if not needed)
-    # > This is in the "user application"-module as user_appl_init()-Method
-    ua.appl_init()
-    # > Set up all needed ring buffers
-    for i in range(1, number_of_ringbuffers):
-        # > Concescutive and concise ring buffer names are assumed! (aka: "RB_1", "RB_2", ...)
-        ringbuffer_name = "RB_" + str(i)
-        # > Check if the ring buffer exists in the setup_yaml file
-        try:
-            RB_exists = ringbuffers_dict[i-1][ringbuffer_name]
-        except KeyError:
-            raise RuntimeError("Ring buffer '{}' could not be found in the setup file '{}'!\nRing buffer numeration has to be consecutive and of the form 'RB_1', 'RB_2', 'RB_3', ...".format(ringbuffer_name, setup_filename))
-        num_slots = ringbuffers_dict[i-1][ringbuffer_name]['number_of_slots']
-        num_ch = ringbuffers_dict[i-1][ringbuffer_name]['channel_per_slot']
-        data_type = ringbuffers_dict[i-1][ringbuffer_name]['data_type']  # simple string type or list expected
-        # > Create the buffer data structure (data type of the underlying buffer array)
-        if type(data_type) == str:
-            rb_datatype = np.dtype(data_type)
-        elif type(data_type) == dict:
-            rb_datatype = list()
-            for key, value in data_type.items():
-                rb_datatype.append( (value[0], np.dtype(value[1])) )
-        else:
-            raise RuntimeError("Ring buffer data type '{}' is unknown! Please use canonical numpy data type names ('float', 'int', 'uint8', ...) or a list of tuples (see numpy.dtype()-API reference)".format(data_type))
-        
-        # > Create and store the new ring buffer object (one per ringbuffer definition in the setup yaml file)
-        ringbuffers[ringbuffer_name] = bm.NewBuffer(num_slots, num_ch, rb_datatype)
 
-    # > Evaluate the 'main' function from setup yaml file
-    function_name = "Fkt_main"  # expected name
-    config_dict_common = None
-    runtime = 0
-    # > Check if a runtime is defined in the setup_yaml (lowest priority)
-    try:
-        runtime = parallel_functions_dict[0][function_name]['runtime']
-    except (KeyError, TypeError):
-        pass  # later: interpret as infinite runtime
-    #  > Check if a common config file for all functions is defined in the 'main' function
-    try:
-        cfg_common = parallel_functions_dict[0][function_name]['config_file']
-    except (KeyError, TypeError):
-        pass  # ... may be missing
-    else:
-        # > If the common config file is present: copy it into the target directory and load the configuration
+    # > Hook: possibility to execute user specific code "before ring buffer creation" 
+    ua.appl_init()
+
+    # > Set up all needed ring buffers
+
+    ringbuffers = setup_buffers(ringbuffers_dict)
+        
+    # get configuration file and runtime
+    runtime = 0 if 'runtime' not in  parallel_functions_dict[0]['Fkt_main'] else \
+        parallel_functions_dict[0]['Fkt_main']
+
+    if 'config_file' in parallel_functions_dict[0]["Fkt_main"]: 
+        cfg_common = parallel_functions_dict[0]['Fkt_main']['config_file']
+        # > If common config file is defined: copy it into the target directory ...
         shutil.copyfile(os.path.abspath(cfg_common),
                         os.path.dirname(directory_prefix) + "/" + os.path.basename(cfg_common))
+        #    and and load the configuration
         config_dict_common = get_config(cfg_common)
-    # > Check if a runtime is present in the 'general' part of the common configuration file (higher priority)
-    # > This overrides a potential runtime in the setup_yaml!
-    try:
-        runtime = config_dict_common['general']['runtime']
-    except (KeyError, TypeError):
-        pass
-    
-    # > Set up all the (parallel) worker functions
-    number_of_functions = len(parallel_functions_dict)
-    for i in range(1, number_of_functions):
-        # > Concescutive and concise function names are assumed! (aka: "Fkt_1", "Fkt_2", ...)
-        function_name = "Fkt_" + str(i)
-        file_py_name = parallel_functions_dict[i][function_name]['file_name']
-        fkt_py_name = parallel_functions_dict[i][function_name]['fkt_name']
-        # print("Load: "+function_name)
-        # print(" > "+file_py_name+" "+fkt_py_name)
-        number_of_processes = parallel_functions_dict[i][function_name]['num_process']
-        try:
-            assigned_ringbuffers = dict(parallel_functions_dict[i][function_name]['RB_assign'])
-        except KeyError:
-            assigned_ringbuffers = {}  # no ringbuffer assignment
-            # TODO: Do we really want this behaviour? Functions without ring buffers will never receive a 'shutdown()'-signal from the main thread,
-            # so they might run indefenetly and block closing the main application (for p in process_list: p.join() blocks until all processes terminate by themselfes!)
-        
-        # > Prepare function arguments
-        source_list = []
-        sink_list = []
-        observe_list = []
-        config_dict = {}
-        # > Check if this function needs external configuration (specified in a yaml file)
-        try:
-            # > Is there a function specific configuration file referenced in the setup_yaml? If yes, use this!
-            cfg_file_name = parallel_functions_dict[i][function_name]['config_file']
-        except KeyError:
-            # > If there is no specific configuration file, see if there is function specific data in the common configuration file
-            try:
-                config_dict = config_dict_common[fkt_py_name]
-            except (KeyError, TypeError):
-                print("Warning: no configuration found for file '{}'!".format(fkt_py_name))
-                pass  # If both are not present, no external configuration is passed to the function 
-        else:
-            # > In case of a function specific configuration file, copy it over into the target directory
-            shutil.copyfile(os.path.abspath(cfg_file_name),
-                            os.path.dirname(directory_prefix) + "/" + os.path.basename(cfg_file_name))
-            config_dict = get_config(cfg_file_name)
+        # if runtime defined, override previous value
+        if 'runtime' in config_dict_common['general']: 
+           runtime = config_dict_common['general']['runtime'] 
 
-        # > Pass the target-directory created above to the worker function (so, if applicable, it can safe own data in this directory and everything is contained in this)
-        config_dict["directory_prefix"] = directory_prefix
-        
-        # > Split ring buffers by usage (as sinks, sources, or observers) and intantiate the appropriate object to be used by the worker function 
-        # > (these calls will return configuration dictionaries used by the bm.Reader(), bm.Writer() or bm.Observer() constructor)
-        for key, value in assigned_ringbuffers.items():
-            if value == 'read':
-                # append new reader dict to the list
-                source_list.append(ringbuffers[key].new_reader_group())
-            elif value == 'write':
-                # append new writer dict to the list
-                sink_list.append(ringbuffers[key].new_writer())
-            elif value == 'observe':
-                # append new observer dict to the list
-                observe_list.append(ringbuffers[key].new_observer())
-
-        if not source_list:
-            source_list = None
-        if not sink_list:
-            sink_list = None
-        if not observe_list:
-            observe_list = None
-        # > Create worker processes executing the specified functions in parallel
-        parallel_function = import_function(file_py_name, fkt_py_name)
-        for k in range(number_of_processes):
-            process_list.append(Process(target=parallel_function,
-                                        args=(source_list, sink_list, observe_list, config_dict),
-                                        kwargs=assigned_ringbuffers, name=fkt_py_name))
-    del source_list, sink_list, observe_list
-    # > To avoid potential blocking during startup, processes are started in reverse data flow order (so last item in the processing chain is started first)
-    process_list.reverse()
-    for p in process_list:
-        p.start()
-    print("{:d} workers started...".format(len(process_list)))
-
-    # -->   start of main loop ...
+    # now start all workers     
+    process_list = setup_workers(parallel_functions_dict)
+  
+    # begin of data acquisition -----
     now = time.time()
     Nprocessed = 0 
     if runtime != 0:
