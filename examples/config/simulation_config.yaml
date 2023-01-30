@@ -79,7 +79,7 @@ save_parquet:
   filename: "simulated_data"
 
 plot_graph:
-  title: "Live Waveform"
+  title: "Waveform Double Pulses"
   min_sleeptime: 0.5                # time to wait between graphics updates
   sample_time_ns: *sample_time_ns   # sampling interval 
   channel_range: 500                # channel range in mV

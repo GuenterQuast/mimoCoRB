@@ -1,4 +1,3 @@
-import matplotlib
 from cycler import cycler
 from mimocorb import mimo_buffer as bm
 from multiprocessing import Lock, SimpleQueue
@@ -10,7 +9,6 @@ from scipy.stats import gaussian_kde
 import time
 import sys, os
 
-matplotlib.use("TkAgg")
 
 class PlotOscilloscope:
     def __init__(self, source_list=None, sink_list=None, observe_list=None, config_dict=None, **rb_info):
@@ -218,19 +216,6 @@ class PlotKDE:
     def start(self):
         while self.source._active.is_set():
             plt.pause(0.2)
-
-
-
-def plot_graph(source_list=None, sink_list=None, observe_list=None, config_dict=None, **rb_info):
-    oscilloscope = PlotOscilloscope(source_list, sink_list, observe_list, config_dict,  **rb_info)
-    oscilloscope.start()
-
-    
-def plot_kde(source_list=None, sink_list=None, observe_list=None, config_dict=None, **rb_info):
-    kde_plot = PlotKDE(source_list, sink_list, observe_list, config_dict,  **rb_info)
-    kde_plot.start()
-
-
     
 if __name__ == "__main__":
     print("Script: " + os.path.basename(sys.argv[0]))

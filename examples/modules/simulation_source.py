@@ -43,7 +43,6 @@ class SimulationSource:
         self.pre_trigger_samples = config_dict["pre_trigger_samples"]
         self.analogue_offset_mv = config_dict["analogue_offset"]*1000.
         self.number_of_channels = len(self.sink.dtype)
-        self.inefficiency = 0.02
         
         # initialisation
         self.event_count = 0
@@ -58,6 +57,8 @@ class SimulationSource:
         self.pulse_template = \
           np.exp(-np.float64(np.linspace(0., self.plen, self.plen, endpoint=False))/tau)
         self.tau_mu = 2200 # muyon life time in ns
+        self.detector_efficiency = 0.95
+        self.stopping_probability = 0.10
         
     def get_simpulses(self, nchan=3):
         """generate simulated data
@@ -71,23 +72,27 @@ class SimulationSource:
         for ip in range(min(2,nchan)):
             # random pulse height for trigger pulse
             pheight = np.random.rand()*self.maxheight
-            if np.random.rand() > self.inefficiency:
+            if np.random.rand() < self.detector_efficiency:
               pulse[ip, self.mn_position:self.mn_position+self.plen] += pheight*self.pulse_template
 
-        # delayed pulse(s)
+        # return if muon was not stopped      
+        if np.random.rand() > self.stopping_probability:
+            return pulse + self.analogue_offset_mv
+              
+        # add delayed pulse(s)
         t_mu = -self.tau_mu * np.log(np.random.rand()) # muon life time
         pos2 = int(t_mu/self.sample_time_ns) + self.pre_trigger_samples
         if np.random.rand() > 0.5:  # upward decay electron
           for ip in range(0,min(nchan,2)):
            # random pulse height and position for 2nd pulse
              pheight2 = np.random.rand()*self.maxheight        
-             if np.random.rand() > self.inefficiency and pos2 < self.mx_position:
+             if np.random.rand() < self.detector_efficiency and pos2 < self.mx_position:
                pulse[ip, pos2:pos2+self.plen] += pheight2 * self.pulse_template
         else:
           for ip in range(min(nchan,2), min(nchan,4)):
            # random pulse height and position for 2nd pulse
             pheight2 = np.random.rand()*self.maxheight        
-            if np.random.rand() > self.inefficiency and pos2 < self.mx_position:
+            if np.random.rand() < self.detector_efficiency and pos2 < self.mx_position:
               pulse[ip, pos2:pos2+self.plen] += pheight2 * self.pulse_template
 
         return pulse + self.analogue_offset_mv

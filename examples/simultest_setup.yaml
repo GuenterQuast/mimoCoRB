@@ -1,7 +1,7 @@
 RingBuffer:
   # define ring buffers
   - RB_1:
-      # raw input data buffer [from file_source or PicoScope]
+      # raw input data buffer (waveforms from PicoScope, filele_source or simulation_source)
       number_of_slots: 128
       channel_per_slot: 4250
       data_type:
@@ -10,7 +10,7 @@ RingBuffer:
           3: ['chC', "float64"]
           4: ['chD', "float64"]          
   - RB_2:
-      # buffer with correct signature double pulses
+      # buffer with accepted signatures (here double-pulses)
       number_of_slots: 128
       channel_per_slot: 4250
       data_type:
@@ -19,8 +19,8 @@ RingBuffer:
           3: ['chC', "float64"]
           4: ['chD', "float64"]          
   - RB_3:
-      # buffer with correct signature double pulse meta data
-      number_of_slots: 128
+      # buffer with pulse parameters (derived from waveforms)
+      number_of_slots: 32
       channel_per_slot: 1
       data_type:
           1: ['decay_time', "int32"]
@@ -66,7 +66,7 @@ Functions:
        RB_assign:
            RB_1: "read"     # input
            RB_2: "write"    # waveform to save (if double pulse was found)
-           RB_3: "write"    # pulse data upwards
+           RB_3: "write"    # pulse data
   - Fkt_3:
       file_name: "modules/save_files"
       fkt_name: "save_to_txt"
@@ -80,7 +80,7 @@ Functions:
       RB_assign:
            RB_2: "read"     # waveform to save
   - Fkt_5:
-      file_name: "modules/plot"
+      file_name: "mimocorb/plot"
       fkt_name: "plot_graph"
       num_process: 1
       RB_assign:
