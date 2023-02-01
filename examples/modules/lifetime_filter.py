@@ -1,33 +1,26 @@
-from mimocorb import mimo_buffer as bm
+from mimocorb.access_classes import Buffer_to_buffer
 import numpy as np
+import pandas as pd
+import os, sys
+
+
 from modules.filter import *
-import sys
-import os
 
 
 def calculate_decay_time(source_list=None, sink_list=None, observe_list=None, config_dict=None, **rb_info):
-    # Load buffer configuration
-    source = None
-    sink = None
-    save_pulse = None
-    # general part for each function
-    if source_list is not None:
-        source = bm.Reader(source_list[0])
-    for idx, sink in enumerate(sink_list):
-        if idx == 0:
-            save_pulse = bm.Writer(sink)
-        if idx == 1:
-            decay = bm.Writer(sink)
-        sink = bm.Writer(sink_list[1])
-        save_pulse = bm.Writer(sink_list[0])
+    """Calculate decay time as time between double pulses
 
-    if decay is None or source is None or save_pulse is None:
-        ValueError("ERROR! Faulty ring buffer configuration passed (in lifetime_modules: calculate_decay_time)!!")
+       Input: 
+         pulse wave forms
 
+       Returns: 
+         None if failed, input data and pulse parameters if successful
+    """
+    
     if config_dict is None:
         raise ValueError("ERROR! Wrong configuration passed (in lifetime_modules: calculate_decay_time)!!")
-    
-    # Load variable configuration
+
+    # Load configuration
     sample_time_ns = config_dict["sample_time_ns"]
     analogue_offset = config_dict["analogue_offset"]*1000
     peak_minimal_prominence_initial = config_dict["peak_minimal_prominence_initial"]
@@ -39,9 +32,7 @@ def calculate_decay_time(source_list=None, sink_list=None, observe_list=None, co
     trigger_position_tolerance = config_dict["trigger_position_tolerance"]
     signatures = config_dict["signatures"]
 
-    while source._active.is_set():
-        # Get a new pulse from the buffer
-        input_data = source.get()
+    def find_double_pulses(input_data):   
         
         # Find all the peaks and store them in a dictionary
         peaks, peaks_prop = tag_peaks(input_data, peak_minimal_prominence, peak_minimal_distance, peak_minimal_width)
@@ -51,7 +42,7 @@ def calculate_decay_time(source_list=None, sink_list=None, observe_list=None, co
         
         # Are there at least two peaks?
         if len(correlation_matrix) < 2:
-            continue
+            return None   
 
         # Make sure "minimal prominence" criteria are met
         for ch in correlation_matrix.dtype.names:
@@ -64,11 +55,12 @@ def calculate_decay_time(source_list=None, sink_list=None, observe_list=None, co
                 if peaks_prop[ch]["prominences"][idx]*config_dict["{:s}_scaling".format(ch)] < peak_minimal_prominence_secondary:
                     correlation_matrix[ch][1] = -1
         
+        pulse_parameters = None
         # Look for double pulses (hinting towards a muon decay)
         for sig in signatures:
             if match_signature(correlation_matrix, sig):
-                pulse_metadata = decay.get_new_buffer()
-                pulse_metadata[:] = 0
+                pulse_parameters= pd.DataFrame()
+                # pulse_parameters[:] = 0
                 first_pos = []
                 second_pos = []
                 for ch in correlation_matrix.dtype.names:
@@ -79,9 +71,9 @@ def calculate_decay_time(source_list=None, sink_list=None, observe_list=None, co
                         p_height = peaks_prop[ch]["prominences"][idx]
                         this_pulse, p_new_pos, p_int = normed_pulse(input_data[ch], p_pos, p_height, analogue_offset)
                         first_pos.append(p_pos)
-                        pulse_metadata["1st_{:s}_p".format(ch)] = p_pos
-                        pulse_metadata["1st_{:s}_h".format(ch)] = p_height
-                        pulse_metadata["1st_{:s}_int".format(ch)] = p_int
+                        pulse_parameters["1st_{:s}_p".format(ch)] = [p_pos,]
+                        pulse_parameters["1st_{:s}_h".format(ch)] = [p_height,]
+                        pulse_parameters["1st_{:s}_int".format(ch)] = [p_int,]
                     
                     # Process second peak (electron/positron)
                     idx = correlation_matrix[ch][1]
@@ -90,23 +82,22 @@ def calculate_decay_time(source_list=None, sink_list=None, observe_list=None, co
                         p_height = peaks_prop[ch]["prominences"][idx]
                         this_pulse, p_new_pos, p_int = normed_pulse(input_data[ch], p_pos, p_height, analogue_offset)
                         second_pos.append(p_pos)
-                        pulse_metadata["2nd_{:s}_p".format(ch)] = p_pos
-                        pulse_metadata["2nd_{:s}_h".format(ch)] = p_height
-                        pulse_metadata["2nd_{:s}_int".format(ch)] = p_int
+                        pulse_parameters["2nd_{:s}_p".format(ch)] = [p_pos,]
+                        pulse_parameters["2nd_{:s}_h".format(ch)] = [p_height,]
+                        pulse_parameters["2nd_{:s}_int".format(ch)] = [p_int,]
 
-                pulse_metadata['decay_time'] = (np.mean(second_pos) - np.mean(first_pos)) * sample_time_ns
-                decay.set_metadata(*source.get_metadata())
-                decay.process_buffer()
-                
-                # Save the pulse waveform
-                pulse_data = save_pulse.get_new_buffer()
-                for ch in input_data.dtype.names:
-                    pulse_data[ch] = input_data[ch]               
-                save_pulse.set_metadata(*source.get_metadata())
-                save_pulse.process_buffer()
-                break
-            
+                pulse_parameters['decay_time'] = [(np.mean(second_pos) - np.mean(first_pos)) * sample_time_ns,]
 
+        if pulse_parameters is not None:
+            return input_data, pulse_parameters
+        else:
+            return None
+
+    accessor = Buffer_to_buffer(
+        source_list, sink_list, observe_list, config_dict, filter=find_double_pulses, **rb_info)
+    accessor.process_data()
+
+    
 if __name__ == "__main__":
     print("Script: " + os.path.basename(sys.argv[0]))
     print("Python: ", sys.version, "\n".ljust(22, '-'))

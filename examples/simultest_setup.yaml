@@ -60,7 +60,7 @@ Functions:
        RB_assign:
            RB_1: "write"
   - Fkt_2:
-       file_name: "modules/lifetime_modules"
+       file_name: "modules/lifetime_filter"
        fkt_name: "calculate_decay_time"
        num_process: 2
        RB_assign:

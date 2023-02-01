@@ -1,5 +1,6 @@
 from . import mimo_buffer as bm
 import time, numpy as np
+from collections.abc import Iterable
 
 class Source_to_buffer:
     """Read data from source (e.g. file, simulation, Picoscope etc.) 
@@ -53,3 +54,68 @@ class Source_to_buffer:
                 buffer[:]['chD'] = data[3]            
             self.sink.set_metadata(self.event_count, time.time(), 0)
         self.sink.process_buffer()
+
+
+class Buffer_to_buffer():
+    """Read data from input buffer, filter and write to output buffer 
+    """
+    def __init__(self, source_list=None, sink_list=None, observe_list=None, config_dict=None, filter=None, **rb_info):
+
+        self.filter = filter  # external function to filter data
+      #   get source 
+        if source_list is not None:
+            self.reader = bm.Reader(source_list[0])
+        else:
+            self.reader = None
+
+      #   get sinks and start writer process(es) 
+        if sink_list is not None:
+            self.writers = []    
+            for i in range(len(sink_list) ):
+                self.writers.append(bm.Writer(sink_list[i]))
+        else:
+            self.writers = None            
+                     
+        if self.reader is None or self.writers is None: 
+            ValueError("ERROR! Faulty ring buffer configuration passed (in lifetime_modules: calculate_decay_time)!!")
+
+
+    def process_data(self):
+        while self.reader._active.is_set():
+
+           # Get a new data from buffer ...
+           input_data = self.reader.get()
+           #  ... and process data with user-provided filter function
+           filtered_data = self.filter(input_data)
+           
+           if filtered_data is not None:
+               if isinstance(filtered_data, Iterable):
+                   if len(filtered_data)==2:
+                     p_par = filtered_data[1]
+                     p_raw = filtered_data[0]
+               else:
+                   p_par = filtered_data
+                   p_raw = None
+                   
+               pulse_parameters = self.writers[1].get_new_buffer()
+               pulse_parameters[:] = 0   # is this needed ?
+               for ch in pulse_parameters.dtype.names:
+                   try:                       # pandas data frame quite inefficient,
+                       pulse_parameters[ch] = p_par.iloc[:][ch]  # use structured array
+                   except:
+                       pass
+               self.writers[1].set_metadata(*self.reader.get_metadata())
+               self.writers[1].process_buffer()     
+             # Save the pulse waveform
+               if p_raw is not None:
+                   pulse_rawdata = self.writers[0].get_new_buffer()
+                   for ch in p_raw.dtype.names:
+                       pulse_rawdata[ch] = p_raw[ch]               
+                   self.writers[0].set_metadata(*self.reader.get_metadata())
+                   self.writers[0].process_buffer()
+                 
+    def __del__(self):
+        pass
+        # TODO: remove debug or change to logger
+        # print("?>", self.status)
+
