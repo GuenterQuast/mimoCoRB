@@ -57,7 +57,7 @@ class Source_to_buffer:
 
 
 class Buffer_to_buffer():
-    """Read data from input buffer, filter and write to output buffer 
+    """Read data from input buffer, filter and write to output buffer(s)       
     """
     def __init__(self, source_list=None, sink_list=None, observe_list=None, config_dict=None, filter=None, **rb_info):
 
@@ -75,42 +75,46 @@ class Buffer_to_buffer():
                 self.writers.append(bm.Writer(sink_list[i]))
         else:
             self.writers = None            
-                     
+
         if self.reader is None or self.writers is None: 
-            ValueError("ERROR! Faulty ring buffer configuration passed (in lifetime_modules: calculate_decay_time)!!")
+            ValueError("ERROR! Faulty ring buffer configuration (in lifetime_filter.calculate_decay_time)!!")
 
 
     def process_data(self):
+        
         while self.reader._active.is_set():
 
-           # Get a new data from buffer ...
+           # Get new data from buffer ...
            input_data = self.reader.get()
+
            #  ... and process data with user-provided filter function
            filtered_data = self.filter(input_data)
+           # expected return values:
+           #   None to discard data or
+           #   List of structured numpy array(s)
+           #      one array only: processed (compressed) data
+           #      two arrays: 1st one is data in input format, 2nd one is processed data
            
            if filtered_data is not None:
                if isinstance(filtered_data, Iterable):
                    if len(filtered_data)==2:
-                     p_par = filtered_data[1]
-                     p_raw = filtered_data[0]
+                     d_par = filtered_data[1]
+                     d_raw = filtered_data[0]
                else:
-                   p_par = filtered_data
-                   p_raw = None
+                   d_par = filtered_data
+                   d_raw = None
                    
                pulse_parameters = self.writers[1].get_new_buffer()
                pulse_parameters[:] = 0   # is this needed ?
-               for ch in pulse_parameters.dtype.names:
-                   try:                       # pandas data frame quite inefficient,
-                       pulse_parameters[ch] = p_par.iloc[:][ch]  # use structured array
-                   except:
-                       pass
+               for ch in d_par.dtype.names:
+                   pulse_parameters[ch] = d_par[ch]  
                self.writers[1].set_metadata(*self.reader.get_metadata())
                self.writers[1].process_buffer()     
              # Save the pulse waveform
-               if p_raw is not None:
+               if d_raw is not None:
                    pulse_rawdata = self.writers[0].get_new_buffer()
-                   for ch in p_raw.dtype.names:
-                       pulse_rawdata[ch] = p_raw[ch]               
+                   for ch in d_raw.dtype.names:
+                       pulse_rawdata[ch] = d_raw[ch]               
                    self.writers[0].set_metadata(*self.reader.get_metadata())
                    self.writers[0].process_buffer()
                  
@@ -119,3 +123,9 @@ class Buffer_to_buffer():
         # TODO: remove debug or change to logger
         # print("?>", self.status)
 
+class Buffer_to_target:
+    """Extract data from buffer (and save to file)
+    """
+
+    def __init__(self):
+        pass

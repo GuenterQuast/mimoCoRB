@@ -32,6 +32,17 @@ def calculate_decay_time(source_list=None, sink_list=None, observe_list=None, co
     trigger_position_tolerance = config_dict["trigger_position_tolerance"]
     signatures = config_dict["signatures"]
 
+    # Format of pulse parameter array
+    pulse_par_dtype = np.dtype( [('decay_time', 'int32'), 
+                        ('1st_chA_h', 'float64'), ('1st_chB_h', 'float64'), ('1st_chC_h', 'float64'), 
+                        ('1st_chA_p', 'int32'), ('1st_chB_p', 'int32'), ('1st_chC_p', 'int32'), 
+                        ('1st_chA_int', 'float64'), ('1st_chB_int', 'float64'), ('1st_chC_int', 'float64'), 
+                        ('2nd_chA_h', 'float64'), ('2nd_chB_h', 'float64'), ('2nd_chC_h', 'float64'), 
+                        ('2nd_chA_p', 'int32'), ('2nd_chB_p', 'int32'), ('2nd_chC_p', 'int32'), 
+                        ('2nd_chA_int', 'float64'), ('2nd_chB_int', 'float64'), ('2nd_chC_int', 'float64'), 
+                        ('1st_chD_h', 'float64'), ('1st_chD_p', 'int32'), ('1st_chD_int', 'float64'), 
+                        ('2nd_chD_h', 'float64'), ('2nd_chD_p', 'int32'), ('2nd_chD_int', 'float64')] )
+    
     def find_double_pulses(input_data):   
         
         # Find all the peaks and store them in a dictionary
@@ -59,7 +70,7 @@ def calculate_decay_time(source_list=None, sink_list=None, observe_list=None, co
         # Look for double pulses (hinting towards a muon decay)
         for sig in signatures:
             if match_signature(correlation_matrix, sig):
-                pulse_parameters= pd.DataFrame()
+                pulse_parameters= np.ndarray( (1,), dtype=pulse_par_dtype)
                 # pulse_parameters[:] = 0
                 first_pos = []
                 second_pos = []
@@ -71,9 +82,9 @@ def calculate_decay_time(source_list=None, sink_list=None, observe_list=None, co
                         p_height = peaks_prop[ch]["prominences"][idx]
                         this_pulse, p_new_pos, p_int = normed_pulse(input_data[ch], p_pos, p_height, analogue_offset)
                         first_pos.append(p_pos)
-                        pulse_parameters["1st_{:s}_p".format(ch)] = [p_pos,]
-                        pulse_parameters["1st_{:s}_h".format(ch)] = [p_height,]
-                        pulse_parameters["1st_{:s}_int".format(ch)] = [p_int,]
+                        pulse_parameters["1st_{:s}_p".format(ch)] = p_pos
+                        pulse_parameters["1st_{:s}_h".format(ch)] = p_height
+                        pulse_parameters["1st_{:s}_int".format(ch)] = p_int,
                     
                     # Process second peak (electron/positron)
                     idx = correlation_matrix[ch][1]
@@ -89,7 +100,7 @@ def calculate_decay_time(source_list=None, sink_list=None, observe_list=None, co
                 pulse_parameters['decay_time'] = [(np.mean(second_pos) - np.mean(first_pos)) * sample_time_ns,]
 
         if pulse_parameters is not None:
-            return input_data, pulse_parameters
+            return [input_data, pulse_parameters]
         else:
             return None
 
