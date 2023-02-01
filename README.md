@@ -1,4 +1,4 @@
-# **mimiCoRB** - multiple-in multiple out Configurable Ring Buffer
+# **mimoCoRB** - multiple-in multiple-out Configurable Ring Buffer
 
 ## Summary:
 
