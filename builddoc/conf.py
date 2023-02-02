@@ -13,8 +13,8 @@ sys.path.insert(0, os.path.abspath('../examples/'))
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'mimoCoRB'
-copyright = '2023, G. Quast, K. Heitlinger'
-author = 'G. Quast, K. Heitlinger'
+# copyright = '2023, G. Quast, K. Heitlinger'
+author = 'C. Mayer, K. Heitlinger, G. Quast'
 release = '1.0.'
 
 # -- General configuration ---------------------------------------------------

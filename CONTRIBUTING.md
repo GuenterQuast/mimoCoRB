@@ -32,5 +32,5 @@ steps.
 Here is a list of all contributors, initial authors first, re sorted alphabetically by lastname
 
 * Klaus Heitlinger
-* Christop Meyer 
+* Christop Mayer 
 * Günter Quast 
