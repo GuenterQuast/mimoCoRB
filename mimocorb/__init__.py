@@ -2,15 +2,11 @@
 
 .. moduleauthor:: Guenter Quast <guenter.quast@online.de>
 
-.. module picodaq 
+.. module mimocorb
    :synopsis: multiple-in multiple-out configurable Ring Buffer
    for data acquisition systems
 
 .. moduleauthor:: Guenter Quast <g.quast@kit.edu>
-
-**mimocorb**
-    *mimoCoRB: multiple-in multiple-out configurable Ring Buffer
-   for data acquisition systems
 
 """
 

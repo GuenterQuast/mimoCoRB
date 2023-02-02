@@ -3,11 +3,8 @@ Module implementing a multiprocessing capable buffer as described in ETP-KA/2022
 
 Buffer creation and management is handled by the ``NewBuffer``-class, access to 
 the buffer content is handeled by the ``Reader``\ , ``Writer``\ and ``Observer`` 
-class.
+classes.
 
-:raises SystemExit: If the ``shutdown()``-method of the ``NewBuffer`` object was
-    called, a SystemExit is raised in all the associated processes the next time
-    a new buffer element is requested.
 """
 
 from distutils.log import debug
@@ -120,20 +117,20 @@ class Reader:
 
     def get_metadata(self):
         """Get the metadata corresponding to the latest element obtained by calling the 
-            ``Reader.get()``-method.
+        ``Reader.get()``-method.
 
         :return: Returned is a 3-tuple with ``(counter, timestamp , deadtime)``
             of the latest element obtained from the buffer. The content of these
             variables is filled by the ``Writer``-process (so may be changed), 
             but convention is:
-                counter (int): a unique, 0 based, consecutive integer referencing this 
-                    element            
-                timestamp (float): the UTC timestamp
-                deadtime (float): In a live-data environment, the dead time of the first 
-                    writer in the analyses chain. This is meant to be the fraction of dead
-                    time to active data capturing time (so 0.0 = no dead time whatsoever;
-                    0.99 = only 1% of the time between this and the last element was spent
-                    with active data capturing)
+
+          -  counter (int): a unique, 0 based, consecutive integer referencing this element            
+          -  timestamp (float): the UTC timestamp
+          -  deadtime (float): In a live-data environment, the dead time of the first 
+             writer in the analyses chain. This is meant to be the fraction of dead
+             time to active data capturing time (so 0.0 = no dead time whatsoever;
+             0.99 = only 1% of the time between this and the last element was spent
+             with active data capturing)
         :rtype: tuple
         """
         if self._last_get_index is not None:
@@ -243,6 +240,7 @@ class Writer:
         called or ``get_new_buffer()`` has not been called yet), nothing happens.
         Copying metadata from a ``Reader`` to a ``Writer`` object (called ``source`` 
         and ``sink``) can be done with:
+
             ``sink.set_metadata(*source.get_metadata())``
 
         :param counter: a unique, 0 based, consecutive integer referencing this 
@@ -431,13 +429,14 @@ class Observer:
 
 
 class NewBuffer:
-    """
-    Class to create a new 'FIFO' buffer object (typically called in the host/parent process).
-    Creates all the necessary memory shares, IPC queues, etc and launches background 
-    threads for buffer management.
+    """Class to create a new 'FIFO' buffer object (typically called in the host/parent process).
 
-    The ``NewBuffer``\ -object provides methods to create setup dictionaries for ``Reader``\ ,
-    ``Writer`` or ``Observer`` instances.
+      Creates all the necessary memory shares, IPC queues, etc and launches background 
+      threads for buffer management.
+
+      The ``NewBuffer``\ -object provides methods to create setup dictionaries for ``Reader``\ ,
+      ``Writer`` or ``Observer`` instances.
+
     """
 
     def __init__(self, number_of_slots, values_per_slot, dtype, debug=False):
