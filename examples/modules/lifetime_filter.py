@@ -1,4 +1,4 @@
-from mimocorb.access_classes import Buffer_to_buffer
+from mimocorb.access_classes import BufferToBuffer
 import numpy as np
 import pandas as pd
 import os, sys
@@ -44,7 +44,9 @@ def calculate_decay_time(source_list=None, sink_list=None, observe_list=None, co
                         ('2nd_chD_h', 'float64'), ('2nd_chD_p', 'int32'), ('2nd_chD_int', 'float64')] )
     
     def find_double_pulses(input_data):   
-        
+        """filter data, function to be called by instance of class mimoCoRB.BufferToBuffer
+        """
+       
         # Find all the peaks and store them in a dictionary
         peaks, peaks_prop = tag_peaks(input_data, peak_minimal_prominence, peak_minimal_distance, peak_minimal_width)
         
@@ -104,7 +106,7 @@ def calculate_decay_time(source_list=None, sink_list=None, observe_list=None, co
         else:
             return None
 
-    accessor = Buffer_to_buffer(
+    accessor = BufferToBuffer(
         source_list, sink_list, observe_list, config_dict, filter=find_double_pulses, **rb_info)
     accessor.process_data()
 

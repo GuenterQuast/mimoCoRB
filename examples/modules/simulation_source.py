@@ -1,4 +1,4 @@
-from mimocorb.access_classes import Source_to_buffer
+from mimocorb.access_classes import SourceToBuffer
 import numpy as np
 import sys, time
 
@@ -34,7 +34,7 @@ def simulation_source(source_list=None, sink_list=None, observe_list=None, confi
     event_count = 0 
     
     def get_simpulses(nchan=3):
-        """generate simulated data, called by instance of class mimoCoRB.Source
+        """generate simulated data, called by instance of class mimoCoRB.SourceToBuffer
         """
         global event_count
 
@@ -79,7 +79,7 @@ def simulation_source(source_list=None, sink_list=None, observe_list=None, confi
         pulse += analogue_offset_mv  # apply analogue offset
         return pulse
         
-    simulsource = Source_to_buffer(
+    simulsource = SourceToBuffer(
         source_list, sink_list, observe_list, config_dict, data_source=get_simpulses, **rb_info)
     # TODO: Change to logger!
     # print("** simulation_source ** started, config_dict: \n", config_dict)

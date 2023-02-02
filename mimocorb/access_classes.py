@@ -1,8 +1,11 @@
 from . import mimo_buffer as bm
 import time, numpy as np
 from collections.abc import Iterable
+from numpy.lib import recfunctions as rfn
+import pandas as pd
+import io, tarfile
 
-class Source_to_buffer:
+class SourceToBuffer:
     """Read data from source (e.g. file, simulation, Picoscope etc.) 
        and put data in mimo_buffer
     """
@@ -56,7 +59,7 @@ class Source_to_buffer:
         self.sink.process_buffer()
 
 
-class Buffer_to_buffer():
+class BufferToBuffer():
     """Read data from input buffer, filter and write to output buffer(s)       
     """
     def __init__(self, source_list=None, sink_list=None, observe_list=None, config_dict=None, filter=None, **rb_info):
@@ -123,9 +126,124 @@ class Buffer_to_buffer():
         # TODO: remove debug or change to logger
         # print("?>", self.status)
 
-class Buffer_to_target:
-    """Extract data from buffer (and save to file)
-    """
 
-    def __init__(self):
+class BufferToTxtfile:
+    """Save data to file in csv-format
+    """
+    def __init__(self, source_list=None, sink_list=None, observe_list=None, config_dict=None, **rb_info):
+        # general part for each function (template)
+        if source_list is None:
+            raise ValueError("Faulty ring buffer configuration passed ('source_list' in save_files: LogToTxt missing)!")
+        if config_dict is None:
+            raise ValueError("Faulty configuration passed ('config_dict' in save_files: LogToTxt missing)!")
+
+        self.source = None
+
+        for key, value in rb_info.items():
+            if value == 'read':
+                for i in range(len(source_list)):
+                    self.source = bm.Reader(source_list[i])
+            elif value == 'write':
+                for i in range(len(sink_list)):
+                    pass
+            elif value == 'observe':
+                for i in range(len(observe_list)):
+                    pass
+
+        if self.source is None:
+            raise ValueError("Faulty ring buffer configuration passed. No source found!")
+
+        if not (self.source.values_per_slot == 1):
+            raise ValueError("LogToTxt can only safe single buffer lines! (Make sure: bm.Reader.values_per_slot == 1 )")
+
+        self.filename = config_dict["directory_prefix"]+"/"+config_dict["filename"]+".txt"
+        if "header_alias" in config_dict:
+            alias = config_dict["header_alias"]
+        else:
+            alias = {}
+        
+        # Construct header and corresponding dtype
+        my_header = []
+        my_dtype = []
+        for dtype_name, dtype_type in self.source.metadata_dtype:
+            if dtype_name in alias:
+                my_header.append(alias[dtype_name])
+            else:
+                my_header.append(dtype_name)
+            my_dtype.append(dtype_type)
+        
+        for dtype_name, dtype_type in self.source.dtype:
+            if dtype_name in alias:
+                my_header.append(alias[dtype_name])
+            else:
+                my_header.append(dtype_name)
+            my_dtype.append(dtype_type)
+        df_dict = {k:pd.Series(dtype=v) for k,v in zip(my_header, my_dtype)}
+        self.df = pd.DataFrame(df_dict)
+        self.df.to_csv(self.filename, sep="\t", index=False)
+        # Now add one row to the data frame (the 'new row' to append to the file...)
+        df_dict = {k:pd.Series([0], dtype=v) for k,v in zip(my_header, my_dtype)}
+        self.df = pd.DataFrame(df_dict)
+
+    def __del__(self):
         pass
+
+    def start(self):
+        input_data = self.source.get()
+        while self.source._active.is_set():
+            metadata = np.array(self.source.get_metadata())
+            data = rfn.structured_to_unstructured(input_data[0])
+            newline = np.append(metadata, data)
+            self.df.iloc[0] = newline
+            self.df.to_csv(self.filename, mode='a', sep="\t", header=False, index=False)
+            input_data = self.source.get()
+
+            
+class BufferToParquetfile:
+    """Save data a set of parquet-files packed as a tar archive
+    """
+    def __init__(self, source_list=None, sink_list=None, observe_list=None, config_dict=None, **rb_info):
+        if source_list is None:
+            raise ValueError("Faulty ring buffer configuration ('source' in save_files: SaveBufferParquet missing)!")
+
+        for key, value in rb_info.items():
+            if value == 'read':
+                for i in range(len(source_list)):
+                    self.source = bm.Reader(source_list[i])
+            elif value == 'write':
+                for i in range(len(sink_list)):
+                    pass
+            elif value == 'observe':
+                for i in range(len(observe_list)):
+                    pass
+
+        if self.source is None:
+            raise ValueError("Faulty ring buffer configuration passed to 'SaveBufferParquet'!")
+
+        if not "filename" in config_dict:
+            raise ValueError("A 'filename' has to be provided to 'SaveBufferParquet' the config_dict!")
+        else:
+            self.filename = config_dict["filename"]
+
+        tar_filename = config_dict["directory_prefix"]+"/"+config_dict["filename"]+".tar"
+        self.tar = tarfile.TarFile(tar_filename, "w")
+
+
+    def start(self):
+        while self.source._active.is_set():
+            # get data
+            input_data = self.source.get()
+            df = pd.DataFrame(data=input_data)
+            counter, timestamp, deadtime = self.source.get_metadata()
+            # convert to parquet format and append to tar-file
+            ioBuffer = io.BytesIO()                    # create a file-like object 
+            df.to_parquet(ioBuffer, engine='pyarrow')  # generate parquet format
+            #    create a TarInfo object to write data to tar file with special name
+            tarinfo = tarfile.TarInfo(name=self.filename+"_{:d}.parquet".format(counter))
+            tarinfo.size = ioBuffer.getbuffer().nbytes
+            ioBuffer.seek(0)                           # reset file pointer
+            self.tar.addfile(tarinfo, ioBuffer)        # add to tar-file
+    
+    def __del__(self):
+        self.tar.close()
+
