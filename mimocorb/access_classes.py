@@ -1,6 +1,5 @@
 from . import mimo_buffer as bm
 import time, numpy as np
-from collections.abc import Iterable
 from numpy.lib import recfunctions as rfn
 import pandas as pd
 import io, tarfile
@@ -60,7 +59,22 @@ class SourceToBuffer:
 
 
 class BufferToBuffer():
-    """Read data from input buffer, filter and write to output buffer(s)       
+    """Read data from input buffer, filter and write data to output buffer(s)
+
+       Args: 
+
+       - buffer configurations (only one source and severals sinks, no observers!)
+
+       - function filter() must return
+
+           -  None if data to be rejected, 
+           -  int if only raw data to be copied to sink[0]
+           -  list of parameterized data to be copied to sinks[]
+
+       Action:
+
+           store accepted data in buffers
+             
     """
     def __init__(self, source_list=None, sink_list=None, observe_list=None, config_dict=None, filter=None, **rb_info):
 
@@ -88,38 +102,51 @@ class BufferToBuffer():
         while self.reader._active.is_set():
 
            # Get new data from buffer ...
-           input_data = self.reader.get()
+            input_data = self.reader.get()
 
-           #  ... and process data with user-provided filter function
-           filtered_data = self.filter(input_data)
-           # expected return values:
-           #   None to discard data or
-           #   List of structured numpy array(s)
-           #      one array only: processed (compressed) data
-           #      two arrays: 1st one is data in input format, 2nd one is processed data
-           
-           if filtered_data is not None:
-               if isinstance(filtered_data, Iterable):
-                   if len(filtered_data)==2:
-                     d_par = filtered_data[1]
-                     d_raw = filtered_data[0]
-               else:
-                   d_par = filtered_data
-                   d_raw = None
-                   
-               pulse_parameters = self.writers[1].get_new_buffer()
-               pulse_parameters[:] = 0   # is this needed ?
-               for ch in d_par.dtype.names:
-                   pulse_parameters[ch] = d_par[ch]  
-               self.writers[1].set_metadata(*self.reader.get_metadata())
-               self.writers[1].process_buffer()     
-             # Save the pulse waveform
-               if d_raw is not None:
-                   pulse_rawdata = self.writers[0].get_new_buffer()
-                   for ch in d_raw.dtype.names:
-                       pulse_rawdata[ch] = d_raw[ch]               
-                   self.writers[0].set_metadata(*self.reader.get_metadata())
-                   self.writers[0].process_buffer()
+            #  ... and process data with user-provided filter function
+            filter_data = self.filter(input_data)
+              # expected return values:
+              #   None to discard data or
+              #   List of structured numpy array(s)
+              #      one array only: processed (compressed) data
+              #      two arrays: 1st one is data in input format, 2nd one is processed data
+
+            if filter_data is None:
+            #  data rejected by filter
+                continue
+
+            save_input = False
+            save_filtered = False
+            #  filter passed, data is to be kept                      
+            if isinstance(filter_data, (list, tuple)):
+                save_filtered = True
+                # got parameterizations to store
+                if len(self.writers) > len(filter_data):
+                    # also store input raw data
+                    save_input = True
+            else:                   
+                save_input = True
+
+            idx_out = 0     
+            if save_input:     
+            # store input data
+                buf = self.writers[idx_out].get_new_buffer()
+                for ch in input_data.dtype.names:
+                    buf[ch] = input_data[ch]               
+                self.writers[idx_out].set_metadata(*self.reader.get_metadata())
+                self.writers[idx_out].process_buffer()
+                idx_out += 1
+
+            if save_filtered:    
+                for d in filter_data:
+                    buf = self.writers[idx_out].get_new_buffer()
+                    buf[:] = 0
+                    for ch in d.dtype.names:
+                        buf[ch] = d[ch]  
+                    self.writers[idx_out].set_metadata(*self.reader.get_metadata())
+                    self.writers[idx_out].process_buffer()
+                    idx_out += 1
                  
     def __del__(self):
         pass

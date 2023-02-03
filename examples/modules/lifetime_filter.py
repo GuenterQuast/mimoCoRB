@@ -45,8 +45,12 @@ def calculate_decay_time(source_list=None, sink_list=None, observe_list=None, co
     
     def find_double_pulses(input_data):   
         """filter data, function to be called by instance of class mimoCoRB.BufferToBuffer
+
+           Args:  input data as structured ndarray
+    
+           Returns: list of parameterized data
         """
-       
+
         # Find all the peaks and store them in a dictionary
         peaks, peaks_prop = tag_peaks(input_data, peak_minimal_prominence, peak_minimal_distance, peak_minimal_width)
         
@@ -69,11 +73,11 @@ def calculate_decay_time(source_list=None, sink_list=None, observe_list=None, co
                     correlation_matrix[ch][1] = -1
         
         pulse_parameters = None
+        signature_type= None  
         # Look for double pulses (hinting towards a muon decay)
-        for sig in signatures:
+        for _sigtype, sig in enumerate(signatures):
             if match_signature(correlation_matrix, sig):
-                pulse_parameters= np.ndarray( (1,), dtype=pulse_par_dtype)
-                # pulse_parameters[:] = 0
+                pulse_parameters= np.zeros( (1,), dtype=pulse_par_dtype)
                 first_pos = []
                 second_pos = []
                 for ch in correlation_matrix.dtype.names:
@@ -100,9 +104,15 @@ def calculate_decay_time(source_list=None, sink_list=None, observe_list=None, co
                         pulse_parameters["2nd_{:s}_int".format(ch)] = [p_int,]
 
                 pulse_parameters['decay_time'] = [(np.mean(second_pos) - np.mean(first_pos)) * sample_time_ns,]
+                signature_type = _sigtype
 
         if pulse_parameters is not None:
-            return [input_data, pulse_parameters]
+            return [pulse_parameters] 
+          # alternative it upwards/downwards decays are to be distinguished
+          #  if signature_type == 0:
+          #     return [pulse_parameters, None]                
+          #  elif signature_type == 1:
+          #     return [None, pulse_parameters]                
         else:
             return None
 
