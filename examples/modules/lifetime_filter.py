@@ -4,7 +4,7 @@ import pandas as pd
 import os, sys
 
 
-from modules.filter import *
+from filters import *
 
 
 def calculate_decay_time(source_list=None, sink_list=None, observe_list=None, config_dict=None, **rb_info):
