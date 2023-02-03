@@ -140,12 +140,13 @@ class BufferToBuffer():
 
             if save_filtered:    
                 for d in filter_data:
-                    buf = self.writers[idx_out].get_new_buffer()
-                    buf[:] = 0
-                    for ch in d.dtype.names:
-                        buf[ch] = d[ch]  
-                    self.writers[idx_out].set_metadata(*self.reader.get_metadata())
-                    self.writers[idx_out].process_buffer()
+                    if d is not None:
+                        buf = self.writers[idx_out].get_new_buffer()
+                        buf[:] = 0
+                        for ch in d.dtype.names:
+                            buf[ch] = d[ch]  
+                        self.writers[idx_out].set_metadata(*self.reader.get_metadata())
+                        self.writers[idx_out].process_buffer()
                     idx_out += 1
                  
     def __del__(self):
