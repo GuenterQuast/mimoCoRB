@@ -1,3 +1,26 @@
+#  Application example for mimiCoRB
+#  --------------------------------
+#
+# three buffers:
+#  - RB_1 for (simuated) raw wavforms
+#  - RB_2 for selected double-pulses
+#  - RB_3 for derived pulse parameters
+#
+#  data from RB_2 and RB_3 are saved to files in tarred parquet format
+#  or in text format.
+#
+#  data from RB_2 are passed to an obsever process driving a real-time display
+#
+# Notes:
+# 
+#    1. additional config files controlling the user functions are
+#       located in the subdirectory config/
+#    2. user necessary application-specific user code is located
+#       in the subdirectory modules/
+#
+# ----------------------------------------------------------------------------
+#
+
 RingBuffer:
   # define ring buffers
   - RB_1:

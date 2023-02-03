@@ -241,7 +241,7 @@ if __name__ == '__main__': # ---------------------------------------------------
     if runtime != 0:
         # > As sanity check: Print the expected runtime (start date and finish date) in human readable form
         print("Start: ", time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime(now)),
-          " - end: ", time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime(now + runtime)))
+              " - end: ", time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime(now + runtime)), '\n')
         while time.time() - now < runtime:
             time.sleep(0.5)  # This may not get too small! All the buffer managers (multiple threads per ring buffer) run in the main thread and may block data flow if execution time constrained!
             buffer_status = ""
@@ -255,7 +255,7 @@ if __name__ == '__main__': # ---------------------------------------------------
                        int(100*(time.time()-now))/100., Nprocessed) )
     else:  # > 'Batch mode' - processing end defined by an event (worker process exiting, e.g. no more events from file_source)
         run = True
-        print("Batch mode - buffer manager keeps running until one worker process exits!")
+        print("Batch mode - buffer manager keeps running until one worker process exits!\n")
         animation = ['|', '/', '-', '\\']
         animation_step = 0
         while run:
