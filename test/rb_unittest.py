@@ -1,8 +1,8 @@
 #! /usr/bin/env python3
 """
-Unittest: application example for mimo_ringbuffer 
+**rb_unittest:** application example for mimo_buffer 
 
-This code may serve as a starting point for a new projects 
+This code may serve as a starting point for own projects 
 
 Set-up: 2 ring buffers are defined:
     input Buffer  RB_1: 10 ch x 1024 slots (int32)

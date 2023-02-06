@@ -3,11 +3,11 @@
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
-
 import sys, os
 
 sys.path.insert(0, os.path.abspath('../'))
 sys.path.insert(0, os.path.abspath('../examples/'))
+sys.path.insert(0, os.path.abspath('../test/'))
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
@@ -29,8 +29,8 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 # do not attempt to load modules possibly not available
 autodoc_mock_imports = [
-    'numpy', 'matplotlib', 'scipy','websockets', 'tarfile', 'pandas'
-                        ] 
+    'numpy', 'matplotlib', 'scipy','websockets', 'tarfile', 'pandas',
+    'unittest', 'test' ] 
 
 
 # -- Options for HTML output -------------------------------------------------

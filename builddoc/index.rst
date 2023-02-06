@@ -88,6 +88,9 @@ Module Documentation
 
 ..  automodule:: mimocorb.access_classes
      :members:
-	
+
+..  automodule:: rb_unittest
+		 
+     
 
 	

@@ -75,7 +75,9 @@ def setup_buffers(ringbuffers_dict):
             for key, value in data_type.items():
                 rb_datatype.append( (value[0], np.dtype(value[1])) )
         else:
-            raise RuntimeError("Ring buffer data type '{}' is unknown! Please use canonical numpy data type names ('float', 'int', 'uint8', ...) or a list of tuples (see numpy.dtype()-API reference)".format(data_type))
+            raise RuntimeError("Ring buffer data type '{}' is unknown! " + 
+               "Please use canonical numpy data type names ('float', 'int', 'uint8', ...)" +
+               " or a list of tuples (see numpy.dtype()-API reference)".format(data_type))
         
         # > Create and store the new ring buffer object (one per ringbuffer definition in the setup yaml file)
         ringbuffers[ringbuffer_name] = bm.NewBuffer(num_slots, num_ch, rb_datatype)
