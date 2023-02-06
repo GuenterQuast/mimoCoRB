@@ -1,6 +1,6 @@
 # Dict with uid's as key and a nested dict with configuration variables
 general:
-  runtime: 0
+  runtime: 10
   number_of_samples: &number_of_samples 4250
   analogue_offset: &analogue_offset -0.48  # in V and not adc!
   sample_time_ns: &sample_time_ns 4

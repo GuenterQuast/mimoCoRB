@@ -17,16 +17,27 @@ from multiprocessing import Process
 from mimocorb import  mimo_buffer as bm, appl_lib as ua
 
 class buffer_control():
-  """Management and set-up of ringbuffers
+  """Set-up and management ringbuffers and associated sub-processes
   """
 
-  def __init__(self, buffers_dict, functions_dict):
+  def __init__(self, buffers_dict, functions_dict, output_directory):
+      """
+      Class to hold and control mimoCoRB buffer objects 
+
+      :param buffers_dict: dictionary defining buffers RB_1, RB_2, ...
+      :param functions_dict: dictionary defining functions FKT_1, FKT_2, ...
+      :param output_directory: directory prefix for copies of config files and daq output
+      """
 
       self.buffers_dict = buffers_dict
       self.number_of_ringbuffers = len(buffers_dict) + 1
-
+      self.out_dir = output_directory
+      
       self.functions_dict = functions_dict
       self.number_of_functions = len(self.functions_dict)
+
+      self.workers_setup = False
+      self.workers_started = False
       
   def setup_buffers(self):
     self.ringbuffers = {}
@@ -61,7 +72,11 @@ class buffer_control():
   def setup_workers(self):
     """Set up all the (parallel) worker functions
     """
-    
+
+    if self.workers_setup:
+      print("Cannot setup wokers twice")
+      return
+
     self.process_list = list()
 
     # get configuration file and runtime
@@ -72,7 +87,7 @@ class buffer_control():
         cfg_common = parallel_functions_dict[0]['Fkt_main']['config_file']
         # > If common config file is defined: copy it into the target directory ...
         shutil.copyfile(os.path.abspath(cfg_common),
-                        os.path.dirname(directory_prefix) + "/" + os.path.basename(cfg_common))
+                        os.path.dirname(self.out_dir) + "/" + os.path.basename(cfg_common))
         #    and and load the configuration
         config_dict_common = get_config(cfg_common)
         # if runtime defined, override previous value
@@ -96,15 +111,10 @@ class buffer_control():
             # and block closing the main application
             # (for p in process_list: p.join() blocks until all processes terminate by themselfes!)
 
-        # > Prepare function arguments
-        source_list = []
-        sink_list = []
-        observe_list = []
-        config_dict = {}
-
         # > Check if this function needs external configuration (specified in a yaml file)
+        config_dict = {}
         try:
-            # > Is there a function specific configuration file referenced in the setup_yaml? If yes, use this!
+            # > Use a function specific configuration file referenced in the setup_yaml?
             cfg_file_name = self.functions_dict[i][function_name]['config_file']
         except KeyError:
             # > If there is no specific configuration file, see if there is function specific data
@@ -117,13 +127,18 @@ class buffer_control():
         else:
             # > In case of a function specific configuration file, copy it over into the target directory
             shutil.copyfile(os.path.abspath(cfg_file_name),
-                            os.path.dirname(directory_prefix) + "/" + os.path.basename(cfg_file_name))
+                            os.path.dirname(self.out_dir) + "/" + os.path.basename(cfg_file_name))
             config_dict = get_config(cfg_file_name)
 
         # > Pass the target-directory created above to the worker function (so, if applicable,
-        #   it can safe own data in this directory and everything is contained in this)
-        config_dict["directory_prefix"] = directory_prefix
+        #   it can safe own data in this directory and everything is contained there)
+        config_dict["directory_prefix"] = self.out_dir
         
+        # > Prepare function arguments
+        source_list = []
+        sink_list = []
+        observe_list = []
+
         # > Split ring buffers by usage (as sinks, sources, or observers) and instantiate the
         #   appropriate object to be used by the worker function  (these calls will return
         #   configuration dictionaries used by the bm.Reader(), bm.Writer() or bm.Observer() constructor)
@@ -150,18 +165,24 @@ class buffer_control():
             self.process_list.append(Process(target=parallel_function,
                                         args=(source_list, sink_list, observe_list, config_dict),
                                         kwargs=assigned_ringbuffers, name=fkt_py_name))
-    # start worker processes 
-    # > To avoid potential blocking during startup, processes are started in reverse data flow
-    #   order (so last item in the processing chain is started first)
-    self.process_list.reverse()
+
+    self.workers_setup = True     
 
   def start_workers(self):
-    """Set up all the (parallel) worker functions
+    """start all of the (parallel) worker functions
     """
+
+    if self.workers_started:
+      print("Workers already started")
+    
+    # > To avoid potential blocking during startup, processes will be started in reverse
+    #   data flow order (so last item in the processing chain is started first)
+    self.process_list.reverse()
     
     for p in self.process_list:
         p.start()
 
+    self.workers_started = True
     return self.process_list
 
   @staticmethod
@@ -190,6 +211,38 @@ class buffer_control():
         return None
     return vars(module)[function_name]
 
+  def display_layout(self):
+      print("List of buffers")
+      for name, buffer in self.ringbuffers.items():
+          print(name,buffer.number_of_slots, buffer.values_per_slot)        
+          
+  def shutdown(self):
+      """Delete buffers, stop processes by calling the shutdown()-Method of the buffer manager
+      """
+      for name, buffer in self.ringbuffers.items():
+        print("Shutting down buffer ",name)
+        buffer.shutdown()
+        del buffer
+
+      # > All worker processes should have terminated by now
+      for p in self.process_list:
+          p.join()        
+
+      # > delete remaining ring buffer references (so each buffer managers destructor gets called)
+      del self.ringbuffers
+
+  def pause(self):
+      """Pause data acquisition
+      """
+      # disable writing to Buffer RB_1
+      self.ringbuffers['RB_1'].pause()
+
+  def resume(self):
+      """re-enable  data acquisition
+      """
+      # disable writing to Buffer RB_1
+      self.ringbuffers['RB_1'].resume()
+      
 # <-- end class buffer_control
     
 #helper functions
@@ -237,42 +290,48 @@ if __name__ == '__main__': # ---------------------------------------------------
     template_name = template_name[:template_name.find("setup")]
     directory_prefix = "target/" + template_name + "{:04d}-{:02d}-{:02d}_{:02d}{:02d}{:02d}/".format(
         start_time.tm_year, start_time.tm_mon, start_time.tm_mday,
-        start_time.tm_hour, start_time.tm_min, start_time.tm_sec
-    )
+        start_time.tm_hour, start_time.tm_min, start_time.tm_sec )
     os.makedirs(directory_prefix, mode=0o0770, exist_ok=True)
     # > Copy the setup.yaml into the target directory
-    shutil.copyfile(os.path.abspath(setup_filename), os.path.dirname(directory_prefix) + "/" + setup_filename)
+    shutil.copyfile(os.path.abspath(setup_filename),
+                    os.path.dirname(directory_prefix) + "/" + setup_filename)
 
     # > Separate setup_yaml into ring buffers and functions:
     ringbuffers_dict = setup_yaml['RingBuffer']
     parallel_functions_dict = setup_yaml['Functions']
 
     # > Hook: possibility to execute user specific code "before ring buffer creation" 
-    # ua.appl_init()
-
+    ua.appl_init()
 
     # > Set up all needed ring buffers
-    bc = buffer_control(ringbuffers_dict, parallel_functions_dict)
+    bc = buffer_control(ringbuffers_dict, parallel_functions_dict, directory_prefix)
     ringbuffers = bc.setup_buffers()
     print("{:d} buffers created...".format(len(ringbuffers)))
             
     # set-up  workers ...     
     bc.setup_workers()
 
+    bc.display_layout()
     # ... and start all workers     
     process_list = bc.start_workers()
     print("{:d} workers started...".format(len(process_list)))
 
 
     # begin of data acquisition -----
+    # get runtime defined in config dictionary
+    runtime = bc.runtime
+    Nprocessed = 0
+
     now = time.time()
-    Nprocessed = 0 
-    if bc.runtime != 0:
+    if runtime != 0:
         # > As sanity check: Print the expected runtime (start date and finish date) in human readable form
         print("Start: ", time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime(now)),
               " - end: ", time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime(now + runtime)), '\n')
         while time.time() - now < runtime:
-            time.sleep(0.5)  # This may not get too small! All the buffer managers (multiple threads per ring buffer) run in the main thread and may block data flow if execution time constrained!
+                             # This must not get too small!
+                             #  All the buffer managers (multiple threads per ring buffer)
+                             #  run in the main thread and may block data flow if execution time constrained!
+            time.sleep(0.5)  
             buffer_status = ""
             for RB_name, buffer in ringbuffers.items():
                 Nevents, n_filled, rate = buffer.buffer_status()
@@ -280,9 +339,13 @@ if __name__ == '__main__': # ---------------------------------------------------
                 buffer_status += ': '+ RB_name + " {:3d} ({:d}) {:.4g}Hz) ".format(n_filled, Nevents, rate)
             print("Time remaining: {:.0f}s".format(now + runtime - time.time()) +
                 "  - buffers:" + buffer_status, end="\r")
+        # when done, first stop data taking          
+        bc.pause()
         print("\n      Execution time: {:.2f}s -  Events processed: {:d}".format(
                        int(100*(time.time()-now))/100., Nprocessed) )
-    else:  # > 'Batch mode' - processing end defined by an event (worker process exiting, e.g. no more events from file_source)
+
+    else:  # > 'Batch mode' - processing end defined by an event
+           #   (worker process exiting, e.g. no more events from file_source)
         run = True
         print("Batch mode - buffer manager keeps running until one worker process exits!\n")
         animation = ['|', '/', '-', '\\']
@@ -300,6 +363,8 @@ if __name__ == '__main__': # ---------------------------------------------------
                 if p.exitcode == 0:  # Wait until one processes exits 
                     run = False
                     break
+        # stop data taking          
+        bc.pause()    
         print("\n      Execution time: {:.2f}s -  Events processed: {:d}".format(
                        int(100*(time.time()-now))/100., Nprocessed) )
         input("\n\n      Finished - type enter to exit -> ")
@@ -313,17 +378,10 @@ if __name__ == '__main__': # ---------------------------------------------------
     # > user defined application run after timer finished (can be ignored if not needed)
     ua.appl_after_start()
 
-    # > End each worker process by calling the shutdown()-Method of the buffer manager
-    for name, buffer in ringbuffers.items():
-        buffer.shutdown()
-        del buffer
-
-    # > All worker processes should have terminated by now
-    for p in process_list:
-        p.join()        
-
-    # > delete remaining ring buffer references (so each buffer managers destructor gets called)
-    del ringbuffers
+    # some grace time for things to finish cleanly ... 
+    time.sleep(0.5)
+    # ... before shutting down
+    bc.shutdown()
 
     # > user defined application run after all processing is finished (can be ignored if not needed)
     ua.appl_after_stop()

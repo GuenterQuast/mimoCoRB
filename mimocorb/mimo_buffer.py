@@ -770,6 +770,17 @@ class NewBuffer:
         
         return self.cumulative_event_count, n_filled, rate
 
+    def pause(self):
+        """Disable writing to buffer (paused)
+        """
+        # Disable writing new data to the buffer 
+        self.writers_active.clear()
+
+    def resume(self):
+        """(Re)enable  writing to buffer (resume)
+        """
+        # Disable writing new data to the buffer 
+        self.writers_active.set()    
         
     def shutdown(self):
         """Shut down the buffer, closing all backgorund threads, terminating all processes associated with it 
