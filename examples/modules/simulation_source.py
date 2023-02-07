@@ -80,8 +80,8 @@ def simulation_source(source_list=None, sink_list=None, observe_list=None, confi
         return pulse
         
     simulsource = SourceToBuffer(
-        source_list, sink_list, observe_list, config_dict, data_source=get_simpulses, **rb_info)
+        source_list, sink_list, observe_list, config_dict, ufunc=get_simpulses, **rb_info)
     # TODO: Change to logger!
     # print("** simulation_source ** started, config_dict: \n", config_dict)
     # print("?> sample interval: {:02.1f}ns".format(osci.time_interval_ns.value))
-    simulsource.start_data_capture()
+    simulsource()

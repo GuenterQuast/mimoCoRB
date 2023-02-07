@@ -270,11 +270,11 @@ class SourceToBuffer:
        and put data in mimo_buffer
     """
 
-    def __init__(self, source_list=None, sink_list=None, observe_list=None, config_dict=None, data_source=None, **rb_info):
+    def __init__(self, source_list=None, sink_list=None, observe_list=None, config_dict=None, ufunc=None, **rb_info):
 
         # general part for each function (template)
         if sink_list is None:
-            raise ValueError("ERROR! Faulty ring buffer configuration (sink in picoscope_source: OscilloscopeSource)!!")
+            raise ValueError("ERROR! Faulty ring buffer configuration!!")
 
         self.sink = None
         for key, value in rb_info.items():
@@ -289,11 +289,11 @@ class SourceToBuffer:
                     pass
 
         if self.sink is None:
-            raise ValueError("ERROR! Faulty ring buffer configuration passed!")
+            raise ValueError("ERROR! Faulty ring buffer configuration!!")
 
         self.number_of_channels = len(self.sink.dtype)
 
-        self.data_source = data_source
+        self.get_data = ufunc
         self.event_count = 0
        
     def __del__(self):
@@ -301,13 +301,14 @@ class SourceToBuffer:
         # TODO: remove debug or change to logger
         # print("?>", self.status)
 
-    def start_data_capture(self):
+    def __call__(self):
+     # start_data_capture
         while True:
             self.event_count += 1
 
             # get new buffer abd store event data and meta-data
             buffer = self.sink.get_new_buffer()            
-            data = self.data_source(self.number_of_channels)
+            data = self.get_data(self.number_of_channels)
             buffer[:]['chA'] = data[0]
             if self.number_of_channels > 1:
                 buffer[:]['chB'] = data[1]
@@ -322,13 +323,13 @@ class SourceToBuffer:
 
 
 class BufferToBuffer():
-    """Read data from input buffer, filter and write data to output buffer(s)
+    """Read data from input buffer, filter data and write to output buffer(s)
 
        Args: 
 
        - buffer configurations (only one source and severals sinks, no observers!)
 
-       - function filter() must return
+       - function ufunc() must return
 
            -  None if data to be rejected, 
            -  int if only raw data to be copied to sink[0]
@@ -339,9 +340,9 @@ class BufferToBuffer():
            store accepted data in buffers
              
     """
-    def __init__(self, source_list=None, sink_list=None, observe_list=None, config_dict=None, filter=None, **rb_info):
+    def __init__(self, source_list=None, sink_list=None, observe_list=None, config_dict=None, ufunc=None, **rb_info):
 
-        self.filter = filter  # external function to filter data
+        self.filter = ufunc  # external function to filter data
       #   get source 
         if source_list is not None:
             self.reader = bm.Reader(source_list[0])
@@ -357,11 +358,11 @@ class BufferToBuffer():
             self.writers = None            
 
         if self.reader is None or self.writers is None: 
-            ValueError("ERROR! Faulty ring buffer configuration (in lifetime_filter.calculate_decay_time)!!")
+            ValueError("ERROR! Faulty ring buffer configuration!!")
 
 
-    def process_data(self):
-        
+    def __call__(self):
+        # process_data
         while self.reader._active.is_set():
 
            # Get new data from buffer ...
@@ -481,7 +482,8 @@ class BufferToTxtfile:
     def __del__(self):
         pass
 
-    def start(self):
+    def __call__(self):
+        # sart reading and save to text file
         input_data = self.source.get()
         while self.source._active.is_set():
             metadata = np.array(self.source.get_metadata())
@@ -522,7 +524,8 @@ class BufferToParquetfile:
         self.tar = tarfile.TarFile(tar_filename, "w")
 
 
-    def start(self):
+    def __call__(self):
+        # stard reading and save to tarred parquet file
         while self.source._active.is_set():
             # get data
             input_data = self.source.get()

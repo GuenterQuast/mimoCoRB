@@ -3,9 +3,7 @@ import numpy as np
 import pandas as pd
 import os, sys
 
-
 from filters import *
-
 
 def calculate_decay_time(source_list=None, sink_list=None, observe_list=None, config_dict=None, **rb_info):
     """Calculate decay time as time between double pulses
@@ -117,8 +115,8 @@ def calculate_decay_time(source_list=None, sink_list=None, observe_list=None, co
             return None
 
     accessor = BufferToBuffer(
-        source_list, sink_list, observe_list, config_dict, filter=find_double_pulses, **rb_info)
-    accessor.process_data()
+        source_list, sink_list, observe_list, config_dict, ufunc=find_double_pulses, **rb_info)
+    accessor()
 
     
 if __name__ == "__main__":
