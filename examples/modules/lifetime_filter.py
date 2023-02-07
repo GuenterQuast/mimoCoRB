@@ -1,4 +1,4 @@
-from mimocorb.access_classes import BufferToBuffer
+from mimocorb.buffer_control import BufferToBuffer
 import numpy as np
 import pandas as pd
 import os, sys

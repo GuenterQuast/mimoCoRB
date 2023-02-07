@@ -1,10 +1,10 @@
 """Module save_files to handle file I/O for data in txt and parquet format
 
-   This module relies on classes in mimocorb.access_classes
+   This module relies on classes in mimocorb.buffer_control
 """
 
 
-from mimocorb.access_classes import BufferToTxtfile, BufferToParquetfile
+from mimocorb.buffer_control import BufferToTxtfile, BufferToParquetfile
 
 
 # def save_to_txt(source_dict):

@@ -1,4 +1,4 @@
-from mimocorb.access_classes import SourceToBuffer
+from mimocorb.buffer_control import SourceToBuffer
 import numpy as np
 import sys, time
 
