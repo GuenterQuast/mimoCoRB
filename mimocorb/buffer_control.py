@@ -14,7 +14,18 @@ import pandas as pd
 import io, tarfile
 
 class buffer_control():
-  """Set-up and management ringbuffers and associated sub-processes
+  """
+  Set-up and management ringbuffers and associated sub-processes
+
+  Class methods: 
+
+    - setup_buffers()
+    - setup_workers()
+    - start_workers()
+    - pause()
+    - resume()
+    - shutdown() 
+
   """
 
   def __init__(self, buffers_dict, functions_dict, output_directory):
@@ -194,8 +205,7 @@ class buffer_control():
       for key in self.parallel_functions:
           print(key, self.parallel_functions[key][0],
                 '('+str(self.parallel_functions[key][1])+')')        
-
-      
+    
   def shutdown(self):
       """Delete buffers, stop processes by calling the shutdown()-Method of the buffer manager
       """
@@ -270,7 +280,7 @@ class SourceToBuffer:
        and put data in mimo_buffer
     """
 
-    def __init__(self, source_list=None, sink_list=None, observe_list=None, config_dict=None, ufunc=None, **rb_info):
+    def __init__(self, sink_list=None, observe_list=None, config_dict=None, ufunc=None, **rb_info):
 
         # general part for each function (template)
         if sink_list is None:
@@ -279,8 +289,7 @@ class SourceToBuffer:
         self.sink = None
         for key, value in rb_info.items():
             if value == 'read':
-                for i in range(len(source_list)):
-                    pass
+                raise ValueError("ERROR! reading buffes not foreseen!!")              
             elif value == 'write':
                 for i in range(len(sink_list)):
                     self.sink = bm.Writer(sink_list[i])
@@ -424,7 +433,7 @@ class BufferToBuffer():
 class BufferToTxtfile:
     """Save data to file in csv-format
     """
-    def __init__(self, source_list=None, sink_list=None, observe_list=None, config_dict=None, **rb_info):
+    def __init__(self, source_list=None, observe_list=None, config_dict=None, **rb_info):
         # general part for each function (template)
         if source_list is None:
             raise ValueError("Faulty ring buffer configuration passed ('source_list' in save_files: LogToTxt missing)!")
@@ -432,14 +441,12 @@ class BufferToTxtfile:
             raise ValueError("Faulty configuration passed ('config_dict' in save_files: LogToTxt missing)!")
 
         self.source = None
-
         for key, value in rb_info.items():
             if value == 'read':
                 for i in range(len(source_list)):
                     self.source = bm.Reader(source_list[i])
             elif value == 'write':
-                for i in range(len(sink_list)):
-                    pass
+                raise ValueError("!ERROR Writing to buffer not foreseen!!")
             elif value == 'observe':
                 for i in range(len(observe_list)):
                     pass
@@ -497,21 +504,21 @@ class BufferToTxtfile:
 class BufferToParquetfile:
     """Save data a set of parquet-files packed as a tar archive
     """
-    def __init__(self, source_list=None, sink_list=None, observe_list=None, config_dict=None, **rb_info):
+    def __init__(self, source_list=None, observe_list=None, config_dict=None, **rb_info):
         if source_list is None:
             raise ValueError("Faulty ring buffer configuration ('source' in save_files: SaveBufferParquet missing)!")
 
+        self.source = None
         for key, value in rb_info.items():
             if value == 'read':
                 for i in range(len(source_list)):
                     self.source = bm.Reader(source_list[i])
             elif value == 'write':
-                for i in range(len(sink_list)):
-                    pass
+                raise ValueError("!ERROR Writing to buffer not foreseen!!")
             elif value == 'observe':
                 for i in range(len(observe_list)):
                     pass
-
+                  
         if self.source is None:
             raise ValueError("Faulty ring buffer configuration passed to 'SaveBufferParquet'!")
 

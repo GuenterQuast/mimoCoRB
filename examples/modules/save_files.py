@@ -7,12 +7,12 @@ from mimocorb.buffer_control import BufferToTxtfile, BufferToParquetfile
 
 # def save_to_txt(source_dict):
 def save_to_txt(source_list=None, sink_list=None, observe_list=None, config_dict=None, **rb_info):
-    sv = BufferToTxtfile(source_list, sink_list, observe_list, config_dict,  **rb_info)
+    sv = BufferToTxtfile(source_list, observe_list, config_dict,  **rb_info)
     sv()
 
 
 def save_parquet(source_list=None, sink_list=None, observe_list=None, config_dict=None, **rb_info):
-    sv = BufferToParquetfile(source_list, sink_list, observe_list, config_dict,  **rb_info)
+    sv = BufferToParquetfile(source_list, observe_list, config_dict,  **rb_info)
     sv()
 
 

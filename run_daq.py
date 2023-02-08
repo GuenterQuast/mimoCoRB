@@ -129,7 +129,7 @@ if __name__ == '__main__': # ---------------------------------------------------
     # -->   finally, shut-down all processes
 
     # some grace time for things to finish cleanly ... 
-    time.sleep(0.5)
+    time.sleep(1.0)
     # ... before shutting down
     bc.shutdown()
 
