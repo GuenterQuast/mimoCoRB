@@ -10,6 +10,7 @@ from pathlib import Path
 import numpy as np
 from numpy.lib import recfunctions as rfn
 from multiprocessing import Process
+import threading
 import pandas as pd
 import io, tarfile
 
@@ -551,3 +552,74 @@ class BufferToParquetfile:
         self.tar.close()
 
 # <-- end class BufferToTxtfile
+
+class ObserverData:
+    def __init__(self, observe_list=None, config_dict=None, ufunc = None, **rb_info):
+        """
+        Deliver observerdata
+        """
+
+        self.ufunc = ufunc
+        
+        if observe_list is None:
+            raise ValueError("ERROR! Faulty ring buffer configuration (source in lifetime_modules: PlotOscilloscope)!!")
+        if len(observe_list)!=1:
+            raise ValueError("!ERROR only one observer source supported!!")            
+        
+        self.source = None
+        for key, value in rb_info.items():
+            if value == 'read':
+                raise ValueError("!ERROR Reading buffer not foreseen!!")
+            elif value == 'write':
+                raise ValueError("!ERROR Writing to buffer not foreseen!!")
+            elif value == 'observe':
+                self.source = bm.Observer(observe_list[0])
+        if self.source is None:
+            print("ERROR! Faulty ring buffer configuration passed to 'PlotOscilloscope'!!")
+            sys.exit()
+
+        #  evaluate information from config dict     
+        self.min_sleeptime = 1.0 if "min_sleeptime" not in config_dict else config_dict["min_sleeptime"] 
+
+        self.data_lock = threading.Lock()
+
+        # Setup threading
+        self.main_thread = threading.current_thread()
+        self.parse_new_data = threading.Event()
+        self.parse_new_data.set()
+        self.new_data_available = threading.Event()
+        self.new_data_available.set()
+        self.wait_data_thread = threading.Thread(target=self._wait_data, args=(self.min_sleeptime,))
+        self.wait_data_thread.start()
+
+    def __del__(self):
+        if threading.current_thread() == self.main_thread:
+            # print(" > DEBUG: plot.__del__(). Observer refcount: {:d}".format(sys.getrefcount(self.source)))
+            del self.source
+
+    def _on_update(self):
+        # Update data
+        with self.data_lock:
+            self.ufunc(self.data)
+        
+    def _wait_data(self, sleeptime=1.0):
+        while self.parse_new_data.is_set():
+            last_update = time.time()
+            with self.data_lock:
+                self.data = self.source.get()
+            self.new_data_available.set()
+            # Limit refresh rate to 1/sleeptime
+            _sleep_time = sleeptime - (time.time()-last_update)
+            if _sleep_time > 0:
+                time.sleep(_sleep_time)
+        # print("DEBUG: plot.wait_data_thread can safely be joined!")
+
+    def __call__(self):
+        while self.source._active.is_set():
+            if self.new_data_available.is_set():
+                self._on_update()
+                self.new_data_available.clear()
+        self.parse_new_data.clear()
+        self.wait_data_thread.join()
+
+# <-- end class ObserverData
