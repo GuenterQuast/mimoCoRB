@@ -30,16 +30,22 @@ def calculate_decay_time(source_list=None, sink_list=None, observe_list=None, co
     trigger_position_tolerance = config_dict["trigger_position_tolerance"]
     signatures = config_dict["signatures"]
 
-    # Format of pulse parameter array
-    pulse_par_dtype = np.dtype( [('decay_time', 'int32'), 
-                        ('1st_chA_h', 'float64'), ('1st_chB_h', 'float64'), ('1st_chC_h', 'float64'), 
-                        ('1st_chA_p', 'int32'), ('1st_chB_p', 'int32'), ('1st_chC_p', 'int32'), 
-                        ('1st_chA_int', 'float64'), ('1st_chB_int', 'float64'), ('1st_chC_int', 'float64'), 
-                        ('2nd_chA_h', 'float64'), ('2nd_chB_h', 'float64'), ('2nd_chC_h', 'float64'), 
-                        ('2nd_chA_p', 'int32'), ('2nd_chB_p', 'int32'), ('2nd_chC_p', 'int32'), 
-                        ('2nd_chA_int', 'float64'), ('2nd_chB_int', 'float64'), ('2nd_chC_int', 'float64'), 
-                        ('1st_chD_h', 'float64'), ('1st_chD_p', 'int32'), ('1st_chD_int', 'float64'), 
-                        ('2nd_chD_h', 'float64'), ('2nd_chD_p', 'int32'), ('2nd_chD_int', 'float64')] )
+    # get format of pulse parameter array from sink[1]
+    if len(sink_list) > 1:
+        store_pulse_parameters = True  
+        pulse_par_dtype = sink_list[1]['dtype']
+    else:
+        store_pulse_parameters = False        
+    
+#    pulse_par_dtype = np.dtype( [('decay_time', 'int32'), 
+#                        ('1st_chA_h', 'float64'), ('1st_chB_h', 'float64'), ('1st_chC_h', 'float64'), 
+#                        ('1st_chA_p', 'int32'), ('1st_chB_p', 'int32'), ('1st_chC_p', 'int32'), 
+#                        ('1st_chA_int', 'float64'), ('1st_chB_int', 'float64'), ('1st_chC_int', 'float64'), 
+#                        ('2nd_chA_h', 'float64'), ('2nd_chB_h', 'float64'), ('2nd_chC_h', 'float64'), 
+#                        ('2nd_chA_p', 'int32'), ('2nd_chB_p', 'int32'), ('2nd_chC_p', 'int32'), 
+#                        ('2nd_chA_int', 'float64'), ('2nd_chB_int', 'float64'), ('2nd_chC_int', 'float64'), 
+#                        ('1st_chD_h', 'float64'), ('1st_chD_p', 'int32'), ('1st_chD_int', 'float64'), 
+#                        ('2nd_chD_h', 'float64'), ('2nd_chD_p', 'int32'), ('2nd_chD_int', 'float64')] )
     
     def find_double_pulses(input_data):   
         """filter data, function to be called by instance of class mimoCoRB.BufferToBuffer
@@ -104,15 +110,20 @@ def calculate_decay_time(source_list=None, sink_list=None, observe_list=None, co
                 pulse_parameters['decay_time'] = [(np.mean(second_pos) - np.mean(first_pos)) * sample_time_ns,]
                 signature_type = _sigtype
 
-        if pulse_parameters is not None:
-            return [pulse_parameters] 
-          # alternative it upwards/downwards decays are to be distinguished
-          #  if signature_type == 0:
-          #     return [pulse_parameters, None]                
-          #  elif signature_type == 1:
-          #     return [None, pulse_parameters]                
-        else:
+        if pulse_parameters is None:
             return None
+        else:
+            if store_pulse_parameters:
+                if len(sink_list) == 2:
+                    return [pulse_parameters]  # send pulse parameters
+                elif len(sink_list) == 3:
+                    if signature_type == 0:
+                         return [pulse_parameters, None]  # pulse parameters decay to top              
+                    elif signature_type == 1:
+                         return [None, pulse_parameters]  # pulse paramerters decay to bottom              
+            else:
+                return 1                   # only copy data   
+
 
     accessor = BufferToBuffer(
         source_list, sink_list, observe_list, config_dict, ufunc=find_double_pulses, **rb_info)

@@ -97,6 +97,8 @@ if __name__ == '__main__': # ---------------------------------------------------
         print("\n      Execution time: {:.2f}s -  Events processed: {:d}".format(
                        int(100*(time.time()-now))/100., Nprocessed) )
 
+        input("\n\n      Finished - type enter to exit -> ")
+
     else:  # > 'Batch mode' - processing end defined by an event
            #   (worker process exiting, e.g. no more events from file_source)
         run = True

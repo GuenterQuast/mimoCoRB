@@ -10,6 +10,7 @@ matplotlib.use("TkAgg")
 
 def plot_graph(source_list=None, sink_list=None, observe_list=None, config_dict=None, **rb_info):
 
+    # properties of data source
     source_dict = observe_list[0]
 
     # evaluate config dictionary
@@ -29,11 +30,11 @@ def plot_graph(source_list=None, sink_list=None, observe_list=None, config_dict=
             
     x_linspace = np.linspace(-pre_trigger_ns, total_time_ns - pre_trigger_ns,
                                       plot_length, endpoint=False)
-    data = np.zeros((source_dict['values_per_slot'], len(source_dict['dtype'])))
-
-
+    # skip iStep points when plotting data, resulting in 125 - 249 points 
+    iStep = len(x_linspace)//250 + 1 
+    
+    # Create static part of figure
     # Turn on interactive mode for matplotlib
-    plt.ion()
     figure, ax = plt.subplots(1, 1)
     figure.subplots_adjust(hspace=0.4)
     plt.title(plot_title) 
@@ -48,16 +49,17 @@ def plot_graph(source_list=None, sink_list=None, observe_list=None, config_dict=
         
     mplstyle.use('fast')
     bg = figure.canvas.copy_from_bbox(ax.bbox)
-    channel_list = []
+    channel_lines = []
     plt.style.context("seaborn")
     color_cycler = cycler(color=['red', 'green', 'blue', 'tab:orange'])
     ax.set_prop_cycle(color_cycler)
     plt.axvline(0., linestyle = ':', color='darkblue') # trigger time
     for dtype_name, dtype_type in source_dict['dtype']:
-        ch, = ax.plot(x_linspace, np.zeros_like(x_linspace),
+        line, = ax.plot(x_linspace[::iStep], np.zeros_like(x_linspace)[::iStep],
             marker='', linestyle='-', lw=1.5, alpha=0.5, label=dtype_name)
-        channel_list.append(ch)
+        channel_lines.append(line)
     plt.legend()
+    plt.ion()
     plt.show()
     plt.draw()
 
@@ -69,13 +71,18 @@ def plot_graph(source_list=None, sink_list=None, observe_list=None, config_dict=
         # Use blitting to speed things up (we just want to redraw the line)
         figure.canvas.restore_region(bg)
 
-        for i, ch in enumerate(channel_list):
-            ch.set_ydata(data[:plot_length][source_dict['dtype'][i][0]] 
+        if data is not None:
+            for i, line in enumerate(channel_lines):
+#                line.set_ydata(data[:plot_length][source_dict['dtype'][i][0]] 
+                line.set_ydata(data[::iStep][source_dict['dtype'][i][0]] 
                               - analogue_offset)
-            ax.draw_artist(ch)
-            # Finish the blitting process
-            figure.canvas.blit(ax.bbox)    
-        plt.pause(0.2)
+                ax.draw_artist(line)
+                # Finish the blitting process
+                figure.canvas.blit(ax.bbox)    
+            plt.pause(0.2)
+        else:
+            # data taking ended, finish
+            pass # nothing to do 
     
     plotObserver = ObserverData(observe_list, config_dict,  ufunc=update_graph, **rb_info)
     plotObserver()

@@ -597,11 +597,6 @@ class ObserverData:
             # print(" > DEBUG: plot.__del__(). Observer refcount: {:d}".format(sys.getrefcount(self.source)))
             del self.source
 
-    def _on_update(self):
-        # Update data
-        with self.data_lock:
-            self.ufunc(self.data)
-        
     def _wait_data(self, sleeptime=1.0):
         while self.parse_new_data.is_set():
             last_update = time.time()
@@ -617,8 +612,10 @@ class ObserverData:
     def __call__(self):
         while self.source._active.is_set():
             if self.new_data_available.is_set():
-                self._on_update()
+                with self.data_lock:
+                    self.ufunc(self.data)
                 self.new_data_available.clear()
+        self.ufunc(None) # send None to signal end of data taking
         self.parse_new_data.clear()
         self.wait_data_thread.join()
 
