@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib.style as mplstyle
 from cycler import cycler
 
+# class to export data from observer
 from mimocorb.buffer_control import ObserverData
 
 matplotlib.use("TkAgg")
@@ -51,7 +52,7 @@ def plot_graph(source_list=None, sink_list=None, observe_list=None, config_dict=
     bg = figure.canvas.copy_from_bbox(ax.bbox)
     channel_lines = []
     plt.style.context("seaborn")
-    color_cycler = cycler(color=['red', 'green', 'blue', 'tab:orange'])
+    color_cycler = cycler(color=['blue', 'green', 'red', 'tab:orange'])
     ax.set_prop_cycle(color_cycler)
     plt.axvline(0., linestyle = ':', color='darkblue') # trigger time
     for dtype_name, dtype_type in source_dict['dtype']:
@@ -65,7 +66,7 @@ def plot_graph(source_list=None, sink_list=None, observe_list=None, config_dict=
 
     def update_graph(data):
         """"
-        Update graphics, to be called by instance of Oberver
+        Update graphics, to be called by instance of Observer
         """
 
         # Use blitting to speed things up (we just want to redraw the line)
@@ -73,13 +74,12 @@ def plot_graph(source_list=None, sink_list=None, observe_list=None, config_dict=
 
         if data is not None:
             for i, line in enumerate(channel_lines):
-#                line.set_ydata(data[:plot_length][source_dict['dtype'][i][0]] 
                 line.set_ydata(data[::iStep][source_dict['dtype'][i][0]] 
                               - analogue_offset)
                 ax.draw_artist(line)
                 # Finish the blitting process
                 figure.canvas.blit(ax.bbox)    
-            plt.pause(0.2)
+            plt.pause(min(0.2, min_sleeptime))
         else:
             # data taking ended, finish
             pass # nothing to do 

@@ -44,7 +44,7 @@ calculate_decay_time:
       - ["0", "0", "0", "+"]  # 3rd stop signature (decay positron in upwards direction)
 
 save_to_txt:
-  filename: "muon_lifetimes"
+  filename: "simulated_lifetimes"
   header_alias:
     'counter': 'event id'
     'timestamp': 'time of event (UTC)'
