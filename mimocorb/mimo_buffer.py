@@ -277,7 +277,6 @@ class Writer:
             self._current_buffer_index = None
 
 
-
 class Observer:
     """
     Class to read select elements from a buffer.
@@ -344,7 +343,10 @@ class Observer:
         if self._debug:
             print( " > DEBUG: Observer destructor called (PID: {:d})".format(os.getpid()))
         # The event loop should be stopped by now
-        self._event_loop_thread.join()
+        try: 
+           self._event_loop_thread.join()
+        except:
+            pass
         # Clean up Get()-event in case it got stuck
         self._last_get_index = -1
         self._new_element.set()
@@ -436,6 +438,17 @@ class NewBuffer:
 
       The ``NewBuffer``\ -object provides methods to create setup dictionaries for ``Reader``\ ,
       ``Writer`` or ``Observer`` instances.
+
+    important methods: 
+
+       - __init__()          constructor to create a new 'FIFO' buffer 
+       - new_writer()        create new writer
+       - new_reader_group()  create reader group
+       - new_observer()      create observer
+       - buffer_status()     display status: event count, processing rate, occupied slots
+       - pause()             disable writers
+       - resume()            (re-)enable writers
+       - shutdown()          end connected processes, delete buffer
 
     """
 
@@ -745,7 +758,7 @@ class NewBuffer:
         self.Nlast = 0
         
     def buffer_status(self):
-        """Processing Rate and approximate tnumber of free slots in this buffer.
+        """Processing Rate and approximate number of free slots in this buffer.
         This method is meant for user information purposes only, as the result may
         not be completely accurate due to race conditions.
 
