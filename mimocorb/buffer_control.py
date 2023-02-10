@@ -554,13 +554,11 @@ class BufferToParquetfile:
 # <-- end class BufferToTxtfile
 
 class ObserverData:
-    def __init__(self, observe_list=None, config_dict=None, ufunc = None, **rb_info):
+    def __init__(self, observe_list=None, config_dict=None, **rb_info):
         """
         Deliver observerdata
         """
 
-        self.ufunc = ufunc
-        
         if observe_list is None:
             raise ValueError("ERROR! Faulty ring buffer configuration (source in lifetime_modules: PlotOscilloscope)!!")
         if len(observe_list)!=1:
@@ -613,9 +611,9 @@ class ObserverData:
         while self.source._active.is_set():
             if self.new_data_available.is_set():
                 with self.data_lock:
-                    self.ufunc(self.data)
+                    yield (self.data)
                 self.new_data_available.clear()
-        self.ufunc(None) # send None to signal end of data taking
+            time.sleep(self.min_sleeptime/10)
         self.parse_new_data.clear()
         self.wait_data_thread.join()
 

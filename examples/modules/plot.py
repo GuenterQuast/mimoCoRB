@@ -84,8 +84,13 @@ def plot_graph(source_list=None, sink_list=None, observe_list=None, config_dict=
             # data taking ended, finish
             pass # nothing to do 
     
-    plotObserver = ObserverData(observe_list, config_dict,  ufunc=update_graph, **rb_info)
-    plotObserver()
+    plotObserver = ObserverData(observe_list, config_dict, **rb_info)
+    while True:
+        data = next(plotObserver(), None)
+        if data is not None:
+            update_graph(data)
+        else:
+            break
     
 if __name__ == "__main__":
     print("Script: " + os.path.basename(sys.argv[0]))
