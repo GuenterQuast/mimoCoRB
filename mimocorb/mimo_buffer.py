@@ -16,7 +16,7 @@ import heapq
 import websockets as ws
 import asyncio
 import time
-import gc, os
+import os
 
 
 class Reader:

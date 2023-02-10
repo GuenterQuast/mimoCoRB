@@ -277,16 +277,26 @@ class buffer_control():
 
 
 class SourceToBuffer:
-    """Read data from source (e.g. file, simulation, Picoscope etc.) 
-       and put data in mimo_buffer
+    """
+    Read data from source (e.g. file, simulation, Picoscope etc.) 
+    and put data in mimo_buffer. 
     """
 
     def __init__(self, sink_list=None, observe_list=None, config_dict=None, ufunc=None, **rb_info):
+        """
+        Class to provide external input data to a buffer, usually "RB_1"
+
+        :param sink_list: list of length 1 with dictionary for destination buffer 
+        :param observe_list: list of length 1 with dictionary for observer (not implemented yet)
+        :param config_dict: application-specific configuration 
+        :param ufunc: user-supplied function to provide input data
+        :param rb_info: dictionary with names and function (read, write, observe) of ring buffers
+        """ 
 
         # general part for each function (template)
         if sink_list is None:
             raise ValueError("ERROR! Faulty ring buffer configuration!!")
-
+          
         self.sink = None
         for key, value in rb_info.items():
             if value == 'read':
@@ -351,6 +361,16 @@ class BufferToBuffer():
              
     """
     def __init__(self, source_list=None, sink_list=None, observe_list=None, config_dict=None, ufunc=None, **rb_info):
+        """
+        Class to filter data in input buffer and transfer to output buffer(s)
+
+        :param _list: list of length 1 with dictionary for source buffer 
+        :param _list: list with dictionary(ies) for destination buffer(s) 
+        :param observe_list: list of length 1 with dictionary for observer (not implemented yet)
+        :param config_dict: application-specific configuration 
+        :param ufunc: user-supplied function to filter, process and store data
+        :param rb_info: dictionary with names and function (read, write, observe) of ring buffers
+        """ 
 
         self.filter = ufunc  # external function to filter data
       #   get source 
@@ -434,10 +454,20 @@ class BufferToBuffer():
 class BufferToTxtfile:
     """Save data to file in csv-format
     """
+      
     def __init__(self, source_list=None, observe_list=None, config_dict=None, **rb_info):
-        # general part for each function (template)
+        """
+        Class to extract data and store in csv file
+
+        :param _list: list of length 1 with dictionary for source buffer 
+        :param observe_list: list of length 1 with dictionary for observer (not implemented yet)
+        :param config_dict: application-specific configuration (file name)
+        :param rb_info: dictionary with names and function (read, write, observe) of ring buffers
+        """
+
+      # general part for each function (template)
         if source_list is None:
-            raise ValueError("Faulty ring buffer configuration passed ('source_list' in save_files: LogToTxt missing)!")
+          raise ValueError("Faulty ring buffer configuration passed ('source_list' in save_files: LogToTxt missing)!")
         if config_dict is None:
             raise ValueError("Faulty configuration passed ('config_dict' in save_files: LogToTxt missing)!")
 
@@ -506,6 +536,14 @@ class BufferToParquetfile:
     """Save data a set of parquet-files packed as a tar archive
     """
     def __init__(self, source_list=None, observe_list=None, config_dict=None, **rb_info):
+        """
+        Class to extract data and store in tar archive of parquet files
+
+        :param _list: list of length 1 with dictionary for source buffer 
+        :param observe_list: list of length 1 with dictionary for observer (not implemented yet)
+        :param config_dict: application-specific configuration (file name)
+        :param rb_info: dictionary with names and function (read, write, observe) of ring buffers
+        """
         if source_list is None:
             raise ValueError("Faulty ring buffer configuration ('source' in save_files: SaveBufferParquet missing)!")
 
@@ -554,9 +592,19 @@ class BufferToParquetfile:
 # <-- end class BufferToTxtfile
 
 class ObserverData:
+    """
+    Deliver data from buffer to an observer process
+    """
     def __init__(self, observe_list=None, config_dict=None, **rb_info):
         """
-        Deliver observerdata
+        Class to extract data from buffer as an observer 
+
+        :param observe_list: list of length 1 with dictionary for Observer
+        :param config_dict: application-specific configuration (minimum wait time)
+
+        :return generator: implemented in __call__ method
+        :rtype python generator
+        :param rb_info: dictionary with names and function (read, write, observe) of ring buffers
         """
 
         if observe_list is None:
