@@ -45,6 +45,7 @@ class Reader:
             first serve' basis, if multiple processes wait on new elements, the allocation is
             managed by the scheduler of the host OS)
         """
+        
         # Get buffer configuration from setup dictionary
         self.number_of_slots = setup_dict["number_of_slots"]
         self.values_per_slot = setup_dict["values_per_slot"]
@@ -113,7 +114,8 @@ class Reader:
                 raise SystemExit
         # Create a memory view of the buffer element's array index and
         # return it for further processing
-        return self._buffer[self._last_get_index, :]
+#        return self._buffer[self._last_get_index, :]
+        return self._buffer[self._last_get_index]
 
     def get_metadata(self):
         """Get the metadata corresponding to the latest element obtained by calling the 
@@ -232,7 +234,8 @@ class Writer:
         self._metadata[self._current_buffer_index]['counter'] = self._write_counter
         self._metadata[self._current_buffer_index]['deadtime'] = -1
         self._write_counter += 1
-        return self._buffer[self._current_buffer_index, :]
+#        return self._buffer[self._current_buffer_index, :]
+        return self._buffer[self._current_buffer_index]
 
     def set_metadata(self, counter, timestamp, deadtime):
         """Set the metadata corresponding to the current buffer element.

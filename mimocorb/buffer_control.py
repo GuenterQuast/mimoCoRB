@@ -342,6 +342,54 @@ class SourceToBuffer:
 # <-- end class SourceToBuffer
 
 
+class BufferData:
+    """
+    Read data from buffer and send to requesting client (via python yield())
+    """
+
+    def __init__(self, source_list=None, observe_list=None, config_dict=None, **rb_info):
+        """
+        Class acting as a python generator to extract data and send to client 
+
+        :param source_list: list of length 1 with dictionary for source buffer 
+        :param observe_list: list of length 1 with dictionary for observer (not implemented yet)
+        :param config_dict: application-specific configuration (file name)
+        :param rb_info: dictionary with names and function (read, write, observe) of 
+        ring buffers attached to this process
+        """
+
+      # general part for each function (template)
+        if source_list is None:
+          raise ValueError("Faulty ring buffer configuration passed ('source_list' missing!")
+
+        self.source = None
+        for key, value in rb_info.items():
+            if value == 'read':
+                self.source = bm.Reader(source_list[0])
+            elif value == 'write':
+                raise ValueError("!ERROR Writing to buffer not foreseen!!")
+            elif value == 'observe':
+                for i in range(len(observe_list)):
+                    pass
+
+        if self.source is None:
+            raise ValueError("Faulty ring buffer configuration passed. No source found!")
+
+    def __call__(self):
+        # sart reading and save to text file
+        while self.source._active.is_set():
+            data = self.source.get()
+            metadata = np.array(self.source.get_metadata())
+            yield ( (metadata, data) )
+        yield(None)
+            
+    def __del__(self):
+        pass
+
+# <-- end class BufferData
+
+
+
 class BufferToBuffer():
     """Read data from input buffer, filter data and write to output buffer(s)
 
@@ -411,10 +459,10 @@ class BufferToBuffer():
                 continue
 
             save_input = False
-            save_filtered = False
+            save_filter_processed = False
             #  filter passed, data is to be kept                      
             if isinstance(filter_data, (list, tuple)):
-                save_filtered = True
+                save_filter_processed = True
                 # got parameterizations to store
                 if len(self.writers) > len(filter_data):
                     # also store input raw data
@@ -432,7 +480,7 @@ class BufferToBuffer():
                 self.writers[idx_out].process_buffer()
                 idx_out += 1
 
-            if save_filtered:    
+            if save_filter_processed:    
                 for d in filter_data:
                     if d is not None:
                         buf = self.writers[idx_out].get_new_buffer()
@@ -467,9 +515,9 @@ class BufferToTxtfile:
 
       # general part for each function (template)
         if source_list is None:
-          raise ValueError("Faulty ring buffer configuration passed ('source_list' in save_files: LogToTxt missing)!")
+          raise ValueError("Faulty ring buffer configuration passed ('source_list' missing)!")
         if config_dict is None:
-            raise ValueError("Faulty configuration passed ('config_dict' in save_files: LogToTxt missing)!")
+            raise ValueError("Faulty configuration passed ('config_dict' missing)!")
 
         self.source = None
         for key, value in rb_info.items():
@@ -539,13 +587,13 @@ class BufferToParquetfile:
         """
         Class to extract data and store in tar archive of parquet files
 
-        :param _list: list of length 1 with dictionary for source buffer 
+        :param source_list: list (length 1) with dictionary for source buffer 
         :param observe_list: list of length 1 with dictionary for observer (not implemented yet)
         :param config_dict: application-specific configuration (file name)
         :param rb_info: dictionary with names and function (read, write, observe) of ring buffers
         """
         if source_list is None:
-            raise ValueError("Faulty ring buffer configuration ('source' in save_files: SaveBufferParquet missing)!")
+            raise ValueError("Faulty ring buffer configuration ('source_list' in missing)!")
 
         self.source = None
         for key, value in rb_info.items():

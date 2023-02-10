@@ -85,3 +85,7 @@ plot_graph:
   channel_range: 500                # channel range in mV
   analogue_offset: *analogue_offset # analogue offset in V
   pre_trigger_samples: *pre_trigger_samples
+
+read_from_buffer:
+  dummy: none   # need an empty dictionay
+
