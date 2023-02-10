@@ -217,8 +217,15 @@ class buffer_control():
 
       # > All worker processes should have terminated by now
       for p in self.process_list:
-          p.join()        
+          if p.is_alive(): print("waiting 5s for process ", p.name, " to finish") 
+          p.join(5.)        
 
+      # force temination of remaining processes    
+      for p in self.process_list:
+          if p.is_alive():
+            print("  !! killing active process ", p.name)
+            p.terminate()
+            
       # > delete remaining ring buffer references (so each buffer managers destructor gets called)
       del self.ringbuffers
 
@@ -323,12 +330,13 @@ class SourceToBuffer:
 
     def __call__(self):
      # start_data_capture
-        while True:
+        while self.sink._active.is_set():
             self.event_count += 1
 
             # get new buffer abd store event data and meta-data
             buffer = self.sink.get_new_buffer()            
             data = self.get_data(self.number_of_channels)
+            self.sink.set_metadata(self.event_count, time.time(), 0)
             buffer[:]['chA'] = data[0]
             if self.number_of_channels > 1:
                 buffer[:]['chB'] = data[1]
@@ -336,7 +344,6 @@ class SourceToBuffer:
                 buffer[:]['chC'] = data[2]
             if self.number_of_channels > 3:
                 buffer[:]['chD'] = data[3]            
-            self.sink.set_metadata(self.event_count, time.time(), 0)
         self.sink.process_buffer()
 
 # <-- end class SourceToBuffer
