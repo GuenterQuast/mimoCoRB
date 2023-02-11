@@ -58,7 +58,7 @@ if __name__ == '__main__': # ---------------------------------------------------
     # > Set up all needed ring buffers
     bc = buffer_control(ringbuffers_dict, parallel_functions_dict, directory_prefix)
     ringbuffers = bc.setup_buffers()
-    print("{:d} buffers created...".format(len(ringbuffers)))
+    print("{:d} buffers created...  ".format(len(ringbuffers)), end='')
             
     # set-up  workers ...     
     bc.setup_workers()
@@ -66,7 +66,7 @@ if __name__ == '__main__': # ---------------------------------------------------
 
     # ... and start all workers     
     process_list = bc.start_workers()
-    print("{:d} workers started...".format(len(process_list)))
+    print("{:d} workers started...  ".format(len(process_list)), end='')
     bc.display_functions()
 
 

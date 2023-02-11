@@ -396,8 +396,13 @@ Module Documentation
 
 ..  automodule:: rb_unittest
 
+..  automodule:: simulation_source
+     :members:
+
 ..  automodule:: plot
      :members:
 
-..  automodule:: simulation_source
-     :members:
+..  automodule:: read_from_buffer
+     :members:	
+
+
