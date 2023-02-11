@@ -395,3 +395,9 @@ Module Documentation
      :members:
 
 ..  automodule:: rb_unittest
+
+..  automodule:: plot
+     :members:
+
+..  automodule:: simulation_source
+     :members:

@@ -1,3 +1,6 @@
+"""
+**plot**: implementation of an observer for plotting waveforms 
+"""
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
@@ -10,14 +13,25 @@ from mimocorb.buffer_control import ObserverData
 matplotlib.use("TkAgg")
 
 def plot_graph(source_list=None, sink_list=None, observe_list=None, config_dict=None, **rb_info):
+    """
+    Plot waveform data from mimiCoRB buffer
+
+    :param input: configuration dictionary 
+
+      - plot_title: graphics title to be shown on graph
+      - min_sleeptime: time between updates
+      - sample_time_ns, channel_range, pretrigger_samples and analogue_offset
+        describe the waveform data as for oscilloscope setup
+    """
 
     # properties of data source
     source_dict = observe_list[0]
 
     # evaluate config dictionary
     plot_title = config_dict["title"]    
-    sample_time_ns = config_dict['sample_time_ns']
     min_sleeptime = 1.0 if "min_sleeptime" not in config_dict else config_dict["min_sleeptime"] 
+
+    sample_time_ns = config_dict['sample_time_ns']
     channel_range = 500 if 'channel_range' not in config_dict else \
             config_dict['channel_range']
     analogue_offset = 0. if 'analogue_offset' not in config_dict else \

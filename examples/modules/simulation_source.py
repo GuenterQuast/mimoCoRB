@@ -1,9 +1,27 @@
+"""
+**simulation_source**: Generate simulated wave form data
+"""
+
 from mimocorb.buffer_control import SourceToBuffer
 import numpy as np
 import sys, time
 
 def simulation_source(source_list=None, sink_list=None, observe_list=None, config_dict=None, **rb_info):
-    """Generate simulated data and pass data to class mimoCoRB.Source
+    """
+    Generate simulated data and pass data to buffer
+    The class mimocorb.buffer_control/SourceToBuffer is used to interface to the
+    newBuffer and Writer classes of the package mimoCoRB.mimo_buffer
+
+    :param config_dict: configuration dictionary
+
+      - events_required: number of events to be simulated or 0 for infinite 
+      - sleeptime: (mean) time between events
+      - random: random time between events according to a Poission process
+      - number_of_samples, sample_time_ns, pretrigger_samples and analogue_offset
+        describe the waveform data to be generated (as for oscilloscope setup) 
+
+    Internal parameters of the simulated physics process (the decay of a muon) 
+    are (presently) not exposed to user.         
     """
     
     # evaluate configuration dictionary
@@ -18,7 +36,7 @@ def simulation_source(source_list=None, sink_list=None, observe_list=None, confi
     pre_trigger_samples = config_dict["pre_trigger_samples"]
     analogue_offset_mv = config_dict["analogue_offset"]*1000.
 
-    plen = 400//sample_time_ns # 400 ns pulse windowd 
+    plen = 400//sample_time_ns # 400 ns pulse window
     tau = plen/4. # decay time of exponential pulse
     mn_position = pre_trigger_samples
     mx_position = number_of_samples - plen
@@ -39,7 +57,7 @@ def simulation_source(source_list=None, sink_list=None, observe_list=None, confi
         global event_count
 
         event_count +=1 
-        if event_count > events_required:
+        if events_required != 0 and event_count > events_required:
             sys.exit()
     
         # repect wait time (rate adjustment)
