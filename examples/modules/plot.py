@@ -85,6 +85,7 @@ def plot_graph(source_list=None, sink_list=None, observe_list=None, config_dict=
             pass # nothing to do 
     
     plotObserver = ObserverData(observe_list, config_dict, **rb_info)
+
     while True:
         data = next(plotObserver(), None)
         if data is not None:
