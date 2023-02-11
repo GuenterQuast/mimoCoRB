@@ -89,11 +89,11 @@ if __name__ == '__main__': # ---------------------------------------------------
             for RB_name, buffer in ringbuffers.items():
                 Nevents, n_filled, rate = buffer.buffer_status()
                 if RB_name == 'RB_1': Nprocessed = Nevents
-                buffer_status += ': '+ RB_name + " {:3d} ({:d}) {:.4g}Hz) ".format(n_filled, Nevents, rate)
+                buffer_status += ': '+ RB_name + " {:d} ({:d}) {:.3g}Hz) ".format(Nevents, n_filled, rate)
             print("Time remaining: {:.0f}s".format(now + runtime - time.time()) +
                 "  - buffers:" + buffer_status, end="\r")
-        # when done, first stop data taking          
-        bc.pause()
+        # when done, first stop data flow         
+        bc.set_ending()
         print("\n      Execution time: {:.2f}s -  Events processed: {:d}".format(
                        int(100*(time.time()-now))/100., Nprocessed) )
 
@@ -119,7 +119,7 @@ if __name__ == '__main__': # ---------------------------------------------------
                     run = False
                     break
         # stop data taking          
-        bc.pause()    
+        bc.set_ending()    
         print("\n      Execution time: {:.2f}s -  Events processed: {:d}".format(
                        int(100*(time.time()-now))/100., Nprocessed) )
         input("\n\n      Finished - type enter to exit -> ")

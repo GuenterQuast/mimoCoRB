@@ -207,13 +207,19 @@ class buffer_control():
           print(key, self.parallel_functions[key][0],
                 '('+str(self.parallel_functions[key][1])+')')        
     
+  def set_ending(self):
+      """stop writing and reading data, allow processes to finish
+      """
+      for nam, buf in self.ringbuffers.items():
+          buf.set_ending()
+
   def shutdown(self):
       """Delete buffers, stop processes by calling the shutdown()-Method of the buffer manager
       """
-      for name, buffer in self.ringbuffers.items():
-        print("Shutting down buffer ",name)
-        buffer.shutdown()
-        del buffer
+      for nam, buf in self.ringbuffers.items():
+        print("Shutting down buffer ",nam)
+        buf.shutdown()
+        del buf
 
       # > All worker processes should have terminated by now
       for p in self.process_list:

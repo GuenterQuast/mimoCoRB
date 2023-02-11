@@ -789,14 +789,21 @@ class NewBuffer:
     def pause(self):
         """Disable writing to buffer (paused)
         """
-        # Disable writing new data to the buffer 
-        self.writers_active.clear()
+        # Disable writing new data to the buffer
+        print(" !!! pause mode not yet implemented")
 
     def resume(self):
         """(Re)enable  writing to buffer (resume)
         """
-        # Disable writing new data to the buffer 
-        self.writers_active.set()    
+        # re-enable writing new data to the buffer 
+        print(" !!! resume mode not yet implemented")
+
+    def set_ending(self):
+       """ Stop data flow (before shut-down)
+       """
+       self.writers_active.clear()
+       time.sleep(0.5)
+       self.readers_active.clear()
         
     def shutdown(self):
         """Shut down the buffer, closing all backgorund threads, terminating all processes associated with it 
