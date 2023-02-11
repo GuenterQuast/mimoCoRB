@@ -16,7 +16,10 @@ sys.path.insert(0, os.path.abspath('../test/'))
 project = 'mimoCoRB'
 # copyright = '2023, G. Quast, K. Heitlinger'
 author = 'C. Mayer, K. Heitlinger, G. Quast'
-release = '1.0.'
+from mimocorb import __version__ as _release #! not on readthedocs.org
+_version = _release.split('.')[0] + '.' + _release.split('.')[1]
+release = _release
+version = _version
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

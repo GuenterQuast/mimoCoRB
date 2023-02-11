@@ -3,13 +3,13 @@ mimoCoRB - multiple-in multile-out Configurable Ring Buffer
 ===========================================================
 
 
-mimoCoRB Overview:
-------------------
+mimoCoRB -  multiple-in multile-out Configurable Ring Buffer: Overview
+----------------------------------------------------------------------
 
 **mimoCoRB**: multiple-in multiple-out Configurable Ring Buffer
 
 The package **mimoCoRB** provides a central component of each data acquisition
-system needed to record and pre-analyze data from randomly occurrig proceses.
+system needed to record and pre-analyze data from randomly occurrig processes.
 Typical examples are waveform data as provided by single-photon
 counters or typical detectors common in quantum mechanical measurements
 or in nuclear, particle physics and astro particle physics, e. g.
@@ -43,7 +43,7 @@ reduced format which only contains the parameters of found pulses.
 These data and the wave forms of all double-pulses are finally stored
 on disk. This application is a very typical example of the general
 process of on-line data processing in modern experiments and may
-serve as a starting point for own applictions.
+serve as a starting point for own applications.
 
 
 
