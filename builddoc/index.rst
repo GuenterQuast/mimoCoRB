@@ -394,6 +394,9 @@ Module Documentation
 ..  automodule:: mimocorb.buffer_control
      :members:
 
+..  automodule:: mimocorb.plot_buffer
+     :members:
+	
 ..  automodule:: rb_unittest
 
 ..  automodule:: simulation_source

@@ -1,0 +1,124 @@
+"""
+Collection of classes with graphics functions to plot buffer data
+"""
+import numpy as np
+import matplotlib.pyplot as plt, matplotlib.animation as anim
+import matplotlib.style as mplstyle
+from cycler import cycler
+import time
+
+class WaveformPlotter(object):
+    """
+    Oscilloscope-like display of wave from buffer data
+
+    The __call__ method of this class updates only the time-depenent
+    input data and returns the repective matplotlib line objects.
+    This supports matlotlib.animation.FuncAnimation as well as
+    as simpler approach implemented in method update_graph(). 
+    """
+
+    def __init__(self, conf_dict=None, dtypes=None, fig = None):
+        """
+        Oscilloscope-like display of wave from buffer data
+
+        :param input: configuration dictionary containing
+          - plot_title: graphics title to be shown on graph
+          - min_sleeptime: time between updates
+          - number_of_samples, sample_time_ns, channel_range, pretrigger_samples and
+            analogue_offset describing the waveform data as for oscilloscope setup
+        :param dtypes: names and data types of channels as 
+        :type dtypes: list of tuples [('name', dtype), ...] for each channel
+        :param fig: matplotlib figure object; a new one is created if None
+        """
+
+        self.conf_dict = conf_dict 
+        self.dtypes = dtypes
+
+        plot_title = '' if 'title' not in conf_dict else conf_dict["title"]    
+
+        # Create figure object if needed
+        if fig is None:
+           self.fig = plt.figure(plot_title, figsize=(6., 4.5))
+        else:
+           self.fig = fig
+                                
+        # evaluate config dictionary
+        sample_time_ns = self.conf_dict['sample_time_ns']
+        channel_range = 500 if 'channel_range' not in self.conf_dict else \
+            self.conf_dict['channel_range']
+        self.analogue_offset = 0. if 'analogue_offset' not in self.conf_dict else \
+            1000.*self.conf_dict['analogue_offset']
+        pre_trigger_samples = 0. if 'pre_trigger_samples' not in self.conf_dict else \
+            self.conf_dict['pre_trigger_samples']
+        pre_trigger_ns = pre_trigger_samples * sample_time_ns
+        plot_length = self.conf_dict['number_of_samples']
+        total_time_ns = plot_length * sample_time_ns
+
+        self.min_sleeptime = 1.0 if "min_sleeptime" not in self.conf_dict else \
+            self.conf_dict["min_sleeptime"] 
+
+        # Create static part of figure
+        self.x_linspace = np.linspace(-pre_trigger_ns, total_time_ns - pre_trigger_ns,
+                                      plot_length, endpoint=False)
+        # skip iStep points when plotting data, resulting in 125 - 249 points 
+        self.iStep = len(self.x_linspace)//250 + 1 
+        self.ax = self.fig.add_subplot(1, 1, 1)
+        self.fig.subplots_adjust(hspace=0.4)
+        self.ax.set_title(plot_title) 
+        self.ax.set_xlim(-pre_trigger_samples*sample_time_ns, 
+                 (plot_length-pre_trigger_samples)*sample_time_ns)
+        self.ax.set_xlabel('Time (ns)')
+        self.ax.set_ylim(-channel_range - self.analogue_offset,
+                  channel_range - self.analogue_offset)
+        self.ax.set_ylabel('Signal (mV)')
+        self.ax.grid(color='grey', linestyle='--', linewidth=0.5)
+        
+        mplstyle.use('fast')
+        plt.style.context("seaborn")
+        color_cycler = cycler(color=['blue', 'green', 'red', 'tab:orange'])
+        self.ax.set_prop_cycle(color_cycler)
+        self.ax.axvline(0., linestyle = ':', color='darkblue') # trigger time
+
+        self.bg = self.fig.canvas.copy_from_bbox(self.ax.bbox)
+        
+        # line objects to be animated, i.e. updated in __call__()
+        self.channel_lines = []
+        for dtype_name, dtype_type in self.dtypes:
+            line, = self.ax.plot( self.x_linspace[::self.iStep],
+                                  np.zeros_like(self.x_linspace)[::self.iStep],
+                                  marker='', linestyle='-', lw=1.5, alpha=0.5,
+                                  label=dtype_name)
+            self.channel_lines.append(line)            
+        self.ax.legend(loc="upper right")
+
+    def init(self):
+        """plot initial line objects to be animated
+        """ 
+        return self.channel_lines
+
+    def __call__(self, data):
+        """
+        Update graphics
+        """
+        for i, line in enumerate(self.channel_lines):
+            line.set_ydata(data[::self.iStep][self.dtypes[i][0]]
+                           - self.analogue_offset)
+        return self.channel_lines
+
+
+    def update_graph(self):
+        """"
+        alternative method to produce an animation of updating waveforms
+        """
+
+        # Use blitting to speed things up (we just want to redraw the line)
+        self.fig.canvas.restore_region(self.bg)
+
+        for line in self.channel_lines:
+            self.ax.draw_artist(line)
+            # Finish the blitting process
+            self.fig.canvas.blit(self.ax.bbox)    
+        plt.pause(min(0.2, self.min_sleeptime))
+        time.sleep(self.min_sleeptime)
+
+# <<- end class WaveformPlotter

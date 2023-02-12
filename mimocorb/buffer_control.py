@@ -223,8 +223,8 @@ class buffer_control():
 
       # > All worker processes should have terminated by now
       for p in self.process_list:
-          if p.is_alive(): print("waiting 5s for process ", p.name, " to finish") 
-          p.join(5.)        
+          if p.is_alive(): print("waiting 3s for process ", p.name, " to finish") 
+          p.join(3.)        
 
       # force temination of remaining processes    
       for p in self.process_list:
