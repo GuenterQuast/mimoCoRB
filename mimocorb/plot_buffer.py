@@ -7,14 +7,16 @@ import matplotlib.style as mplstyle
 from cycler import cycler
 import time
 
+# access to mimiCoRB Observer class
+from .buffer_control import ObserverData
+
+
 class WaveformPlotter(object):
     """
     Oscilloscope-like display of wave from buffer data
 
     The __call__ method of this class updates only the time-depenent
-    input data and returns the repective matplotlib line objects.
-    This supports matlotlib.animation.FuncAnimation as well as
-    as simpler approach implemented in method update_graph(). 
+    input data and redraws the figure.
     """
 
     def __init__(self, conf_dict=None, dtypes=None, fig = None):
@@ -103,17 +105,9 @@ class WaveformPlotter(object):
         for i, line in enumerate(self.channel_lines):
             line.set_ydata(data[::self.iStep][self.dtypes[i][0]]
                            - self.analogue_offset)
-        return self.channel_lines
-
-
-    def update_graph(self):
-        """"
-        alternative method to produce an animation of updating waveforms
-        """
-
-        # Use blitting to speed things up (we just want to redraw the line)
+        # update graphics using  blitting to speed things up
+        #        (just redraw lines)
         self.fig.canvas.restore_region(self.bg)
-
         for line in self.channel_lines:
             self.ax.draw_artist(line)
             # Finish the blitting process
@@ -122,3 +116,44 @@ class WaveformPlotter(object):
         time.sleep(self.min_sleeptime)
 
 # <<- end class WaveformPlotter
+
+class plotWaveformBuffer():
+    """
+    Plot data using an mimiCoRB Observer 
+    """    
+    import matplotlib
+    import matplotlib.pyplot as plt, matplotlib.animation as anim
+
+    def __init__(self, source_list=None, sink_list=None, observe_list=None, config_dict=None, **rb_info):
+        """
+        Plot waveform data from mimiCoRB buffer
+
+        :param input: configuration dictionary 
+
+          - plot_title: graphics title to be shown on graph
+          - min_sleeptime: time between updates
+          - sample_time_ns, channel_range, pretrigger_samples and analogue_offset
+            describe the waveform data as for oscilloscope setup
+        """
+
+        # access to buffer data
+        self.data_reader = ObserverData(observe_list, config_dict, **rb_info)
+        self.active_event = self.data_reader.source._active
+
+        self.source_dict = observe_list[0]
+        self.osciplot = WaveformPlotter(conf_dict=config_dict, dtypes=self.source_dict['dtype'])
+
+    def __call__(self):
+        
+        # animate graphics
+        plt.ion()
+        plt.show()
+        while self.active_event.is_set():
+           data = next(self.data_reader(), None)
+           if data is not None:
+              channel_lines = self.osciplot(data) # update graphics
+           else:
+              # end if data generator is exhausted or deleted
+              break
+        # done, exit  
+        raise SystemExit
