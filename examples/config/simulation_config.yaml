@@ -1,4 +1,5 @@
-# Dict with uid's as key and a nested dict with configuration variables
+# Dictionaries for muon life time measurement
+#
 general:
   runtime: 10
   number_of_samples: &number_of_samples 4250
@@ -21,7 +22,7 @@ calculate_decay_time:
   number_of_samples: *number_of_samples
   sample_time_ns: *sample_time_ns
   pre_trigger_samples: *pre_trigger_samples
-  #TODO: Change the values below to the stretch values calculated with the spectrum.txt
+  #TODO: adjust the scaling factors to values obtained from spectrum measurements
   chA_scaling: 1.00  # Scaling factor to match trigger thresholds for each panel
   chB_scaling: 1.00  # Scaling factor to match trigger thresholds for each panel
   chC_scaling: 1.00  # Scaling factor to match trigger thresholds for each panel

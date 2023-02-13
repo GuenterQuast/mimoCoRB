@@ -402,7 +402,10 @@ Module Documentation
 ..  automodule:: simulation_source
      :members:
 
-..  automodule:: plot
+..  automodule:: lifetime_filter
+     :members:
+
+..  automodule:: plot_waveform
      :members:
 
 ..  automodule:: read_from_buffer
