@@ -1,6 +1,7 @@
 """
 Collection of classes with graphics functions to plot buffer data
 """
+
 import numpy as np
 import matplotlib.pyplot as plt, matplotlib.animation as anim
 import matplotlib.style as mplstyle
@@ -102,15 +103,17 @@ class WaveformPlotter(object):
         """
         Update graphics
         """
+        # update variable graphics elements
         for i, line in enumerate(self.channel_lines):
             line.set_ydata(data[::self.iStep][self.dtypes[i][0]]
                            - self.analogue_offset)
-        # update graphics using  blitting to speed things up
+
+        # draw variable graphics elements using  blitting to speed things up
         #        (just redraw lines)
         self.fig.canvas.restore_region(self.bg)
         for line in self.channel_lines:
             self.ax.draw_artist(line)
-            # Finish the blitting process
+            # finish the blitting process
             self.fig.canvas.blit(self.ax.bbox)    
         plt.pause(min(0.2, self.min_sleeptime))
         time.sleep(self.min_sleeptime)
@@ -143,11 +146,13 @@ class plotWaveformBuffer():
         self.source_dict = observe_list[0]
         self.osciplot = WaveformPlotter(conf_dict=config_dict, dtypes=self.source_dict['dtype'])
 
+        # initialize graphics        
+        plt.ion()
+        plt.show()
+
     def __call__(self):
         
         # animate graphics
-        plt.ion()
-        plt.show()
         while self.active_event.is_set():
            data = next(self.data_reader(), None)
            if data is not None:

@@ -5,6 +5,18 @@ Buffer creation and management is handled by the ``NewBuffer``-class, access to
 the buffer content is handeled by the ``Reader``\ , ``Writer``\ and ``Observer`` 
 classes.
 
+classes: 
+
+  - NewBuffer: create a new buffer, assign writer(s) and reader(s) or observer(s)
+
+      methods: 
+        
+       - new_reader_group
+
+  - Writer
+  - Reader
+  - Observer
+
 """
 
 from distutils.log import debug
@@ -18,421 +30,7 @@ import asyncio
 import time
 import os
 
-
-class Reader:
-    """    
-    Class to read elements from a buffer.
-
-    The buffer may be created, filled and read by different processes.
-    Buffer elements are structured NumPy arrays and strictly **read-only**, the
-    returned array won't change until the next ``Reader.get()`` call, blocking
-    the buffer slot for the time beeing. So a program design quickly processing
-    the buffer content and calling ``Reader.get()`` again as soon as possible is
-    highly advised. 
-    """
-
-    def __init__(self, setup_dict):
-        """
-        Constructor to create a ``Reader``-object (typically called *source*\ ), granting access to the
-        buffer specified within the ``setup_dict`` parameter.
-
-        :param setup_dict: The setup dictionary for the *reader group* this instance is a part of.
-            The setup dictionary can be obtained by calling ``NewBuffer.new_reader_group()`` in 
-            this instances' parent process. Sharing the same setup dictionary between multiple 
-            reader processes distributes the elements between each process in the group (so every 
-            buffer element is processed by the group, but only one process of the group ever gets 
-            one particular element. Load balancing between processes is done on a 'first come 
-            first serve' basis, if multiple processes wait on new elements, the allocation is
-            managed by the scheduler of the host OS)
-        """
-        
-        # Get buffer configuration from setup dictionary
-        self.number_of_slots = setup_dict["number_of_slots"]
-        self.values_per_slot = setup_dict["values_per_slot"]
-        self.dtype = setup_dict["dtype"]
-        # Connect the shared memory for data and metadata and map it into a NumPy array
-        self._m_share = shared_memory.SharedMemory(name=setup_dict["mshare_name"])
-        array_shape = (self.number_of_slots, self.values_per_slot)
-        self._buffer = np.ndarray(shape=array_shape, dtype=self.dtype, buffer=self._m_share.buf)
-        # TODO: make self._buffer read only and test it
-        # self._buffer.flags.writeable = False
-        self._metadata_share = shared_memory.SharedMemory(name=setup_dict["metadata_share_name"])
-        self.metadata_dtype = [('counter', np.longlong), ('timestamp', np.float64), ('deadtime', np.float64)]
-        self._metadata = np.ndarray(shape=self.number_of_slots, dtype=self.metadata_dtype, buffer=self._metadata_share.buf)
-
-        # Get queues for IPC with the buffer manager 
-        self._todo_queue = setup_dict["todo_queue"]
-        self._done_queue = setup_dict["done_queue"]
-
-        # Setup class status variables
-        self._last_get_index = None
-        self._active = setup_dict["active"]
-        self._debug = setup_dict["debug"]
-        if self._debug:
-            print( " > DEBUG: Reader created (PID: {:d})".format(os.getpid()))
-
-    def __del__(self):
-        """
-        Destructor of the reader class
-        """
-        if self._debug:
-            print( " > DEBUG: Reader destructor called (PID: {:d})".format(os.getpid()))
-        # Clean up queue (since there is no further processing done on the current element)
-        if self._last_get_index is not None:
-            self._done_queue.put(self._last_get_index)
-        # Clean up shared memory
-        del self._buffer
-        self._m_share.close()
-        del self._metadata
-        self._metadata_share.close()
-
-    def get(self):
-        """Get a new element from the buffer, marking the last element obtained by calling
-            this function as "processing is done". No memory views of old elements may be 
-            accessed after calling this function (memory might change, be corrupted or 
-            be inconsistent). This function blocks if there are no new elements in the 
-            buffer.
-
-        :raises SystemExit: If the ``shutdown()``-method of the ``NewBuffer`` object was
-            called, a SystemExit is raised, terminating the process this ``Reader``-object
-            was created in.
-        :return: One element (structured numpy.ndarray) from the buffer as specified in 
-            the dtype of the ``NewBuffer()``-object. All returned elements have not yet
-            been processed by a process of this *reader group*. 
-        :rtype: numpy.ndarray
-        """
-        # Mark the last element as ready to be overwritten
-        if self._last_get_index is not None:
-            self._done_queue.put(self._last_get_index)
-        self._last_get_index = None
-        # Only return a buffer if the index is valid!
-        while self._last_get_index is None:
-            self._last_get_index = self._todo_queue.get()
-            # Check if the parent buffer has been 'shutdown()'. 
-            # If yes, end this process
-            if not self._active.is_set():
-                raise SystemExit
-        # Create a memory view of the buffer element's array index and
-        # return it for further processing
-#        return self._buffer[self._last_get_index, :]
-        return self._buffer[self._last_get_index]
-
-    def get_metadata(self):
-        """Get the metadata corresponding to the latest element obtained by calling the 
-        ``Reader.get()``-method.
-
-        :return: Returned is a 3-tuple with ``(counter, timestamp , deadtime)``
-            of the latest element obtained from the buffer. The content of these
-            variables is filled by the ``Writer``-process (so may be changed), 
-            but convention is:
-
-          -  counter (int): a unique, 0 based, consecutive integer referencing this element            
-          -  timestamp (float): the UTC timestamp
-          -  deadtime (float): In a live-data environment, the dead time of the first 
-             writer in the analyses chain. This is meant to be the fraction of dead
-             time to active data capturing time (so 0.0 = no dead time whatsoever;
-             0.99 = only 1% of the time between this and the last element was spent
-             with active data capturing)
-        :rtype: tuple
-        """
-        if self._last_get_index is not None:
-            timestamp = self._metadata[self._last_get_index]['timestamp']
-            counter = self._metadata[self._last_get_index]['counter']
-            deadtime = self._metadata[self._last_get_index]['deadtime']
-            return counter, timestamp, deadtime
-        else:
-            return 0, -1, -1
-
-
-class Writer:
-    """
-    Class to write elements into a buffer.
-
-    The buffer may be created, filled and read by different processes.
-    Buffer elements are structured NumPy arrays and may only be written to 
-    until ``Writer.process_buffer()`` is called or ``Writer.get_new_buffer()``
-    has been called again. The buffer slot is blocked while writes to the NumPy
-    array are permitted, so a program design quickly writing the buffer content 
-    and calling ``Writer.process_buffer()`` or ``Writer.get_new_buffer()`` again 
-    as soon as possible is highly advised. 
-    """
-
-    def __init__(self, setup_dict):
-        """
-        Constructor to create a ``Writer``-object (typically called *sink*\ ), granting access to the
-        buffer specified within the ``setup_dict`` parameter.
-
-        :param setup_dict: The setup dictionary for the *writer* this instance is a part of.
-            The setup dictionary can be obtained by calling ``NewBuffer.new_writer()`` in 
-            this instances' parent process. Sharing the same setup dictionary between multiple 
-            writer processes is possible, calling ``NewBuffer.new_writer()`` multiple times is
-            allowed as well. Load balancing between processes is done on a 'first come first 
-            serve' basis, if multiple processes wait for new free spots, the allocation is 
-            managed by the scheduler of the host OS)
-        """
-        # Get buffer configuration from setup dictionary
-        self.number_of_slots = setup_dict["number_of_slots"]
-        self.values_per_slot = setup_dict["values_per_slot"]
-        self.dtype = setup_dict["dtype"]
-        # Connect the shared memory for data and metadata and map it into a NumPy array
-        self._m_share = shared_memory.SharedMemory(name=setup_dict["mshare_name"])
-        array_shape = (self.number_of_slots, self.values_per_slot)
-        self._buffer = np.ndarray(shape=array_shape, dtype=self.dtype, buffer=self._m_share.buf)
-        self._metadata_share = shared_memory.SharedMemory(name=setup_dict["metadata_share_name"])
-        metadata_dtype = [('counter', np.longlong), ('timestamp', np.float64), ('deadtime', np.float64)]
-        self._metadata = np.ndarray(shape=self.number_of_slots, dtype=metadata_dtype, buffer=self._metadata_share.buf)
-
-        # Get queues for IPC with the buffer manager 
-        self._empty_queue = setup_dict["empty_queue"]
-        self._filled_queue = setup_dict["filled_queue"]
-
-        # Setup class status variables
-        self._current_buffer_index = None
-        self._write_counter = 0
-        self._active = setup_dict["active"]
-        self.start_time = time.time_ns()
-        self._debug = setup_dict["debug"]
-        if self._debug:
-            print( " > DEBUG: Writer created (PID: {:d})".format(os.getpid()))
-
-    def __del__(self):
-        """
-        Destructor of the reader class
-        """
-        if self._debug:
-            print( " > DEBUG: Writer destructor called (PID: {:d})".format(os.getpid()))
-        # Clean up memory share
-        del self._buffer
-        self._m_share.close()
-        del self._metadata
-        self._metadata_share.close()
-
-    def get_new_buffer(self):
-        """Get a new free spot in the buffer, marking the last element obtained by calling
-            this function as "ready to be processed". No memory views of old elements may be 
-            accessed after calling this function. This function blocks if there are no free
-            spots in the buffer, always returning a valid NumPy array to be written to.
-
-        :raises SystemExit: If the ``shutdown()``-method of the ``NewBuffer`` object was
-            called, a SystemExit is raised, terminating the process this ``Writer``-object
-            was created in.
-        :return: One free buffer slot (structured numpy.ndarray) as specified in the dtype 
-            of the ``NewBuffer()``-object. Free elements may contain older data, but this
-            can be safely overwritten
-        :rtype: numpy.ndarray
-        """
-        if self._current_buffer_index is not None:
-            self.process_buffer()
-        # Only return buffer if index is valid!
-        self._current_buffer_index = None
-        while self._current_buffer_index is None:
-            self._current_buffer_index = self._empty_queue.get()
-            if not self._active.is_set():
-                raise SystemExit
-        # Set dummy metadata (to overwrite old metadata in this slot)
-        self._metadata[self._current_buffer_index]['timestamp'] = -1
-        self._metadata[self._current_buffer_index]['counter'] = self._write_counter
-        self._metadata[self._current_buffer_index]['deadtime'] = -1
-        self._write_counter += 1
-#        return self._buffer[self._current_buffer_index, :]
-        return self._buffer[self._current_buffer_index]
-
-    def set_metadata(self, counter, timestamp, deadtime):
-        """Set the metadata corresponding to the current buffer element.
-        If there is no current buffer element (because ``process_buffer()`` has been 
-        called or ``get_new_buffer()`` has not been called yet), nothing happens.
-        Copying metadata from a ``Reader`` to a ``Writer`` object (called ``source`` 
-        and ``sink``) can be done with:
-
-            ``sink.set_metadata(*source.get_metadata())``
-
-        :param counter: a unique, 0 based, consecutive integer referencing this 
-            element    
-        :type counter: integer (np.longlong)
-        :param timestamp: the UTC timestamp
-        :type timestamp: float (np.float64)
-        :param deadtime: In a live-data environment, the dead time of the first 
-            writer in the analyses chain. This is meant to be the fraction of dead
-            time to active data capturing time (so 0.0 = no dead time whatsoever;
-            0.99 = only 1% of the time between this and the last element was spent 
-            with active data capturing)
-        :type deadtime: float (np.float64)
-        """
-        if self._current_buffer_index is not None:
-            self._metadata[self._current_buffer_index]['counter'] = counter
-            self._metadata[self._current_buffer_index]['timestamp'] = timestamp
-            self._metadata[self._current_buffer_index]['deadtime'] = deadtime
-
-    def process_buffer(self):
-        """Mark the current element as "ready to be processed". The content of the array 
-        MUST NOT be changed after calling this function. If there is no current element, 
-        nothing happens.
-        As the ring buffer slot is blocked while writing to the NumPy array obtained by
-        calling ``Writer.get_new_buffer()`` is allowed, it is highly advised to call 
-        ``Writer.process_buffer()`` as soon as possible to unblock the the ring buffer.
-
-        :return: Nothing
-        """
-        if self._current_buffer_index is not None:
-            if self._metadata[self._current_buffer_index]['timestamp'] == -1:
-                self._metadata[self._current_buffer_index]['timestamp'] = time.time_ns()//1000
-            self._filled_queue.put(self._current_buffer_index)
-            self._current_buffer_index = None
-
-
-class Observer:
-    """
-    Class to read select elements from a buffer.
-
-    The buffer may be created, filled and read by different processes.
-    Buffer elements are structured NumPy arrays, the returned array won't change 
-    until the next ``Observer.get()`` call, *not* blocking the buffer slot for the 
-    time beeing. 
-    Interfaces with the buffer manager via web socket (better error resilience 
-    compared to ``multiprocessing.SimpleQueue`` )
-    """
-
-    def __init__(self, setup_dict):
-        """Constructor to create an ``Observer``-object (typically called *source*\ ), 
-            granting access to the  buffer specified within the ``setup_dict`` parameter.
-
-        :param setup_dict: The setup dictionary for the *observer* this instance is a part of.
-            The setup dictionary can be obtained by calling ``NewBuffer.new_observer()`` in 
-            this instances' parent process. Sharing the same setup dictionary between multiple 
-            observer processes is possible, calling ``NewBuffer.new_observer()`` multiple times is
-            allowed as well.
-        """
-        # Get buffer configuration from setup dictionary
-        self.number_of_slots = setup_dict["number_of_slots"]
-        self.values_per_slot = setup_dict["values_per_slot"]
-        self.dtype = setup_dict["dtype"]
-        # Connect the shared memory for data and metadata and map it into a NumPy array
-        self._m_share = shared_memory.SharedMemory(name=setup_dict["mshare_name"])
-        array_shape = (self.number_of_slots, self.values_per_slot)
-        self._buffer = np.ndarray(shape=array_shape, dtype=self.dtype, buffer=self._m_share.buf)
-        self._copy_buffer = np.array(self.values_per_slot, dtype=self.dtype)
-
-        # Setup class status variables
-        self._last_get_index = -1
-        self._active = setup_dict["active"]
-        self._debug = setup_dict["debug"]
-
-        # Setup websocket uri and prepare an asycio event loop in a different thread
-        # to allow a blocking main thread (as often encountered with typical window 
-        # render framworks)
-        self.uri = "ws://localhost:{:d}".format(setup_dict["ws_port"])
-        self.event_loop = asyncio.new_event_loop()
-
-        # Setup internal thread structures
-        self._copy_lock = threading.Lock()
-        self._new_element = threading.Event()
-        self._new_element.clear()
-        self._event_loop_thread = threading.Thread(target=self.event_loop_executor, args=(self.event_loop,), name="Event loop thread")
-        self._event_loop_thread.start()
-        self.connection_established = threading.Event()
-        self.connection_established.clear()
-        # self.connection_future = 
-        asyncio.run_coroutine_threadsafe(self.establish_connection(), self.event_loop)
-        # self.check_active_future = 
-        asyncio.run_coroutine_threadsafe(self.check_active_state(), self.event_loop)
-        self.connection_established.wait()
-        if self._debug:        
-            print( " > DEBUG: Observer created (PID: {:d})".format(os.getpid()))
-
-    def __del__(self):
-        """
-        Destructor of the ``Observer`` object
-        """
-        if self._debug:
-            print( " > DEBUG: Observer destructor called (PID: {:d})".format(os.getpid()))
-        # The event loop should be stopped by now
-        try: 
-           self._event_loop_thread.join()
-        except:
-            pass
-        # Clean up Get()-event in case it got stuck
-        self._last_get_index = -1
-        self._new_element.set()
-        # Clean up memory share
-        del self._buffer
-        del self._copy_buffer
-        self._m_share.close()
-
-    def event_loop_executor(self, loop: asyncio.AbstractEventLoop) -> None:
-        """Internal function executing the event loop for the websocket connection 
-            in a different thread.
-        """
-        asyncio.set_event_loop(loop)
-        try:
-            loop.run_forever()
-        finally:
-            loop.run_until_complete(loop.shutdown_asyncgens())
-            loop.close()
-            if self._debug:
-                print(" > DEBUG: Observer.event_loop_executor() ended")
-            del loop
-
-    async def establish_connection(self) -> None:
-        """Internal asyncio function establishing the websocket connection with
-            the buffer manager in the main process (used for IPC)
-        """
-        # async with ws.connect(self.uri) as my_ws:
-        #     print("  >>> successfull ws connction ", my_ws)
-        #     self._my_ws = my_ws
-        #     await self._my_ws.send("get")
-        #     print("  >>> test call: ", await my_ws.recv())
-        #     self.connection_established.set()
-        #     await asyncio.Future
-        self._my_ws = await ws.connect(self.uri)
-        await self._my_ws.send("get")
-        self.connection_established.set()
-
-    async def get_new_index(self) -> None:
-        """Internal asyncio function to query the index of the latest buffer slot
-            from the buffer manager
-        """
-        await self._my_ws.send("get")
-        recv = await self._my_ws.recv()
-        idx = int(recv)
-        self._last_get_index = idx
-        self._new_element.set()
-
-    async def check_active_state(self) -> None:
-        """Internal asyncio function to check if ``NewBuffer.shutdown()`` was called
-            in the main process
-        """
-        while self._active.is_set():
-            await asyncio.sleep(0.5)
-        if self._debug:
-            print(" > DEBUG: Observer received shutdown signal (PID: {:d})".format(os.getpid()))
-        await self._my_ws.close()
-        await self._my_ws.wait_closed()
-        self.event_loop.stop()
-        
-
-    def get(self):
-        """Get a copy of the latest element added to the buffer by a ``Writer`` process.
-        
-        :return: One element (structured numpy.ndarray) from the buffer as specified in 
-            the dtype of the ``NewBuffer()``\ -object.
-        :rtype: numpy.ndarray
-        """
-        # if not self._active.is_set():
-            # raise SystemExit
-        self._new_element.clear()
-        asyncio.run_coroutine_threadsafe(self.get_new_index(), self.event_loop)
-        self._new_element.wait()
-        if self._last_get_index == -1:
-            # This should only happen while shutting down, so to avoid truble the last local buffer
-            # copy is returned again 
-            pass
-        else:
-            with self._copy_lock:
-                self._copy_buffer = np.array(self._buffer[self._last_get_index, :], copy=True)
-            self._last_get_index = -1
-        return self._copy_buffer
-
-
+    
 class NewBuffer:
     """Class to create a new 'FIFO' buffer object (typically called in the host/parent process).
 
@@ -449,8 +47,9 @@ class NewBuffer:
        - new_reader_group()  create reader group
        - new_observer()      create observer
        - buffer_status()     display status: event count, processing rate, occupied slots
-       - pause()             disable writers
+       - pause()             disable writer(s) to buffer 
        - resume()            (re-)enable writers
+       - set_ending()        stop data-taking (gives processes time to finish before shutdown)
        - shutdown()          end connected processes, delete buffer
 
     """
@@ -868,3 +467,436 @@ class NewBuffer:
         self.m_share.unlink()
         self.m_metadata_share.close()
         self.m_metadata_share.unlink()
+
+# <<-- end class NewBuffer
+
+class Writer:
+    """
+    Class to write elements into a buffer.
+
+    The buffer may be created, filled and read by different processes.
+    Buffer elements are structured NumPy arrays and may only be written to 
+    until ``Writer.process_buffer()`` is called or ``Writer.get_new_buffer()``
+    has been called again. The buffer slot is blocked while writes to the NumPy
+    array are permitted, so a program design quickly writing the buffer content 
+    and calling ``Writer.process_buffer()`` or ``Writer.get_new_buffer()`` again 
+    as soon as possible is highly advised. 
+
+    methods:
+
+      - get_new_buffer()
+      - set_metadata()
+      - process_buffer()
+
+    """
+
+    def __init__(self, setup_dict):
+        """
+        Constructor to create a ``Writer``-object (typically called *sink*\ ), granting access to the
+        buffer specified within the ``setup_dict`` parameter.
+
+        :param setup_dict: The setup dictionary for the *writer* this instance is a part of.
+            The setup dictionary can be obtained by calling ``NewBuffer.new_writer()`` in 
+            this instances' parent process. Sharing the same setup dictionary between multiple 
+            writer processes is possible, calling ``NewBuffer.new_writer()`` multiple times is
+            allowed as well. Load balancing between processes is done on a 'first come first 
+            serve' basis, if multiple processes wait for new free spots, the allocation is 
+            managed by the scheduler of the host OS)
+        """
+        # Get buffer configuration from setup dictionary
+        self.number_of_slots = setup_dict["number_of_slots"]
+        self.values_per_slot = setup_dict["values_per_slot"]
+        self.dtype = setup_dict["dtype"]
+        # Connect the shared memory for data and metadata and map it into a NumPy array
+        self._m_share = shared_memory.SharedMemory(name=setup_dict["mshare_name"])
+        array_shape = (self.number_of_slots, self.values_per_slot)
+        self._buffer = np.ndarray(shape=array_shape, dtype=self.dtype, buffer=self._m_share.buf)
+        self._metadata_share = shared_memory.SharedMemory(name=setup_dict["metadata_share_name"])
+        metadata_dtype = [('counter', np.longlong), ('timestamp', np.float64), ('deadtime', np.float64)]
+        self._metadata = np.ndarray(shape=self.number_of_slots, dtype=metadata_dtype, buffer=self._metadata_share.buf)
+
+        # Get queues for IPC with the buffer manager 
+        self._empty_queue = setup_dict["empty_queue"]
+        self._filled_queue = setup_dict["filled_queue"]
+
+        # Setup class status variables
+        self._current_buffer_index = None
+        self._write_counter = 0
+        self._active = setup_dict["active"]
+        self.start_time = time.time_ns()
+        self._debug = setup_dict["debug"]
+        if self._debug:
+            print( " > DEBUG: Writer created (PID: {:d})".format(os.getpid()))
+
+    def __del__(self):
+        """
+        Destructor of the reader class
+        """
+        if self._debug:
+            print( " > DEBUG: Writer destructor called (PID: {:d})".format(os.getpid()))
+        # Clean up memory share
+        del self._buffer
+        self._m_share.close()
+        del self._metadata
+        self._metadata_share.close()
+
+    def get_new_buffer(self):
+        """Get a new free spot in the buffer, marking the last element obtained by calling
+            this function as "ready to be processed". No memory views of old elements may be 
+            accessed after calling this function. This function blocks if there are no free
+            spots in the buffer, always returning a valid NumPy array to be written to.
+
+        :raises SystemExit: If the ``shutdown()``-method of the ``NewBuffer`` object was
+            called, a SystemExit is raised, terminating the process this ``Writer``-object
+            was created in.
+        :return: One free buffer slot (structured numpy.ndarray) as specified in the dtype 
+            of the ``NewBuffer()``-object. Free elements may contain older data, but this
+            can be safely overwritten
+        :rtype: numpy.ndarray
+        """
+        if self._current_buffer_index is not None:
+            self.process_buffer()
+        # Only return buffer if index is valid!
+        self._current_buffer_index = None
+        while self._current_buffer_index is None:
+            self._current_buffer_index = self._empty_queue.get()
+            if not self._active.is_set():
+                raise SystemExit
+        # Set dummy metadata (to overwrite old metadata in this slot)
+        self._metadata[self._current_buffer_index]['timestamp'] = -1
+        self._metadata[self._current_buffer_index]['counter'] = self._write_counter
+        self._metadata[self._current_buffer_index]['deadtime'] = -1
+        self._write_counter += 1
+#        return self._buffer[self._current_buffer_index, :]
+        return self._buffer[self._current_buffer_index]
+
+    def set_metadata(self, counter, timestamp, deadtime):
+        """Set the metadata corresponding to the current buffer element.
+        If there is no current buffer element (because ``process_buffer()`` has been 
+        called or ``get_new_buffer()`` has not been called yet), nothing happens.
+        Copying metadata from a ``Reader`` to a ``Writer`` object (called ``source`` 
+        and ``sink``) can be done with:
+
+            ``sink.set_metadata(*source.get_metadata())``
+
+        :param counter: a unique, 0 based, consecutive integer referencing this 
+            element    
+        :type counter: integer (np.longlong)
+        :param timestamp: the UTC timestamp
+        :type timestamp: float (np.float64)
+        :param deadtime: In a live-data environment, the dead time of the first 
+            writer in the analyses chain. This is meant to be the fraction of dead
+            time to active data capturing time (so 0.0 = no dead time whatsoever;
+            0.99 = only 1% of the time between this and the last element was spent 
+            with active data capturing)
+        :type deadtime: float (np.float64)
+        """
+        if self._current_buffer_index is not None:
+            self._metadata[self._current_buffer_index]['counter'] = counter
+            self._metadata[self._current_buffer_index]['timestamp'] = timestamp
+            self._metadata[self._current_buffer_index]['deadtime'] = deadtime
+
+    def process_buffer(self):
+        """Mark the current element as "ready to be processed". The content of the array 
+        MUST NOT be changed after calling this function. If there is no current element, 
+        nothing happens.
+        As the ring buffer slot is blocked while writing to the NumPy array obtained by
+        calling ``Writer.get_new_buffer()`` is allowed, it is highly advised to call 
+        ``Writer.process_buffer()`` as soon as possible to unblock the the ring buffer.
+
+        :return: Nothing
+        """
+        if self._current_buffer_index is not None:
+            if self._metadata[self._current_buffer_index]['timestamp'] == -1:
+                self._metadata[self._current_buffer_index]['timestamp'] = time.time_ns()//1000
+            self._filled_queue.put(self._current_buffer_index)
+            self._current_buffer_index = None
+
+# <<-- end class Writer
+
+class Reader:
+    """    
+    Class to read elements from a buffer.
+
+    The buffer may be created, filled and read by different processes.
+    Buffer elements are structured NumPy arrays and strictly **read-only**, the
+    returned array won't change until the next ``Reader.get()`` call, blocking
+    the buffer slot for the time beeing. So a program design quickly processing
+    the buffer content and calling ``Reader.get()`` again as soon as possible is
+    highly advised. 
+
+    methods: 
+
+      - get()
+      - get_metadata():
+
+    """
+
+    def __init__(self, setup_dict):
+        """
+        Constructor to create a ``Reader``-object (typically called *source*\ ), granting access to the
+        buffer specified within the ``setup_dict`` parameter.
+
+        :param setup_dict: The setup dictionary for the *reader group* this instance is a part of.
+            The setup dictionary can be obtained by calling ``NewBuffer.new_reader_group()`` in 
+            this instances' parent process. Sharing the same setup dictionary between multiple 
+            reader processes distributes the elements between each process in the group (so every 
+            buffer element is processed by the group, but only one process of the group ever gets 
+            one particular element. Load balancing between processes is done on a 'first come 
+            first serve' basis, if multiple processes wait on new elements, the allocation is
+            managed by the scheduler of the host OS)
+        """
+        
+        # Get buffer configuration from setup dictionary
+        self.number_of_slots = setup_dict["number_of_slots"]
+        self.values_per_slot = setup_dict["values_per_slot"]
+        self.dtype = setup_dict["dtype"]
+        # Connect the shared memory for data and metadata and map it into a NumPy array
+        self._m_share = shared_memory.SharedMemory(name=setup_dict["mshare_name"])
+        array_shape = (self.number_of_slots, self.values_per_slot)
+        self._buffer = np.ndarray(shape=array_shape, dtype=self.dtype, buffer=self._m_share.buf)
+        # TODO: make self._buffer read only and test it
+        # self._buffer.flags.writeable = False
+        self._metadata_share = shared_memory.SharedMemory(name=setup_dict["metadata_share_name"])
+        self.metadata_dtype = [('counter', np.longlong), ('timestamp', np.float64), ('deadtime', np.float64)]
+        self._metadata = np.ndarray(shape=self.number_of_slots, dtype=self.metadata_dtype, buffer=self._metadata_share.buf)
+
+        # Get queues for IPC with the buffer manager 
+        self._todo_queue = setup_dict["todo_queue"]
+        self._done_queue = setup_dict["done_queue"]
+
+        # Setup class status variables
+        self._last_get_index = None
+        self._active = setup_dict["active"]
+        self._debug = setup_dict["debug"]
+        if self._debug:
+            print( " > DEBUG: Reader created (PID: {:d})".format(os.getpid()))
+
+    def __del__(self):
+        """
+        Destructor of the reader class
+        """
+        if self._debug:
+            print( " > DEBUG: Reader destructor called (PID: {:d})".format(os.getpid()))
+        # Clean up queue (since there is no further processing done on the current element)
+        if self._last_get_index is not None:
+            self._done_queue.put(self._last_get_index)
+        # Clean up shared memory
+        del self._buffer
+        self._m_share.close()
+        del self._metadata
+        self._metadata_share.close()
+
+    def get(self):
+        """Get a new element from the buffer, marking the last element obtained by calling
+            this function as "processing is done". No memory views of old elements may be 
+            accessed after calling this function (memory might change, be corrupted or 
+            be inconsistent). This function blocks if there are no new elements in the 
+            buffer.
+
+        :raises SystemExit: If the ``shutdown()``-method of the ``NewBuffer`` object was
+            called, a SystemExit is raised, terminating the process this ``Reader``-object
+            was created in.
+        :return: One element (structured numpy.ndarray) from the buffer as specified in 
+            the dtype of the ``NewBuffer()``-object. All returned elements have not yet
+            been processed by a process of this *reader group*. 
+        :rtype: numpy.ndarray
+        """
+        # Mark the last element as ready to be overwritten
+        if self._last_get_index is not None:
+            self._done_queue.put(self._last_get_index)
+        self._last_get_index = None
+        # Only return a buffer if the index is valid!
+        while self._last_get_index is None:
+            self._last_get_index = self._todo_queue.get()
+            # Check if the parent buffer has been 'shutdown()'. 
+            # If yes, end this process
+            if not self._active.is_set():
+                raise SystemExit
+        # Create a memory view of the buffer element's array index and
+        # return it for further processing
+#        return self._buffer[self._last_get_index, :]
+        return self._buffer[self._last_get_index]
+
+    def get_metadata(self):
+        """Get the metadata corresponding to the latest element obtained by calling the 
+        ``Reader.get()``-method.
+
+        :return: Returned is a 3-tuple with ``(counter, timestamp , deadtime)``
+            of the latest element obtained from the buffer. The content of these
+            variables is filled by the ``Writer``-process (so may be changed), 
+            but convention is:
+
+          -  counter (int): a unique, 0 based, consecutive integer referencing this element            
+          -  timestamp (float): the UTC timestamp
+          -  deadtime (float): In a live-data environment, the dead time of the first 
+             writer in the analyses chain. This is meant to be the fraction of dead
+             time to active data capturing time (so 0.0 = no dead time whatsoever;
+             0.99 = only 1% of the time between this and the last element was spent
+             with active data capturing)
+        :rtype: tuple
+        """
+        if self._last_get_index is not None:
+            timestamp = self._metadata[self._last_get_index]['timestamp']
+            counter = self._metadata[self._last_get_index]['counter']
+            deadtime = self._metadata[self._last_get_index]['deadtime']
+            return counter, timestamp, deadtime
+        else:
+            return 0, -1, -1
+
+# <<-- end class Reader
+       
+class Observer:
+    """
+    Class to read select elements from a buffer.
+
+    The buffer may be created, filled and read by different processes.
+    Buffer elements are structured NumPy arrays, the returned array won't change 
+    until the next ``Observer.get()`` call, *not* blocking the buffer slot for the 
+    time beeing. 
+    Interfaces with the buffer manager via web socket (better error resilience 
+    compared to ``multiprocessing.SimpleQueue`` )
+    """
+
+    def __init__(self, setup_dict):
+        """Constructor to create an ``Observer``-object (typically called *source*\ ), 
+            granting access to the  buffer specified within the ``setup_dict`` parameter.
+
+        :param setup_dict: The setup dictionary for the *observer* this instance is a part of.
+            The setup dictionary can be obtained by calling ``NewBuffer.new_observer()`` in 
+            this instances' parent process. Sharing the same setup dictionary between multiple 
+            observer processes is possible, calling ``NewBuffer.new_observer()`` multiple times is
+            allowed as well.
+        """
+        # Get buffer configuration from setup dictionary
+        self.number_of_slots = setup_dict["number_of_slots"]
+        self.values_per_slot = setup_dict["values_per_slot"]
+        self.dtype = setup_dict["dtype"]
+        # Connect the shared memory for data and metadata and map it into a NumPy array
+        self._m_share = shared_memory.SharedMemory(name=setup_dict["mshare_name"])
+        array_shape = (self.number_of_slots, self.values_per_slot)
+        self._buffer = np.ndarray(shape=array_shape, dtype=self.dtype, buffer=self._m_share.buf)
+        self._copy_buffer = np.array(self.values_per_slot, dtype=self.dtype)
+
+        # Setup class status variables
+        self._last_get_index = -1
+        self._active = setup_dict["active"]
+        self._debug = setup_dict["debug"]
+
+        # Setup websocket uri and prepare an asycio event loop in a different thread
+        # to allow a blocking main thread (as often encountered with typical window 
+        # render framworks)
+        self.uri = "ws://localhost:{:d}".format(setup_dict["ws_port"])
+        self.event_loop = asyncio.new_event_loop()
+
+        # Setup internal thread structures
+        self._copy_lock = threading.Lock()
+        self._new_element = threading.Event()
+        self._new_element.clear()
+        self._event_loop_thread = threading.Thread(target=self.event_loop_executor, args=(self.event_loop,), name="Event loop thread")
+        self._event_loop_thread.start()
+        self.connection_established = threading.Event()
+        self.connection_established.clear()
+        # self.connection_future = 
+        asyncio.run_coroutine_threadsafe(self.establish_connection(), self.event_loop)
+        # self.check_active_future = 
+        asyncio.run_coroutine_threadsafe(self.check_active_state(), self.event_loop)
+        self.connection_established.wait()
+        if self._debug:        
+            print( " > DEBUG: Observer created (PID: {:d})".format(os.getpid()))
+
+    def __del__(self):
+        """
+        Destructor of the ``Observer`` object
+        """
+        if self._debug:
+            print( " > DEBUG: Observer destructor called (PID: {:d})".format(os.getpid()))
+        # The event loop should be stopped by now
+        try: 
+           self._event_loop_thread.join()
+        except:
+            pass
+        # Clean up Get()-event in case it got stuck
+        self._last_get_index = -1
+        self._new_element.set()
+        # Clean up memory share
+        del self._buffer
+        del self._copy_buffer
+        self._m_share.close()
+
+    def event_loop_executor(self, loop: asyncio.AbstractEventLoop) -> None:
+        """Internal function executing the event loop for the websocket connection 
+            in a different thread.
+        """
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_forever()
+        finally:
+            loop.run_until_complete(loop.shutdown_asyncgens())
+            loop.close()
+            if self._debug:
+                print(" > DEBUG: Observer.event_loop_executor() ended")
+            del loop
+
+    async def establish_connection(self) -> None:
+        """Internal asyncio function establishing the websocket connection with
+            the buffer manager in the main process (used for IPC)
+        """
+        # async with ws.connect(self.uri) as my_ws:
+        #     print("  >>> successfull ws connction ", my_ws)
+        #     self._my_ws = my_ws
+        #     await self._my_ws.send("get")
+        #     print("  >>> test call: ", await my_ws.recv())
+        #     self.connection_established.set()
+        #     await asyncio.Future
+        self._my_ws = await ws.connect(self.uri)
+        await self._my_ws.send("get")
+        self.connection_established.set()
+
+    async def get_new_index(self) -> None:
+        """Internal asyncio function to query the index of the latest buffer slot
+            from the buffer manager
+        """
+        await self._my_ws.send("get")
+        recv = await self._my_ws.recv()
+        idx = int(recv)
+        self._last_get_index = idx
+        self._new_element.set()
+
+    async def check_active_state(self) -> None:
+        """Internal asyncio function to check if ``NewBuffer.shutdown()`` was called
+            in the main process
+        """
+        while self._active.is_set():
+            await asyncio.sleep(0.5)
+        if self._debug:
+            print(" > DEBUG: Observer received shutdown signal (PID: {:d})".format(os.getpid()))
+        await self._my_ws.close()
+        await self._my_ws.wait_closed()
+        self.event_loop.stop()
+        
+
+    def get(self):
+        """Get a copy of the latest element added to the buffer by a ``Writer`` process.
+        
+        :return: One element (structured numpy.ndarray) from the buffer as specified in 
+            the dtype of the ``NewBuffer()``\ -object.
+        :rtype: numpy.ndarray
+        """
+        # if not self._active.is_set():
+            # raise SystemExit
+        self._new_element.clear()
+        asyncio.run_coroutine_threadsafe(self.get_new_index(), self.event_loop)
+        self._new_element.wait()
+        if self._last_get_index == -1:
+            # This should only happen while shutting down, so to avoid truble the last local buffer
+            # copy is returned again 
+            pass
+        else:
+            with self._copy_lock:
+                self._copy_buffer = np.array(self._buffer[self._last_get_index, :], copy=True)
+            self._last_get_index = -1
+        return self._copy_buffer
+
+# <<-- end class Observer
+

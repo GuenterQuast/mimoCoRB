@@ -171,7 +171,7 @@ class buffer_control():
             observe_list = None
         # > Create worker processes executing the specified functions in parallel
         function = self.import_function(file_py_name, fkt_py_name)
-        self.parallel_functions['FKT_'+str(i)] = (fkt_py_name, number_of_processes)
+        self.parallel_functions['FKT_'+str(i)] = (fkt_py_name, number_of_processes, assigned_ringbuffers)
         for k in range(number_of_processes):
             self.process_list.append(Process(target=function,
                                         args=(source_list, sink_list, observe_list, config_dict),
@@ -204,9 +204,11 @@ class buffer_control():
   def display_functions(self):
       print("List of functions")
       for key in self.parallel_functions:
+          rb_assigned = self.parallel_functions[key][2]
           print(key, self.parallel_functions[key][0],
-                '('+str(self.parallel_functions[key][1])+')')        
-    
+                '('+str(self.parallel_functions[key][1])+')  ',
+                rb_assigned )
+
   def set_ending(self):
       """stop writing and reading data, allow processes to finish
       """
