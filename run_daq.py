@@ -92,11 +92,13 @@ if __name__ == '__main__': # ---------------------------------------------------
                 buffer_status += ': '+ RB_name + " {:d} ({:d}) {:.3g}Hz) ".format(Nevents, n_filled, rate)
             print("Time remaining: {:.0f}s".format(now + runtime - time.time()) +
                 "  - buffers:" + buffer_status, end="\r")
-        # when done, first stop data flow         
-        bc.set_ending()
+        # when done, first stop data flow
+        bc.pause()
         print("\n      Execution time: {:.2f}s -  Events processed: {:d}".format(
                        int(100*(time.time()-now))/100., Nprocessed) )
-
+        time.sleep(0.5)
+        # set ending state to allow clean stop for all processes
+        bc.set_ending()
         input("\n\n      Finished - type enter to exit -> ")
 
     else:  # > 'Batch mode' - processing end defined by an event
@@ -119,9 +121,11 @@ if __name__ == '__main__': # ---------------------------------------------------
                     run = False
                     break
         # stop data taking          
-        bc.set_ending()    
+        bc.pause()
         print("\n      Execution time: {:.2f}s -  Events processed: {:d}".format(
                        int(100*(time.time()-now))/100., Nprocessed) )
+        time.sleep(0.5)
+        bc.set_ending()    
         input("\n\n      Finished - type enter to exit -> ")
 
     # -->   end of main loop < --
