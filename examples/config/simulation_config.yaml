@@ -2,6 +2,7 @@
 #
 general:
   runtime: 10
+  runevents: &number_of_events 100000
   number_of_samples: &number_of_samples 4250
   analogue_offset: &analogue_offset -0.48  # in V and not adc!
   sample_time_ns: &sample_time_ns 4
@@ -13,7 +14,7 @@ simulation_source:
   number_of_samples: *number_of_samples
   pre_trigger_samples: *pre_trigger_samples
   analogue_offset: *analogue_offset
-  eventcount: 10000000
+  eventcount: *number_of_events
   sleeptime: 0.003
   random: true
 

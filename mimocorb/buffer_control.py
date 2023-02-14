@@ -89,10 +89,12 @@ class buffer_control():
     self.process_list = list()
     self.parallel_functions = {}
     
-    # get configuration file and runtime
+    # get configuration file and time or events per run
     self.runtime = 0 if 'runtime' not in  self.functions_dict[0]['Fkt_main'] else \
         self.functions_dict[0]['Fkt_main']['runtime']
-
+    self.runevents = 0 if 'runevents' not in  self.functions_dict[0]['Fkt_main'] else \
+        self.functions_dict[0]['Fkt_main']['runevents']
+    
     if 'config_file' in self.functions_dict[0]["Fkt_main"]: 
         cfg_common = self.functions_dict[0]['Fkt_main']['config_file']
         # > If common config file is defined: copy it into the target directory ...
@@ -731,10 +733,10 @@ class ObserverData:
         while True:
             time.sleep(self.min_sleeptime/10)
             if self.source._active.is_set():
-                self.new_data_available.clear()
                 if self.new_data_available.is_set():
                     with self.data_lock:
                         yield (self.data)
+                    self.new_data_available.clear()
             else:
                 self.parse_new_data.clear()
                 self.wait_data_thread.join()
