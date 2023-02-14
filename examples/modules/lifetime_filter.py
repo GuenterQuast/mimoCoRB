@@ -31,7 +31,15 @@ def calculate_decay_time(source_list=None, sink_list=None, observe_list=None, co
          pulse wave forms
 
        Returns: 
-         None if failed, input data and pulse parameters if successful
+         None if failed, int or list of pulse parameters if successful
+
+         Note: output produced when filter is passed depends on number of defined sinks:
+
+         - one sink:   input data
+         - two sinks:  input data and double-pulse parameters
+         - three sinks: input data and double-pulse parameters separately for upwards and 
+           for downwards going decay electrons
+           
     """
     
     if config_dict is None:
