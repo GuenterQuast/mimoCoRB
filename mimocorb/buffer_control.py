@@ -393,9 +393,12 @@ class BufferData:
     def __call__(self):
         # sart reading and save to text file
         while self.source._active.is_set():
-            data = self.source.get()
-            metadata = np.array(self.source.get_metadata())
-            yield ( (metadata, data) )
+            if self.source.data_available():
+                data = self.source.get()
+                metadata = np.array(self.source.get_metadata())
+                yield ( (metadata, data) )
+            else:
+                time.sleep(0.05) # wait for data, avoid blocking !               
         yield(None)
             
     def __del__(self):
@@ -719,13 +722,18 @@ class ObserverData:
         # print("DEBUG: plot.wait_data_thread can safely be joined!")
 
     def __call__(self):
-        while self.source._active.is_set():
-            if self.new_data_available.is_set():
-                with self.data_lock:
-                    yield (self.data)
-                self.new_data_available.clear()
+        while True:
             time.sleep(self.min_sleeptime/10)
-        self.parse_new_data.clear()
-        self.wait_data_thread.join()
+            if self.source._active.is_set():
+                self.new_data_available.clear()
+                if self.new_data_available.is_set():
+                    with self.data_lock:
+                        yield (self.data)
+            else:
+                self.parse_new_data.clear()
+                self.wait_data_thread.join()
+                yield(None)
+                break
+
 
 # <-- end class ObserverData

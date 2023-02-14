@@ -158,7 +158,11 @@ class plotWaveformBuffer():
            if data is not None:
               channel_lines = self.osciplot(data) # update graphics
            else:
-              # end if data generator is exhausted or deleted
-              break
-        # done, exit  
+               # print("plotWaveformBuffer: 'None' recieved - ending")
+               # end if empty end-of-run event received, of if data generator is exhausted or deleted
+               break
+              
+        # finished
+        #   possibly add some code to store graphics 
+        
         raise SystemExit
