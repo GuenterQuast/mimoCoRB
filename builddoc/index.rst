@@ -54,7 +54,7 @@ serve as a starting point for own applications.
 
 
 
-Detailed desctiption of components
+Detailed description of components
 ..................................
 
 
@@ -226,7 +226,9 @@ Access Classes in module *buffer_control*
 To ease user interaction with the buffer manager, a set of
 additional classes is provided in the module *buffer_control*
 to set-up and manage cascades of ringbuffers and the asscociated
-sub-processes for filling, filtering and extracting data.
+sub-processes for filling, filtering and extracting data. These
+classes are of interest for developers wanting to help improving
+the package. 
 
   - class buffer_control
      Set-up and management ringbuffers and associated sub-processes
@@ -248,25 +250,25 @@ prcess the data.
 Application example
 ...................
 
-The subdirectory examples/ contains a rather comlete application case.
+The subdirectory examples/ contains a rather comlete application use case.
 Code snippets and configuration data are provided in the subdirectories
 examples/modules/ and examples/config/, respectively.
-Waveform data, as provided by a multi-channel oscilloscope, are
-generated and filled into the first of a cascaded set of three ringbuffes.
-The raw data are analysed, and accepted data with a double-pulse
-signature are selected and directly passed on to a second ringbuffer.
-The third buffer contains only the information about found signal
-pulses; a result file in *csv* format contains the data extracted from
-this buffer. 
+Waveform data, as provided by, for example, a multi-channel digital
+oscilloscope, are generated and filled into the first of a cascaded set
+of three ringbuffers. The raw data are analyzed, and accepted data with a
+double-pulse signature are selected and directly passed on to a second
+ringbuffer. A third buffer contains only the information about found
+signal pulses; a result file in *csv* format contains the data extracted
+from this buffer. 
 
-The buffer layout the associated functions are defined in the main
-configuration file *simultest_setup.py*, which serves as the input the
-execution script *run_daq.py* in the top-level directory of the package. 
-The *python* files *simulation_source.py*, *liftime_filter.py* and
-*save_files.py* contain the user code for data generation, analysis
+The buffer layout and the associated functions are defined in the main
+configuration file `simulsource_setup.py`, which serves as the input to the
+execution script `run_daq.py` in the top-level directory of the package. 
+The *python* files `simulation_source.py`, `liftime_filter.py` and
+`save_files.py` contain the user code for data generation, analysis
 and filtering and extraction of the final data to disk files. The
-*yaml* file simulation_config.py contains configurable data provided
-to these functions.
+`.yaml` file `simulation_config.yaml` contains configurable parameters
+provided to these functions.
 
 An observer process receives a sub-set of the data in the second
 buffer and shows them as an oscilloscope display on screen while
@@ -274,7 +276,7 @@ data are generated and propagated through the buffers.
 
 This example is executed form the directory examples/ by entering:
 
-  ../run_daq.py simultest_setup.yaml
+  `../run_daq.py simulsource_setup.yaml`
 
 
 The *yaml* file is shown here: 

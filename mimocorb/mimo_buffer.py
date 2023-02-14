@@ -114,6 +114,8 @@ class NewBuffer:
         self.observers_active.set()
         self.readers_active = Event()
         self.readers_active.set()
+        self.writers_paused = Event()
+        self.writers_paused.clear()  
 
         # Setup filled buffer dispatcher (in background thread)
         self._writer_queue_thread = threading.Thread(target=self.writer_queue_listener, name="Main writer queue listener")
@@ -277,7 +279,8 @@ class NewBuffer:
                       "dtype": self.dtype, "mshare_name": self.m_share.name,
                       "metadata_share_name": self.m_metadata_share.name,
                       "empty_queue": self.writer_empty_queue, "filled_queue": self.writer_filled_queue,
-                      "active": self.writers_active, "debug": self._debug}
+                      "active": self.writers_active, "paused": self.writers_paused,
+                      "debug": self._debug}
         return setup_dict
 
     def event_loop_executor(self, loop: asyncio.AbstractEventLoop) -> None:
@@ -352,7 +355,8 @@ class NewBuffer:
         setup_dict = {"number_of_slots": self.number_of_slots, "values_per_slot": self.values_per_slot,
                       "dtype": self.dtype, "mshare_name": self.m_share.name,
                       "metadata_share_name": self.m_metadata_share.name,
-                      "ws_port": self.observer_port, "active": self.observers_active, "debug": self._debug}
+                      "ws_port": self.observer_port, "active": self.observers_active, 
+                      "debug": self._debug}
         return setup_dict
 
     def init_buffer_status(self):
@@ -389,13 +393,13 @@ class NewBuffer:
         """Disable writing to buffer (paused)
         """
         # Disable writing new data to the buffer
-        print(" !!! pause mode not yet implemented")
+        self.writers_paused.set()  
 
     def resume(self):
         """(Re)enable  writing to buffer (resume)
         """
         # re-enable writing new data to the buffer 
-        print(" !!! resume mode not yet implemented")
+        self.writers_paused.clear()  
 
     def set_ending(self):
        """ Stop data flow (before shut-down)
@@ -523,6 +527,7 @@ class Writer:
         self._current_buffer_index = None
         self._write_counter = 0
         self._active = setup_dict["active"]
+        self._paused = setup_dict["paused"]
         self.start_time = time.time_ns()
         self._debug = setup_dict["debug"]
         if self._debug:

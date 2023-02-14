@@ -328,7 +328,7 @@ class SourceToBuffer:
 
         self.number_of_channels = len(self.sink.dtype)
 
-        self.get_data = ufunc
+        self.get_data_from_ufunc = ufunc
         self.event_count = 0
        
     def __del__(self):
@@ -339,11 +339,16 @@ class SourceToBuffer:
     def __call__(self):
      # start_data_capture
         while self.sink._active.is_set():
+            # do not write data if in paused mode
+            if self.sink._paused.is_set():
+              time.sleep(0.1)
+              continue
+            
             self.event_count += 1
 
             # get new buffer abd store event data and meta-data
             buffer = self.sink.get_new_buffer()            
-            data = self.get_data(self.number_of_channels)
+            data = self.get_data_from_ufunc(self.number_of_channels)
             self.sink.set_metadata(self.event_count, time.time(), 0)
             buffer[:]['chA'] = data[0]
             if self.number_of_channels > 1:
@@ -351,7 +356,8 @@ class SourceToBuffer:
             if self.number_of_channels > 2:
                 buffer[:]['chC'] = data[2]
             if self.number_of_channels > 3:
-                buffer[:]['chD'] = data[3]            
+                buffer[:]['chD'] = data[3]
+        # make sure last data entry is processed        
         self.sink.process_buffer()
 
 # <-- end class SourceToBuffer
