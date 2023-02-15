@@ -855,13 +855,34 @@ class run_mimoDAQ(object):
                   
     def run(self):                   
         # start data taking loop
-
         self.status = "Setup"
+
+        # allow keyboard control
+        self.kbdcontrol = True
+        # strings for printout
+        animation = ['|', '/', '-', '\\']
+        animstep = 0
+        # terminal colors 
+        r = '\033[1;31;48m'
+        g = '\033[1;32;48m'  # green color
+        b = '\033[1;34;48m'
+        k = '\033[1;30;48m'
+        y = '\033[1;33;48m'   # yellow color
+        p = '\033[1;35;48m'
+        c = '\033[1;36;48m'
+        B = '\033[1;37;48m'   # bold
+        U = '\033[4;37;48m'   # underline
+        E = '\033[1;37;0m'    # end color
+        
         # set-up keyboard control
-        cmdQ = Queue(1)  # Queue for command input from keyboard
-        kbdthrd = threading.Thread(name='kbdInput', target=self.keyboard_input, args=(cmdQ,))
-        kbdthrd.daemon = True
-        kbdthrd.start()
+        if self.kbdcontrol:
+            cmdQ = Queue(1)  # Queue for command input from keyboard
+            kbdthrd = threading.Thread(name='kbdInput', target=self.keyboard_input, args=(cmdQ,)).start()
+            print("\n" + b + "Keyboard control active" +E)
+            print("  type:")
+            print("  " + b + "E<ret>" + E + " to end")
+            print("  " + b + "P<ret>" + E + " to pause")
+            print("  " + b + "R<ret>" + E + " to resume \n")
 
         # > start all workers     
         self.process_list = self.bc.start_workers()
@@ -870,11 +891,8 @@ class run_mimoDAQ(object):
         # > activate data taking (in case it was started in paused mode)
         self.start_time = time.time()
         self.bc.resume()
-
+        
         # > begin data acquisition loop
-        animation = ['|', '/', '-', '\\']
-        animstep = 0
-
         N_processed = 0                
         runtime = self.bc.runtime
         runevents = self.bc.runevents
@@ -885,20 +903,18 @@ class run_mimoDAQ(object):
             while run:
                 time.sleep(0.5)
 
+                stat = B+g+ self.status + E + ' '
+                time_active = time.time() - self.start_time
+                t_act = B+r+ str(int(time_active))+'s ' + E
+                buffer_status = stat + t_act 
                 for RB_name, buffer in self.ringbuffers.items():
                     Nevents, n_filled, rate = buffer.buffer_status()
                     if RB_name == 'RB_1': N_processed = Nevents
-                time_active = time.time() - self.start_time
-
-                if self.verbose > 1:
-                    stat = self.tc.b+self.tc.g+self.status+self.tc.E + ' '
-                    t_act = self.tc.b+self.tc.r+str(int(time_active))+'s '+self.tc.E
-                    buffer_status = stat + t_act 
-                    for RB_name, buffer in self.ringbuffers.items():
-                        buffer_status += RB_name \
-                            + " {:d} ({:d}) {:.3g}Hz) ".format(Nevents, n_filled, rate)
-                    print(" > {}  ".format(animation[animstep]) + buffer_status + 10*' ', end="\r")
-                    animstep = (animstep + 1)%4
+                    if self.verbose > 1:
+                        buffer_status += B+k+ RB_name +E + ": " +\
+                           B+b+ "{:d}".format(Nevents) +E + "({:d}) {:.3g}Hz ".format(n_filled, rate)
+                        print(" > {}  ".format(animation[animstep]) + buffer_status + 10*' ', end="\r")
+                        animstep = (animstep + 1)%4
 
                 # check if done
                 # - time limit reached ?
@@ -908,7 +924,7 @@ class run_mimoDAQ(object):
                 # - is writer source to 1st buffer exhausted ?   
                 if self.process_list[-1].exitcode == 0: run = False
                 # - End command from keyboad
-                if not cmdQ.empty():
+                if self.kbdcontrol and not cmdQ.empty():
                     cmd = cmdQ.get()
                     print("\n" + cmd)
                     if cmd == 'E':

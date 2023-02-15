@@ -16,3 +16,5 @@ daq.run()
 
 # wait for user confirmation (useful if started via GUI)
 input(30*' '+'Finished, good bye !  Type <ret> to exit -> ')
+
+print()
