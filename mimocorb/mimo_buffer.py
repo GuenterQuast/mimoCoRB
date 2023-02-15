@@ -875,7 +875,8 @@ class Observer:
             in the main process
         """
         while self._active.is_set():
-            await asyncio.sleep(0.5)
+##            await asyncio.sleep(0.5)
+            await asyncio.sleep(1.0)
         if self._debug:
             print(" > DEBUG: Observer received shutdown signal (PID: {:d})".format(os.getpid()))
         await self._my_ws.close()
@@ -886,18 +887,21 @@ class Observer:
         """Get a copy of the latest element added to the ringbuffer by a ``Writer`` process.
 
         :return: One element (structured numpy.ndarray) from the ringbuffer as specified in
-            the ``NewBuffer()-dtype``-object.
+            the ``NewBuffer()-dtype``-object, or None if run ended
         :rtype: numpy.ndarray
         """
         # if not self._active.is_set():
         # raise SystemExit
         self._new_element.clear()
         asyncio.run_coroutine_threadsafe(self.get_new_index(), self.event_loop)
-        self._new_element.wait()
+###        self._new_element.wait()   #! avoid blocking
+        while not self._new_element.is_set():
+            time.sleep(0.1)
+            if not self._active.is_set():  # run ended
+                return None
         if self._last_get_index == -1:
-            # This should only happen while shutting down, so to avoid truble the last local buffer
-            # copy is returned again
-            pass
+            # This should only happen while shutting down ..
+            return None
         else:
             with self._copy_lock:
                 self._copy_buffer = np.array(self._buffer[self._last_get_index, :], copy=True)

@@ -221,10 +221,10 @@ class buffer_control():
       """Delete buffers, stop processes by calling the shutdown()-Method of the buffer manager
       """
       for nam, buf in self.ringbuffers.items():
-        print("Shutting down buffer ",nam)
-        buf.shutdown()
-        del buf
-
+          print("Shutting down buffer ", nam)
+          buf.shutdown()
+          del buf
+    
       # > All worker processes should have terminated by now
       for p in self.process_list:
           if p.is_alive(): print("waiting 3s for process ", p.name, " to finish") 
@@ -235,6 +235,8 @@ class buffer_control():
           if p.is_alive():
             print("  !! killing active process ", p.name)
             p.terminate()
+        #  else:
+        #    print("process ", p.name, "ended by itself")
             
       # > delete remaining ring buffer references (so each buffer managers destructor gets called)
       del self.ringbuffers
@@ -726,22 +728,35 @@ class ObserverData:
             with self.data_lock:
                 self.data = self.source.get()
             self.new_data_available.set()
+            if self.data is None:
+                # end process
+                break
             # Limit refresh rate to 1/sleeptime
             _sleep_time = sleeptime - (time.time()-last_update)
             if _sleep_time > 0:
                 time.sleep(_sleep_time)
-        # print("DEBUG: plot.wait_data_thread can safely be joined!")
+        # print("DEBUG: plot.wait_data_thread can safely be joined!") #!
 
     def __call__(self):
         while True:
-            time.sleep(self.min_sleeptime/10)
             if self.source._active.is_set():
                 if self.new_data_available.is_set():
                     with self.data_lock:
                         yield (self.data)
+                    if self.data is None:
+                        print("None seen")
+                        self.parse_new_data.clear()
+                        self.wait_data_thread.join()
                     self.new_data_available.clear()
+                if self.data is None:
+                    self.parse_new_data.clear()
+                    yield (None)
+                if not self.source._active.is_set():
+                    break
+                time.sleep(self.min_sleeptime/10)
             else:
                 self.parse_new_data.clear()
+                print(" new_data_available cleared")
                 self.wait_data_thread.join()
                 yield(None)
                 break

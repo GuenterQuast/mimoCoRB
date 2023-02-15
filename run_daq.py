@@ -18,3 +18,5 @@ daq.run()
 input(30*' '+'Finished, good bye !  Type <ret> to exit -> ')
 
 print()
+
+sys.exit()
