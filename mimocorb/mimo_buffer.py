@@ -1,13 +1,13 @@
-""" mimo-buffer:  
-Module implementing a multiprocessing capable buffer as described in ETP-KA/2022-06.
+""" mimo-ringbuffer:
 
-Buffer creation and management is handled by the ``NewBuffer``-class, access to 
-the buffer content is handeled by the ``Reader``\ , ``Writer``\ and ``Observer`` 
-classes.
+Module implementing a multiple-in multiple-out ringbuffer appropriate for multiprocessing.
+
+The ringbuffer creation and management is handled by the ``NewBuffer``-class. Access to
+the content is possible through the ``Reader``, ``Writer`` and ``Observer`` classes.
 
 classes: 
 
-  - NewBuffer: create a new buffer, assign writer(s) and reader(s) or observer(s)
+  - NewBuffer: create a new ringbuffer, assign writer(s) and reader(s) or observer(s)
 
       methods: 
         
@@ -19,8 +19,6 @@ classes:
 
 """
 
-from distutils.log import debug
-from typing import final
 import numpy as np
 from multiprocessing import shared_memory, Lock, SimpleQueue, Event
 import threading
@@ -32,37 +30,36 @@ import os
 
     
 class NewBuffer:
-    """Class to create a new 'FIFO' buffer object (typically called in the host/parent process).
+    """Class to create a new ringbuffer object according to the 'FIFO' principle (first-in first-out).
 
-      Creates all the necessary memory shares, IPC queues, etc and launches background 
-      threads for buffer management.
-
-      The ``NewBuffer``\ -object provides methods to create setup dictionaries for ``Reader``\ ,
-      ``Writer`` or ``Observer`` instances.
+    Memory shares, IPC queues, lock and event objects as well as background threads are defined
+    for the multiprocessing ringbuffer management. Methods are provided to build the setup dictionaries
+    (necessary parameter objects) for the ``Reader``, ``Writer`` or ``Observer`` instances, respectively.
+    Further, methods are provided to allow an index processing (e.g. listeners) and to pause data processing.
 
     important methods: 
 
-       - __init__()          constructor to create a new 'FIFO' buffer 
+       - __init__()          constructor to create a new 'FIFO' ringbuffer
        - new_writer()        create new writer
        - new_reader_group()  create reader group
        - new_observer()      create observer
        - buffer_status()     display status: event count, processing rate, occupied slots
-       - pause()             disable writer(s) to buffer 
+       - pause()             disable writer(s) to ringbuffer
        - resume()            (re-)enable writers
        - set_ending()        stop data-taking (gives processes time to finish before shutdown)
-       - shutdown()          end connected processes, delete buffer
+       - shutdown()          end connected processes, delete ringbuffer
 
     """
 
     def __init__(self, number_of_slots, values_per_slot, dtype, debug=False):
-        """Constructor to create a new 'FIFO' buffer.
+        """Constructor to create a new 'FIFO' ringbuffer.
 
-        :param number_of_slots: The number of elements the buffer can hold
+        :param number_of_slots: The number of elements the ringbuffer can hold
         :type number_of_slots: int
-        :param values_per_slot: The length of the structured NumPy array of each buffer element.
+        :param values_per_slot: The length of the structured NumPy array of each ringbuffer element.
         :type values_per_slot: int
-        :param dtype: The data type of a buffer element. Typically buffer elements are structured
-            NumPy arrays, so the typical syntax is a list of tuples of the form:
+        :param dtype: The data-type of a ringbuffer element. Typically, ringbuffer elements are structured
+            NumPy arrays, so the syntax is a list of tuples of the form:
             ``[ (column_name, np.dtype), (coulmn_name, np.dtype), ... ]``
             See the NumPy "structured arrays" documentation for 
             `more detail <https://numpy.org/doc/stable/user/basics.rec.html#structured-datatype-creation>`_
@@ -105,7 +102,7 @@ class NewBuffer:
 
         # Setup pointer
         self.read_pointer = 0  # Pointer referencing the oldest element that is currently worked on by any reader
-        self.write_pointer = 0  # Pointer referencing the newest element added to the buffer CAUTION: might be wrong at startup
+        self.write_pointer = 0  # Pointer referencing the newest element added to the buffer (might be wrong at startup)
 
         # Setup events for a graceful shutdown
         self.writers_active = Event()
@@ -118,14 +115,16 @@ class NewBuffer:
         self.writers_paused.clear()  
 
         # Setup filled buffer dispatcher (in background thread)
-        self._writer_queue_thread = threading.Thread(target=self.writer_queue_listener, name="Main writer queue listener")
+        self._writer_queue_thread = threading.Thread(target=self.writer_queue_listener,
+                                                     name="Main writer queue listener")
         self._writer_queue_thread.start()
         self.writer_created = False
         self.reader_queue_listener_thread_list = []
 
         # Setup observer web socket (in background thread)
         self.observer_event_loop = asyncio.new_event_loop()
-        self.event_loop_thread = threading.Thread(target=self.event_loop_executor, args=(self.observer_event_loop,), name="Main observer event loop")
+        self.event_loop_thread = threading.Thread(target=self.event_loop_executor, args=(self.observer_event_loop,),
+                                                  name="Main observer event loop")
         self.observer_port = -1
         self.event_loop_thread.start()
         self.observer_server_ready = threading.Event()
@@ -140,14 +139,15 @@ class NewBuffer:
         self.init_buffer_status()
 
     def new_reader_group(self):
-        """Method to create a new reader group. The processing workload of a group can be distributed by using
-        the same setup dictionary (``setup_dict``\ ) in multiple processes creating a ``Reader``\ -object
-        with it. Each buffer element is only processed by one reader group process. It's possible to create 
-        multiple reader groups per buffer, where each reader group gets every element written to the buffer.
-        If a reader group is created, at least one ``Reader`` instance MUST steadily call the ``Reader.get()``
-        method to prevent the buffer from blocking and to allow a safe shutdown. 
+        """Method to create a new reader group.
+        The processing workload of a group can be distributed to multiple processes by using
+        the same setup dictionary (``setup_dict``) defined for a ``Reader``-object.
+        Each ringbuffer element is processed by one reader group process. It's possible to create multiple
+        reader groups per ringbuffer, where each reader group gets every element written to the ringbuffer.
+        If a reader group is created, at least one ``Reader``-class instance MUST steadily call its ``get()``
+        method to prevent the ringbuffer from blocking and to allow a safe shutdown.
 
-        :return: The ``setup_dict`` object passed to a ``Reader``\ -instance to grant read access to this buffer.
+        :return: The ``setup_dict`` object passed to a ``Reader``-instance to grant read access to this ringbuffer.
         :rtype: dict
         """
         # Temporary fix to prevent 'new reader after write' problem
@@ -161,7 +161,8 @@ class NewBuffer:
         done_heap = []
         self.reader_done_heap_list.append(done_heap)
         # Start background thread to listen on the done-queue (in lack of an event driven queue implementation)
-        queue_listener = threading.Thread(target=self.reader_queue_listener, args=(done_queue, done_heap), name="Main reader queue listener")
+        queue_listener = threading.Thread(target=self.reader_queue_listener, args=(done_queue, done_heap),
+                                          name="Main reader queue listener")
         queue_listener.start()
         self.reader_queue_listener_thread_list.append(queue_listener)
         setup_dict = {"number_of_slots": self.number_of_slots, "values_per_slot": self.values_per_slot,
@@ -174,8 +175,9 @@ class NewBuffer:
 
     def reader_queue_listener(self, done_queue, done_heap):
         """
-        Internal method run in a background thread (one for each reader group). It handles dispatching free ring 
-        buffer slots
+        Internal method run in a background thread (one for each reader group). It handles dispatching free
+        ringbuffer elements.
+
         :param done_queue: the multiprocessing.queue created in ``new_reader_group()``
         :param done_heap: the heap created in ``new_reader_group()``
         """
@@ -194,11 +196,11 @@ class NewBuffer:
 
     def increment_reader_pointer(self):
         """
-        Internal method called by the ``reader_queue_listener()``\ -threads after a new element was marked
-        as 'processing is done'. It checks if all reader groups are done with processing the oldest buffer slot,
-        and if so, adds it to the 'free buffer slots' queue used by the ``Writer``\ -instances.
-        For this function to work properly and without race conditions self.heap_lock has to be acquired BEFORE 
-        entering the function!
+        Internal method called by a ``reader_queue_listener()``-thread after a new element was marked
+        as 'processing is done'. It is checked whether all reader groups have completed processing the oldest
+        ringbuffer element, and if so, adds it to the 'free ringbuffer elements' queue used by the ``Writer``-instances.
+        For this function to work properly and without race conditions self.heap_lock has to be acquired
+        BEFORE entering the function (see ``reader_queue_listener()``-method).
         """
         # Check if every reader group is done with the last element (this implicitly keeps the write queue in the right
         # order at the cost of possible buffer overruns if one reader hangs/takes too long to process the data)
@@ -251,14 +253,14 @@ class NewBuffer:
             self.increment_reader_pointer()
 
     def writer_queue_listener(self):
-        """Internal method run in a background thread. It takes the index (a 'pointer' in the array) of the 
-        'ready to process' buffer element from the 'filled'-queue and distributes it to every reader groups
-        'todo'-queue
+        """Internal method run in a background thread.
+        It takes the index (a 'pointer' in the array) of the 'ready to process' ringbuffer element from
+        the ``writer_filled_queue`` and distributes it to every reader group (reader_todo_queue).
         """
         while self.writers_active.is_set():
             new_data_index = self.writer_filled_queue.get()
             if new_data_index is not None:
-                self.cumulative_event_count +=1 # increment event count
+                self.cumulative_event_count += 1  # increment event count
                 with self.write_pointer_lock:
                     if new_data_index < self.read_pointer:
                         self.write_pointer = max(new_data_index+self.number_of_slots, self.write_pointer)
@@ -268,10 +270,11 @@ class NewBuffer:
                 reader_queue.put(new_data_index)
 
     def new_writer(self):
-        """Method to create a new writer. It's possible to create multiple writers or simply share the
-        setup dictionary between different ``Writer``\ -instances.
+        """Method to create a new writer.
+        It is possible to create multiple writers and simply share a setup dictionary definition
+        between different ``Writer``-instances (analogues to the behavior of the ``new_reader_group``).
 
-        :return: The ``setup_dict`` object passed to a ``Writer``\ -instance to grant write access to this buffer.
+        :return: The ``setup_dict`` object passed to a ``Writer``-instance to grant write access to this ringbuffer.
         :rtype: dict
         """
         self.writer_created = True
@@ -284,8 +287,8 @@ class NewBuffer:
         return setup_dict
 
     def event_loop_executor(self, loop: asyncio.AbstractEventLoop) -> None:
-        """Internal method continuously run in a background thread. It runs the asyncio event loop 
-        needed for the websocket based IPC of ``Observer``\ -instances.
+        """Internal method continuously run in a background thread.
+        It runs the asynchronous event loop needed for the websocket based IPC of ``Observer``-instances.
         """
         if self._debug:
             print("\ > DEBUG: Started event loop in main thread!")
@@ -300,9 +303,9 @@ class NewBuffer:
             del loop            
 
     async def observer_main(self):
-        """Internal asyncio method run in the background to handle websocket connections.
+        """Internal asynchronous method run in the background to handle websocket connections.
         A websocket server is started on the loopback device, providing IPC between the main process
-        and an ``Observer``\ -instance in a different process.
+        and an ``Observer``-instance running in another process.
         """
         self._my_ws = await ws.serve(self.observer_server, "localhost")
         self.observer_port = (self._my_ws.sockets[0]).getsockname()[1]
@@ -311,24 +314,24 @@ class NewBuffer:
             print("> WS port: {}\n".format(self.observer_port))
 
     async def observer_server(self, websocket, path):
-        """Internal asyncio method implementing the ``Observer`` IPC.
-        As of now: for every message, the current ``write_pointer`` is sent (index in the shared 
-        memory array containing the latest added element to the buffer).
-        **CAUTION!** The buffer element *IS NOT LOCKED*, so it has to be copied as soon as possible
-        in the ``Observer``\ -process. For conventional signal analysis chains and PC setups, this 
-        should not be a constraint. But it is very much possible for the data seen by the ``Observer``
-        instance to be corrupted (especially with non ideal buffer configurations and/or heavily loaded
-        PC systems).
+        """Internal asynchronous method implementing the ``Observer`` IPC.
+        As of now: for every message, the current ``write_pointer`` is sent (index in the shared
+        memory array containing the latest added element to the ringbuffer).
+        **CAUTION!** The ringbuffer element *IS NOT LOCKED*, so it has to be copied as soon as possible
+        in the ``Observer``-process. For conventional signal analysis chains and PC setups, this
+        should not be a constraint. But it might be possible that data seen by the ``Observer``
+        instance are corrupted (especially with a not ideal ringbuffer configuration and/or a heavily loaded
+        PC system).
 
-        **``Observer``\ -instances MUST NOT rely on data integrity!!**
+        **``Observer``-instances MUST NOT rely on data integrity!!**
         """
         async for message in websocket:
             with self.write_pointer_lock:
-            #    await websocket.send("{}".format(self.write_pointer))
+                # await websocket.send("{}".format(self.write_pointer))
                 await websocket.send("{}".format(self.write_pointer%self.number_of_slots))
 
     async def observer_check_active_state(self) -> None:
-        """Internal asyncio function to check if ``NewBuffer.shutdown()`` was called
+        """Internal asynchronous function to check if ``NewBuffer.shutdown()`` was called
         """
         while self.observers_active.is_set():
             await asyncio.sleep(0.5)
@@ -339,17 +342,18 @@ class NewBuffer:
         self.observer_event_loop.stop()
             
     def new_observer(self):
-        """Method to create a new observer. It's possible to create multiple observers or simply share the
-        setup dictionary between different ``Observer``\ -instances.
-        It is very much possible for the data seen by the ``Observer`` instance to be corrupted (especially 
-        with non ideal buffer configurations and/or heavily loaded PC systems).
+        """Method to create a new observer.
+        It's possible to create multiple observers and simply share the setup dictionary between different
+        ``Observer``-instances (analogues to the behavior of the ``new_reader_group``).
+        It might be possible that data seen by an ``Observer`` instance are corrupted (especially
+        with a not ideal ringbuffer configuration and/or a heavily loaded PC system).
 
-        **``Observer``\ -instances MUST NOT rely on data integrity!!**
+        **``Observer``-instances MUST NOT rely on data integrity!!**
 
-        :return: The ``setup_dict`` object passed to an ``Observer``\ -instance to grant read access to this buffer.
+        :return: The ``setup_dict`` object passed to an ``Observer``-instance to grant access to this ringbuffer.
         :rtype: dict
         """
-        # Observer class just maps the memory share and asks the buffer manager via websocket
+        # Observer class just maps the memory share and asks the ringbuffer manager via websocket
         # for the newest entry (so the main programm doesn't block, even if the observer process hangs/dies).
         # Data might be corrupted/not coherent, so the observer HAS to handle that gracefully
         setup_dict = {"number_of_slots": self.number_of_slots, "values_per_slot": self.values_per_slot,
@@ -364,11 +368,11 @@ class NewBuffer:
         self.Nlast = 0
         
     def buffer_status(self):
-        """Processing Rate and approximate number of free slots in this buffer.
+        """Processing Rate and approximate number of free slots in this ringbuffer.
         This method is meant for user information purposes only, as the result may
         not be completely accurate due to race conditions.
 
-        :return: Number of free slots in this buffer
+        :return: Number of free slots in this ringbuffer
         :rtype: int
         """
         # estimate number of filled slots in buffer
@@ -390,33 +394,34 @@ class NewBuffer:
         return self.cumulative_event_count, n_filled, rate
 
     def pause(self):
-        """Disable writing to buffer (paused)
+        """Disable writing to ringbuffer (paused)
         """
         # Disable writing new data to the buffer
         self.writers_paused.set()  
 
     def resume(self):
-        """(Re)enable  writing to buffer (resume)
+        """(Re)enable  writing to ringbuffer (resume)
         """
         # re-enable writing new data to the buffer 
         self.writers_paused.clear()  
 
     def set_ending(self):
-       """ Stop data flow (before shut-down)
-       """
-       self.writers_active.clear()
-       time.sleep(0.5)
-       self.readers_active.clear()
+        """ Stop data flow (before shut-down)
+        """
+        self.writers_active.clear()
+        time.sleep(0.5)
+        self.readers_active.clear()
         
     def shutdown(self):
-        """Shut down the buffer, closing all backgorund threads, terminating all processes associated with it 
-        (all processes using a ``Reader``\ , ``Writer`` or ``Observer`` instance to access this buffer) and 
-        releasing the shared memory.
+        """Shut down the ringbuffer(s): close background threads, terminate associated processes and
+        release the shared memory definitions.
 
-        A 'trickel down' approach is used to have as few buffer elements as possible unprocessed. This may not
-        work correctly with more complex signal analysis chains. So always make sure to shut down the buffers
-        in data flow order (start with first element of the chain, the buffer closest to the signal source).
-        
+        Affect processes using a ``Reader``, ``Writer`` or ``Observer`` instance to a ringbuffer.
+
+        A 'trickle down' approach is used to have as few ringbuffer elements as possible unprocessed. This may not
+        work correctly with more complex signal analysis chains. So always make sure to shut down the ringbuffers
+        in data flow order (start with first element of the chain, the ringbuffer closest to the signal source).
+
         **CAUTION!** If there are loops in the signal analysis chain, this method may end in an infinite loop!
         """
         # Disable writing new data to the buffer 
@@ -433,7 +438,6 @@ class NewBuffer:
             latest_observed_index = self.write_pointer
         # Wait for readers to finish their queue
         while self.read_pointer < latest_observed_index:
-            # TODO: Consider 'hole in the buffer' scenarios where one reader of a group was shut down
             # while processing an element, while the following element was already done processing!
             # This could cause an infinite loop! (Only possible if the reader closes prematurely, eg.
             # due to unconventional signal chains!)
@@ -474,17 +478,16 @@ class NewBuffer:
 
 # <<-- end class NewBuffer
 
+
 class Writer:
     """
-    Class to write elements into a buffer.
+    Class to write elements into a ringbuffer (multiple-in part).
 
-    The buffer may be created, filled and read by different processes.
-    Buffer elements are structured NumPy arrays and may only be written to 
-    until ``Writer.process_buffer()`` is called or ``Writer.get_new_buffer()``
-    has been called again. The buffer slot is blocked while writes to the NumPy
-    array are permitted, so a program design quickly writing the buffer content 
-    and calling ``Writer.process_buffer()`` or ``Writer.get_new_buffer()`` again 
-    as soon as possible is highly advised. 
+    Ringbuffer elements are structured NumPy arrays. Writing is triggered by a call of
+    ``Writer.process_buffer()`` or at the next call of ``Writer.get_new_buffer()``.
+    The ringbuffer element is blocked while writes to the NumPy array are permitted.
+    A program design processing the ringbuffer content has to call the ``Writer.process_buffer()``
+    or ``Writer.get_new_buffer()``-methods in a way that minimizes the ringbuffer lock time.
 
     methods:
 
@@ -496,16 +499,16 @@ class Writer:
 
     def __init__(self, setup_dict):
         """
-        Constructor to create a ``Writer``-object (typically called *sink*\ ), granting access to the
-        buffer specified within the ``setup_dict`` parameter.
+        Constructor to create a ``Writer``-object that grants access to the ringbuffer
+        specified in the ``setup_dict`` object.
 
         :param setup_dict: The setup dictionary for the *writer* this instance is a part of.
-            The setup dictionary can be obtained by calling ``NewBuffer.new_writer()`` in 
-            this instances' parent process. Sharing the same setup dictionary between multiple 
+            The setup dictionary can be obtained by calling ``NewBuffer.new_writer()`` in
+            this instances' parent process. Sharing the same setup dictionary between multiple
             writer processes is possible, calling ``NewBuffer.new_writer()`` multiple times is
-            allowed as well. Load balancing between processes is done on a 'first come first 
-            serve' basis, if multiple processes wait for new free spots, the allocation is 
-            managed by the scheduler of the host OS)
+            allowed as well. Load balancing between processes is done on a 'first come first
+            serve' basis. If multiple processes wait for new free spots, the allocation is
+            managed by the scheduler of the host OS.
         """
         # Get buffer configuration from setup dictionary
         self.number_of_slots = setup_dict["number_of_slots"]
@@ -531,14 +534,14 @@ class Writer:
         self.start_time = time.time_ns()
         self._debug = setup_dict["debug"]
         if self._debug:
-            print( " > DEBUG: Writer created (PID: {:d})".format(os.getpid()))
+            print(" > DEBUG: Writer created (PID: {:d})".format(os.getpid()))
 
     def __del__(self):
         """
-        Destructor of the reader class
+        Destructor of the writer class
         """
         if self._debug:
-            print( " > DEBUG: Writer destructor called (PID: {:d})".format(os.getpid()))
+            print(" > DEBUG: Writer destructor called (PID: {:d})".format(os.getpid()))
         # Clean up memory share
         del self._buffer
         self._m_share.close()
@@ -546,17 +549,17 @@ class Writer:
         self._metadata_share.close()
 
     def get_new_buffer(self):
-        """Get a new free spot in the buffer, marking the last element obtained by calling
-            this function as "ready to be processed". No memory views of old elements may be 
-            accessed after calling this function. This function blocks if there are no free
-            spots in the buffer, always returning a valid NumPy array to be written to.
+        """Get a new free element in the ringbuffer.
+            The last element obtained by calling this function is marked as "ready to be processed".
+            No memory views of old elements may be accessed after calling this function.
+            This function blocks if there are no free elements in the ringbuffer and always returns
+            a valid NumPy array that can be written to.
 
-        :raises SystemExit: If the ``shutdown()``-method of the ``NewBuffer`` object was
-            called, a SystemExit is raised, terminating the process this ``Writer``-object
-            was created in.
-        :return: One free buffer slot (structured numpy.ndarray) as specified in the dtype 
-            of the ``NewBuffer()``-object. Free elements may contain older data, but this
-            can be safely overwritten
+        :raises SystemExit: When the ``shutdown()``-method of the ``NewBuffer`` object has been
+            called, a SystemExit is raised which terminates the process.
+        :return: One free ringbuffer element (structured numpy.ndarray) as specified in the
+            ``NewBuffer()-dtype``-object. Free elements may contain older data, but they
+            can be safely overwritten.
         :rtype: numpy.ndarray
         """
         if self._current_buffer_index is not None:
@@ -575,23 +578,22 @@ class Writer:
         return self._buffer[self._current_buffer_index, :]
 
     def set_metadata(self, counter, timestamp, deadtime):
-        """Set the metadata corresponding to the current buffer element.
-        If there is no current buffer element (because ``process_buffer()`` has been 
+        """Set the metadata defined for the current ringbuffer element.
+        If there is no current ringbuffer element (e.g. because ``process_buffer()`` has been
         called or ``get_new_buffer()`` has not been called yet), nothing happens.
-        Copying metadata from a ``Reader`` to a ``Writer`` object (called ``source`` 
+        Copying metadata from a ``Reader`` to a ``Writer`` object (here called ``source``
         and ``sink``) can be done with:
 
             ``sink.set_metadata(*source.get_metadata())``
 
-        :param counter: a unique, 0 based, consecutive integer referencing this 
-            element    
+        :param counter: a unique, 0 based, consecutive integer referencing this element
         :type counter: integer (np.longlong)
         :param timestamp: the UTC timestamp
         :type timestamp: float (np.float64)
-        :param deadtime: In a live-data environment, the dead time of the first 
+        :param deadtime: In a live-data environment, the dead time of the first
             writer in the analyses chain. This is meant to be the fraction of dead
             time to active data capturing time (so 0.0 = no dead time whatsoever;
-            0.99 = only 1% of the time between this and the last element was spent 
+            0.99 = only 1% of the time between this and the last element was spent
             with active data capturing)
         :type deadtime: float (np.float64)
         """
@@ -601,14 +603,13 @@ class Writer:
             self._metadata[self._current_buffer_index]['deadtime'] = deadtime
 
     def process_buffer(self):
-        """Mark the current element as "ready to be processed". The content of the array 
-        MUST NOT be changed after calling this function. If there is no current element, 
-        nothing happens.
-        As the ring buffer slot is blocked while writing to the NumPy array obtained by
-        calling ``Writer.get_new_buffer()`` is allowed, it is highly advised to call 
-        ``Writer.process_buffer()`` as soon as possible to unblock the the ring buffer.
+        """Mark the current ringbuffer element as "ready to be processed".
 
-        :return: Nothing
+        The content of the array MUST NOT be changed after calling this function.
+        If there is no current element, nothing happens.
+        As the ringbuffer element is blocked while writing to the NumPy array it is
+        recommended to call ``Writer.process_buffer()`` as soon as possible to
+        minimize the ringbuffer lock time.
         """
         if self._current_buffer_index is not None:
             if self._metadata[self._current_buffer_index]['timestamp'] == -1:
@@ -618,16 +619,16 @@ class Writer:
 
 # <<-- end class Writer
 
+
 class Reader:
     """    
-    Class to read elements from a buffer.
+    Class to read elements from a ringbuffer (multiple-out part).
 
-    The buffer may be created, filled and read by different processes.
-    Buffer elements are structured NumPy arrays and strictly **read-only**, the
-    returned array won't change until the next ``Reader.get()`` call, blocking
-    the buffer slot for the time beeing. So a program design quickly processing
-    the buffer content and calling ``Reader.get()`` again as soon as possible is
-    highly advised. 
+    Ringbuffer elements are structured NumPy arrays and strictly **read-only**. The returned
+    array won't change until the next ``Reader.get()`` call is performed, blocking
+    the ringbuffer element for the time being.
+    A program design processing the ringbuffer content has to call the ``Reader.get()``-method
+    in a way that minimizes the ringbuffer lock time.
 
     methods: 
 
@@ -638,17 +639,18 @@ class Reader:
 
     def __init__(self, setup_dict):
         """
-        Constructor to create a ``Reader``-object (typically called *source*\ ), granting access to the
-        buffer specified within the ``setup_dict`` parameter.
+        Constructor to create a ``Reader``-object that grants access to the ringbuffer
+        specified in the ``setup_dict`` object.
 
         :param setup_dict: The setup dictionary for the *reader group* this instance is a part of.
-            The setup dictionary can be obtained by calling ``NewBuffer.new_reader_group()`` in 
-            this instances' parent process. Sharing the same setup dictionary between multiple 
-            reader processes distributes the elements between each process in the group (so every 
-            buffer element is processed by the group, but only one process of the group ever gets 
-            one particular element. Load balancing between processes is done on a 'first come 
-            first serve' basis, if multiple processes wait on new elements, the allocation is
-            managed by the scheduler of the host OS)
+            The setup dictionary can be obtained by calling ``NewBuffer.new_reader_group()`` in
+            this instances' parent process. When the same setup dictionary is shared by several
+            reader processes, the elements are distributed among the individual process of the group.
+            Each ringbuffer element is processed by the group, but only one process in the group receives
+            a particular element at a time.
+            Load balancing between processes is done on a 'first come first serve' basis.
+            If multiple processes wait on new elements, the allocation is managed by the
+            scheduler of the host OS.
         """
         
         # Get buffer configuration from setup dictionary
@@ -659,11 +661,11 @@ class Reader:
         self._m_share = shared_memory.SharedMemory(name=setup_dict["mshare_name"])
         array_shape = (self.number_of_slots, self.values_per_slot)
         self._buffer = np.ndarray(shape=array_shape, dtype=self.dtype, buffer=self._m_share.buf)
-        # TODO: make self._buffer read only and test it
-        # self._buffer.flags.writeable = False
+        # self._buffer.flags.writeable = False  # to be tested?
         self._metadata_share = shared_memory.SharedMemory(name=setup_dict["metadata_share_name"])
         self.metadata_dtype = [('counter', np.longlong), ('timestamp', np.float64), ('deadtime', np.float64)]
-        self._metadata = np.ndarray(shape=self.number_of_slots, dtype=self.metadata_dtype, buffer=self._metadata_share.buf)
+        self._metadata = np.ndarray(shape=self.number_of_slots, dtype=self.metadata_dtype,
+                                    buffer=self._metadata_share.buf)
 
         # Get queues for IPC with the buffer manager 
         self._todo_queue = setup_dict["todo_queue"]
@@ -674,14 +676,14 @@ class Reader:
         self._active = setup_dict["active"]
         self._debug = setup_dict["debug"]
         if self._debug:
-            print( " > DEBUG: Reader created (PID: {:d})".format(os.getpid()))
+            print(" > DEBUG: Reader created (PID: {:d})".format(os.getpid()))
 
     def __del__(self):
         """
         Destructor of the reader class
         """
         if self._debug:
-            print( " > DEBUG: Reader destructor called (PID: {:d})".format(os.getpid()))
+            print(" > DEBUG: Reader destructor called (PID: {:d})".format(os.getpid()))
         # Clean up queue (since there is no further processing done on the current element)
         if self._last_get_index is not None:
             self._done_queue.put(self._last_get_index)
@@ -691,25 +693,23 @@ class Reader:
         del self._metadata
         self._metadata_share.close()
 
-
     def data_available(self):    
         """Method to check for new data and avoid blocking of consumers
         """
         return not self._todo_queue.empty()
 
     def get(self):
-        """Get a new element from the buffer, marking the last element obtained by calling
-            this function as "processing is done". No memory views of old elements may be 
-            accessed after calling this function (memory might change, be corrupted or 
-            be inconsistent). This function blocks if there are no new elements in the 
-            buffer.
+        """Get a new element from the ringbuffer.
+        The last element obtained by calling this function is marked as "processing is done".
+        No memory views of old elements may be accessed after calling this function (memory
+        might change, be corrupted or be inconsistent).
+        This function blocks if there are no new elements in the ringbuffer.
 
-        :raises SystemExit: If the ``shutdown()``-method of the ``NewBuffer`` object was
-            called, a SystemExit is raised, terminating the process this ``Reader``-object
-            was created in.
-        :return: One element (structured numpy.ndarray) from the buffer as specified in 
-            the dtype of the ``NewBuffer()``-object. All returned elements have not yet
-            been processed by a process of this *reader group*. 
+
+        :raises SystemExit: When the ``shutdown()``-method of the ``NewBuffer`` object has been
+            called, a SystemExit is raised which terminates the process.
+        :return: One element (structured numpy.ndarray) of the ringbuffer as specified in
+            the ``NewBuffer()-dtype``-object.
         :rtype: numpy.ndarray
         """
         # Mark the last element as ready to be overwritten
@@ -728,21 +728,20 @@ class Reader:
         return self._buffer[self._last_get_index, :]
 
     def get_metadata(self):
-        """Get the metadata corresponding to the latest element obtained by calling the 
-        ``Reader.get()``-method.
+        """Get the metadata defined for a ringbuffer element of the ``Reader.get()``-method.
 
-        :return: Returned is a 3-tuple with ``(counter, timestamp , deadtime)``
-            of the latest element obtained from the buffer. The content of these
-            variables is filled by the ``Writer``-process (so may be changed), 
-            but convention is:
+        :return: Currently a 3-tuple is returned with ``(counter, timestamp , deadtime)``
+            which is assigned to the latest element of the ringbuffer. The content of these
+            variables is filled by the ``Writer``-process.
+            The current convention is:
 
-          -  counter (int): a unique, 0 based, consecutive integer referencing this element            
-          -  timestamp (float): the UTC timestamp
-          -  deadtime (float): In a live-data environment, the dead time of the first 
-             writer in the analyses chain. This is meant to be the fraction of dead
-             time to active data capturing time (so 0.0 = no dead time whatsoever;
-             0.99 = only 1% of the time between this and the last element was spent
-             with active data capturing)
+            -  counter (int): a unique, 0 based, consecutive integer referencing this element
+            -  timestamp (float): the UTC timestamp
+            -  deadtime (float): In a live-data environment, the dead time of the first
+                 writer in the analyses chain. This is meant to be the fraction of dead
+                 time to active data capturing time (so 0.0 = no dead time whatsoever;
+                 0.99 = only 1% of the time between this and the last element was spent
+                 with active data capturing)
         :rtype: tuple
         """
         if self._last_get_index is not None:
@@ -754,26 +753,24 @@ class Reader:
             return 0, -1, -1
 
 # <<-- end class Reader
-       
+
+
 class Observer:
     """
-    Class to read select elements from a buffer.
+    Class for reading selected elements from a ringbuffer.
 
-    The buffer may be created, filled and read by different processes.
-    Buffer elements are structured NumPy arrays, the returned array won't change 
-    until the next ``Observer.get()`` call, *not* blocking the buffer slot for the 
-    time beeing. 
-    Interfaces with the buffer manager via web socket (better error resilience 
-    compared to ``multiprocessing.SimpleQueue`` )
+    Ringbuffer elements are structured NumPy arrays. The returned array will not change
+    until the next ``Observer.get()``-call, the ringbuffer element is not blocked. The data transfer
+    is implemented via web socket and interfaces with the ringbuffer manager (``NewBuffer``-class).
     """
 
     def __init__(self, setup_dict):
-        """Constructor to create an ``Observer``-object (typically called *source*\ ), 
-            granting access to the  buffer specified within the ``setup_dict`` parameter.
+        """Constructor to create an ``Observer``-object that grants access to the ringbuffer
+        specified in the ``setup_dict`` object.
 
         :param setup_dict: The setup dictionary for the *observer* this instance is a part of.
-            The setup dictionary can be obtained by calling ``NewBuffer.new_observer()`` in 
-            this instances' parent process. Sharing the same setup dictionary between multiple 
+            The setup dictionary can be obtained by calling ``NewBuffer.new_observer()`` in
+            this instances' parent process. Sharing the same setup dictionary between multiple
             observer processes is possible, calling ``NewBuffer.new_observer()`` multiple times is
             allowed as well.
         """
@@ -802,7 +799,8 @@ class Observer:
         self._copy_lock = threading.Lock()
         self._new_element = threading.Event()
         self._new_element.clear()
-        self._event_loop_thread = threading.Thread(target=self.event_loop_executor, args=(self.event_loop,), name="Event loop thread")
+        self._event_loop_thread = threading.Thread(target=self.event_loop_executor, args=(self.event_loop,),
+                                                   name="Event loop thread")
         self._event_loop_thread.start()
         self.connection_established = threading.Event()
         self.connection_established.clear()
@@ -812,17 +810,17 @@ class Observer:
         asyncio.run_coroutine_threadsafe(self.check_active_state(), self.event_loop)
         self.connection_established.wait()
         if self._debug:        
-            print( " > DEBUG: Observer created (PID: {:d})".format(os.getpid()))
+            print(" > DEBUG: Observer created (PID: {:d})".format(os.getpid()))
 
     def __del__(self):
         """
-        Destructor of the ``Observer`` object
+        Destructor of the ``Observer`` class
         """
         if self._debug:
-            print( " > DEBUG: Observer destructor called (PID: {:d})".format(os.getpid()))
+            print(" > DEBUG: Observer destructor called (PID: {:d})".format(os.getpid()))
         # The event loop should be stopped by now
         try: 
-           self._event_loop_thread.join()
+            self._event_loop_thread.join()
         except:
             pass
         # Clean up Get()-event in case it got stuck
@@ -848,8 +846,8 @@ class Observer:
             del loop
 
     async def establish_connection(self) -> None:
-        """Internal asyncio function establishing the websocket connection with
-            the buffer manager in the main process (used for IPC)
+        """Internal asynchronous function establishing the websocket connection with
+            the ringbuffer manager in the main process (used for IPC)
         """
         # async with ws.connect(self.uri) as my_ws:
         #     print("  >>> successfull ws connction ", my_ws)
@@ -863,8 +861,8 @@ class Observer:
         self.connection_established.set()
 
     async def get_new_index(self) -> None:
-        """Internal asyncio function to query the index of the latest buffer slot
-            from the buffer manager
+        """Internal asynchronous function to query the index of the latest ringbuffer element
+            from the ringbuffer manager
         """
         await self._my_ws.send("get")
         recv = await self._my_ws.recv()
@@ -873,7 +871,7 @@ class Observer:
         self._new_element.set()
 
     async def check_active_state(self) -> None:
-        """Internal asyncio function to check if ``NewBuffer.shutdown()`` was called
+        """Internal asynchronous function to check if ``NewBuffer.shutdown()`` was called
             in the main process
         """
         while self._active.is_set():
@@ -883,23 +881,22 @@ class Observer:
         await self._my_ws.close()
         await self._my_ws.wait_closed()
         self.event_loop.stop()
-        
 
     def get(self):
-        """Get a copy of the latest element added to the buffer by a ``Writer`` process.
-        
-        :return: One element (structured numpy.ndarray) from the buffer as specified in 
-            the dtype of the ``NewBuffer()``\ -object.
+        """Get a copy of the latest element added to the ringbuffer by a ``Writer`` process.
+
+        :return: One element (structured numpy.ndarray) from the ringbuffer as specified in
+            the ``NewBuffer()-dtype``-object.
         :rtype: numpy.ndarray
         """
         # if not self._active.is_set():
-            # raise SystemExit
+        # raise SystemExit
         self._new_element.clear()
         asyncio.run_coroutine_threadsafe(self.get_new_index(), self.event_loop)
         self._new_element.wait()
         if self._last_get_index == -1:
             # This should only happen while shutting down, so to avoid truble the last local buffer
-            # copy is returned again 
+            # copy is returned again
             pass
         else:
             with self._copy_lock:
@@ -908,4 +905,3 @@ class Observer:
         return self._copy_buffer
 
 # <<-- end class Observer
-

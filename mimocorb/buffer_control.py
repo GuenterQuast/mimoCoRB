@@ -9,7 +9,7 @@ import yaml
 from pathlib import Path
 import numpy as np
 from numpy.lib import recfunctions as rfn
-from multiprocessing import Process
+from multiprocessing import Process, Queue
 import threading
 import pandas as pd
 import io, tarfile
@@ -25,7 +25,7 @@ class buffer_control():
     - start_workers()
     - pause()
     - resume()
-    - shutdown() 
+    - shutdown()
 
   """
 
@@ -434,7 +434,8 @@ class BufferToBuffer():
            store accepted data in buffers
              
     """
-    def __init__(self, source_list=None, sink_list=None, observe_list=None, config_dict=None, ufunc=None, **rb_info):
+    def __init__(self, source_list=None, sink_list=None, observe_list=None,
+                 config_dict=None, ufunc=None, **rb_info):
         """
         Class to filter data in input buffer and transfer to output buffer(s)
 
@@ -560,7 +561,8 @@ class BufferToTxtfile:
             raise ValueError("Faulty ring buffer configuration passed. No source found!")
 
         if not (self.source.values_per_slot == 1):
-            raise ValueError("LogToTxt can only safe single buffer lines! (Make sure: bm.Reader.values_per_slot == 1 )")
+            raise ValueError("LogToTxt can only safe single buffer lines! " +\
+                             "(Make sure: bm.Reader.values_per_slot == 1 )")
 
         self.filename = config_dict["directory_prefix"]+"/"+config_dict["filename"]+".txt"
         if "header_alias" in config_dict:
@@ -682,7 +684,8 @@ class ObserverData:
         """
 
         if observe_list is None:
-            raise ValueError("ERROR! Faulty ring buffer configuration (source in lifetime_modules: PlotOscilloscope)!!")
+            raise ValueError("ERROR! Faulty ring buffer configuration" +\
+                             "(source in lifetime_modules: PlotOscilloscope)!!")
         if len(observe_list)!=1:
             raise ValueError("!ERROR only one observer source supported!!")            
         
@@ -743,5 +746,187 @@ class ObserverData:
                 yield(None)
                 break
 
-
 # <-- end class ObserverData
+
+
+class run_mimoDAQ(object):
+    """
+    Setup and run Data Aquisition with mimiCoRB buffer manager   
+
+    Functions:
+
+      - setup
+      - run
+      - stop
+    """
+
+  # --- helper classes for keyboard interaction -----
+    def keyboard_input(self, cmd_queue):
+        """ Read keyboard input, run as background-thread to avoid blocking """
+
+        while self.status != "Stopped":
+            cmd_queue.put(input())
+
+    @staticmethod        
+    class tc:
+        """define terminal color codes"""
+        r = '\033[1;31;48m'
+        g = '\033[1;32;48m'  # green color
+        b = '\033[1;34;48m'
+        k = '\033[1;30;48m'
+        y = '\033[1;33;48m'   # yellow color
+        p = '\033[1;35;48m'
+        c = '\033[1;36;48m'
+        B = '\033[1;37;48m'   # bold
+        U = '\033[4;37;48m'   # underline
+        E = '\033[1;37;0m'    # end color
+
+  # --- end helpers ------------------------
+  
+    def __init__(self, verbose=2):
+        self.verbose = verbose
+
+        # check for / read command line arguments and load DAQ configuration file
+        if len(sys.argv)==2:
+            self.setup_filename = sys.argv[1]
+            try:
+                with open(os.path.abspath(self.setup_filename), "r") as file:
+                    setup_yaml = yaml.load(file, Loader=yaml.FullLoader)  # SafeLoader
+            except FileNotFoundError:
+                raise FileNotFoundError(
+                    "Setup YAML file '{}' does not exist!".format(self.setup_filename))
+            except yaml.YAMLError:
+                raise RuntimeError(
+                    "Error while parsing YAML file '{}'!".format(self.setup_filename))
+        else: 
+            raise FileNotFoundError("No setup YAML file provided")
+
+        # > Get start time
+        start_time = time.localtime()
+    
+        # > Create a 'target' directory for output of this run
+        template_name = Path(self.setup_filename).stem
+        template_name = template_name[:template_name.find("setup")]
+        self.directory_prefix = "target/" + template_name + \
+            "{:04d}-{:02d}-{:02d}_{:02d}{:02d}/".format(
+            start_time.tm_year, start_time.tm_mon, start_time.tm_mday,
+            start_time.tm_hour, start_time.tm_min)
+        os.makedirs(self.directory_prefix, mode=0o0770, exist_ok=True)
+        # > Copy the setup.yaml into the target directory
+        shutil.copyfile(os.path.abspath(self.setup_filename),
+                    os.path.dirname(self.directory_prefix) + "/" + self.setup_filename)
+                    
+        # > Separate setup_yaml into ring buffers and functions:
+        self.ringbuffers_dict = setup_yaml['RingBuffer']
+        self.parallel_functions_dict = setup_yaml['Functions']
+
+
+    def setup(self):
+                    
+        # > Set up all needed ring buffers
+        self.bc = buffer_control(self.ringbuffers_dict,
+                                 self.parallel_functions_dict, self.directory_prefix)
+        self.ringbuffers = self.bc.setup_buffers()
+        print("{:d} buffers created...  ".format(len(self.ringbuffers)), end='')
+            
+        # > set-up  workers     
+        self.bc.setup_workers()
+        if self.verbose > 0:
+            self.bc.display_layout()
+            self.bc.display_functions()
+
+    def stop(self, N):
+        # Stop and shut-down
+        #  when done, first stop data flow
+        self.bc.pause()
+                        
+        # print statistics
+        if self.verbose>0:
+            print("\n\n      Execution time: {:.2f}s -  Events processed: {:d}".format(
+                   int(100*(time.time()-self.start_time))/100., N) )
+    
+        time.sleep(0.5) # give some time for buffers to become empty
+
+        # set ending state to allow clean stop for all processes
+        self.bc.set_ending()
+        time.sleep(1.0)   # some grace time for things to finish cleanly ... 
+        # ... before shutting down
+        self.bc.shutdown()
+                  
+    def run(self):                   
+        # start data taking loop
+
+        self.status = "Setup"
+        # set-up keyboard control
+        cmdQ = Queue(1)  # Queue for command input from keyboard
+        kbdthrd = threading.Thread(name='kbdInput', target=self.keyboard_input, args=(cmdQ,))
+        kbdthrd.daemon = True
+        kbdthrd.start()
+
+        # > start all workers     
+        self.process_list = self.bc.start_workers()
+        print("{:d} workers started...  ".format(len(self.process_list)), end='')
+
+        # > activate data taking (in case it was started in paused mode)
+        self.start_time = time.time()
+        self.bc.resume()
+
+        # > begin data acquisition loop
+        animation = ['|', '/', '-', '\\']
+        animstep = 0
+
+        N_processed = 0                
+        runtime = self.bc.runtime
+        runevents = self.bc.runevents
+        run = True
+        self.status = "Running"
+        try:
+            if self.verbose > 1: print('\n')
+            while run:
+                time.sleep(0.5)
+
+                for RB_name, buffer in self.ringbuffers.items():
+                    Nevents, n_filled, rate = buffer.buffer_status()
+                    if RB_name == 'RB_1': N_processed = Nevents
+                time_active = time.time() - self.start_time
+
+                if self.verbose > 1:
+                    stat = self.tc.b+self.tc.g+self.status+self.tc.E + ' '
+                    t_act = self.tc.b+self.tc.r+str(int(time_active))+'s '+self.tc.E
+                    buffer_status = stat + t_act 
+                    for RB_name, buffer in self.ringbuffers.items():
+                        buffer_status += RB_name \
+                            + " {:d} ({:d}) {:.3g}Hz) ".format(Nevents, n_filled, rate)
+                    print(" > {}  ".format(animation[animstep]) + buffer_status + 10*' ', end="\r")
+                    animstep = (animstep + 1)%4
+
+                # check if done
+                # - time limit reached ?
+                if runtime > 0 and time_active >= runtime: run = False
+                # - number of requested events accumulated ?   
+                if runevents > 0 and N_processed >= runevents: run = False
+                # - is writer source to 1st buffer exhausted ?   
+                if self.process_list[-1].exitcode == 0: run = False
+                # - End command from keyboad
+                if not cmdQ.empty():
+                    cmd = cmdQ.get()
+                    print("\n" + cmd)
+                    if cmd == 'E':
+                        print("\n     Exit command recieved from Keyboard \n")
+                        run = False
+                        self.status = 'Stopped'
+                    elif cmd == 'P':
+                        print("\n     Pause command recieved from Keyboard \n")
+                        self.bc.pause()
+                        self.status = "Paused"
+                    elif cmd == 'R':
+                        print("\n     Resume command recieved from Keyboard \n")
+                        self.status = "Running"
+                        self.bc.resume()
+
+        except KeyboardInterrupt:
+            print('\n'+sys.argv[0]+': keyboard interrupt - closing down cleanly ...')
+
+        finally:
+
+            self.stop(N_processed)
