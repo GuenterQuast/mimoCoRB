@@ -223,6 +223,7 @@ class buffer_control():
       for nam, buf in self.ringbuffers.items():
           print("Shutting down buffer ", nam)
           buf.shutdown()
+          buf.close()
           del buf
     
       # > All worker processes should have terminated by now
@@ -717,6 +718,11 @@ class ObserverData:
         self.wait_data_thread = threading.Thread(target=self._wait_data, args=(self.min_sleeptime,))
         self.wait_data_thread.start()
 
+    def close(self):
+        if threading.current_thread() == self.main_thread:
+            # print(" > DEBUG: plot.close(). Observer refcount: {:d}".format(sys.getrefcount(self.source)))
+            del self.source
+
     def __del__(self):
         if threading.current_thread() == self.main_thread:
             # print(" > DEBUG: plot.__del__(). Observer refcount: {:d}".format(sys.getrefcount(self.source)))
@@ -736,7 +742,7 @@ class ObserverData:
             if _sleep_time > 0:
                 time.sleep(_sleep_time)
         # print("DEBUG: plot.wait_data_thread can safely be joined!") #!
-
+        
     def __call__(self):
         while True:
             if self.source._active.is_set():
@@ -760,11 +766,10 @@ class ObserverData:
                 self.wait_data_thread.join()
                 yield(None)
                 break
-
+  
 # <-- end class ObserverData
 
-
-class run_mimoDAQ(object):
+class run_mimoDAQ():
     """
     Setup and run Data Aquisition with mimiCoRB buffer manager   
 
@@ -961,3 +966,6 @@ class run_mimoDAQ(object):
         finally:
 
             self.stop(N_processed)
+
+    def __del__(self):
+        print("run_mimoDAQ: destructor called")

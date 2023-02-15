@@ -47,6 +47,7 @@ class NewBuffer:
        - pause()             disable writer(s) to ringbuffer
        - resume()            (re-)enable writers
        - set_ending()        stop data-taking (gives processes time to finish before shutdown)
+       - close()             release shared memory
        - shutdown()          end connected processes, delete ringbuffer
 
     """
@@ -463,10 +464,7 @@ class NewBuffer:
         for q in self.reader_done_queue_list:
             q.put(None)
 
-    def __del__(self):
-        self.writers_active.clear()
-        self.observers_active.clear()
-        self.readers_active.clear()
+    def close(self):
         self._writer_queue_thread.join()
         for t in self.reader_queue_listener_thread_list:
             t.join()
@@ -475,6 +473,9 @@ class NewBuffer:
         self.m_share.unlink()
         self.m_metadata_share.close()
         self.m_metadata_share.unlink()
+
+    def __del__(self):
+        pass
 
 # <<-- end class NewBuffer
 
