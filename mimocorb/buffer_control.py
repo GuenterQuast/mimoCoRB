@@ -781,11 +781,12 @@ class run_mimoDAQ():
     """
 
   # --- helper classes for keyboard interaction -----
+
     def keyboard_input(self, cmd_queue):
         """ Read keyboard input, run as background-thread to avoid blocking """
 
         while self.status != "Stopped":
-            cmd_queue.put(input())
+            cmd_queue.put(input())    
 
     @staticmethod        
     class tc:
@@ -840,10 +841,12 @@ class run_mimoDAQ():
         self.ringbuffers_dict = setup_yaml['RingBuffer']
         self.parallel_functions_dict = setup_yaml['Functions']
 
+    def __del__(self):
+       # print("run_mimoDAQ: destructor called")
+       pass        
 
-    def setup(self):
-                    
-        # > Set up all needed ring buffers
+    def setup(self):                    
+        # > Set up ring buffers from dictionaries
         self.bc = buffer_control(self.ringbuffers_dict,
                                  self.parallel_functions_dict, self.directory_prefix)
         self.ringbuffers = self.bc.setup_buffers()
@@ -897,7 +900,8 @@ class run_mimoDAQ():
         # set-up keyboard control
         if self.kbdcontrol:
             cmdQ = Queue(1)  # Queue for command input from keyboard
-            kbdthrd = threading.Thread(name='kbdInput', target=self.keyboard_input, args=(cmdQ,)).start()
+            self.kbdthread = threading.Thread(name='kbdInput',
+                          target=self.keyboard_input, args=(cmdQ,)).start()
             print("\n" + b + "Keyboard control active" +E)
             print("  type:")
             print("  " + b + "E<ret>" + E + " to end")
@@ -965,7 +969,13 @@ class run_mimoDAQ():
 
         finally:
 
+          # end keyboard thread
+            self.status = 'Stopped'
+          # stop and shut-down  
             self.stop(N_processed)
-
-    def __del__(self):
-        print("run_mimoDAQ: destructor called")
+            if self.kbdcontrol:
+                print(30*' '+'Finished, good bye !  Type <ret> to exit -> ')
+            else:
+                input(30*' '+'Finished, good bye !  Type <ret> to exit -> ')
+            
+            
