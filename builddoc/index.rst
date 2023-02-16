@@ -267,7 +267,14 @@ of three ringbuffers. The raw data are analyzed, and accepted data with a
 double-pulse signature are selected and directly passed on to a second
 ringbuffer. A third buffer contains only the information about found
 signal pulses; a result file in *csv* format contains the data extracted
-from this buffer. 
+from this buffer. A graphical representation of the set-up is schown in
+the figure below [source: Master's Thesis Christoph Meyer, ETP 2022].
+Note that in the example the oscilloscope ist replaced by a signal
+simulation. 
+
+.. image:: _static/mimoCoRB_lifetime.png
+  :width: 650
+  :alt: The signal processing chain for the life-time measurement	  
 
 The buffer layout and the associated functions are defined in the main
 configuration file `simulsource_setup.py`, which serves as the input to the
