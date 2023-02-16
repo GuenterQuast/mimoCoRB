@@ -475,7 +475,14 @@ class NewBuffer:
         self.m_metadata_share.unlink()
 
     def __del__(self):
-        pass
+        # unlink shared memory if not done yet
+        try:
+            self.m_share.close()
+            self.m_share.unlink()
+            self.m_metadata_share.close()
+            self.m_metadata_share.unlink()
+        except:
+            pass
 
 # <<-- end class NewBuffer
 
