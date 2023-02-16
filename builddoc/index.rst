@@ -36,16 +36,14 @@ As a simple demonstration, we provide data from simulatd signals as would
 be recored by a detector for comsmic myons with three detection layers.
 Occasionally, such muons stop in an absorber between the 2nd and 3rd layer,
 where they decay at rest and emit a high-energetic electron recorded as a
-2nd pulse in one or two of the detection layers. After data acquitision, a search for
-typical pulses is performed, data with detected double pulses are selected
-and fed into a second buffer. A third buffer receives data in a
+2nd pulse in one or two of the detection layers. After data acquitision, a
+search for typical pulses is performed, data with detected double pulses are
+selected and fed into a second buffer. A third buffer receives data in a
 reduced format which only contains the parameters of found pulses.
 These data and the wave forms of all double-pulses are finally stored
 on disk. This application is a very typical example of the general
 process of on-line data processing in modern experiments and may
 serve as a starting point for own applications.
-
-
 
 
 .. toctree::
@@ -90,7 +88,7 @@ The set-up is as follows:
     and start the prallel processes for generating, processing
     and reading the data. 
    
-The example including coment lines for explanation is shown here:
+The example including comment lines for explanation is shown here:
 
 .. code-block:: python
 
@@ -230,22 +228,32 @@ sub-processes for filling, filtering and extracting data. These
 classes are of interest for developers wanting to help improving
 the package. 
 
-  - class buffer_control
+  - `class buffer_control`
      Set-up and management ringbuffers and associated sub-processes
 
-  - class SourceToBuffer
+  - `class SourceToBuffer`
       Read data from source (e.g. from file, simulation, PicoScope etc.) 
       and put data in mimo_buffer
 
-  - class BufferToBuffe
+  - `class BufferToBuffer`
       Read data from input buffer, filter and write data to output buffer(s)
    
-  - class BufferToTxtfile:
+  - `class BufferToTxtfile`:
       Save data to file in csv-format
 
+  - `class run_mimoDAQ`:
+      Setup and run data acquisition with mimiCoRB buffer manager   
+      
 These classes shield much of the complexity from the user, who can
 thus concentrate on writing the pieces of code need to acquire and
 prcess the data. 
+
+*run_mimoDAQ* contains most of the code needed to run a real example
+of a data-acquisition suite defined in a configuraion file with associated,
+user-defined functions for data provisioning, filtering and storage.
+It also provides an example on how to user the methods provided by the
+class *buffer_control*. 
+
 
 Application example
 ...................
@@ -278,8 +286,20 @@ This example is executed form the directory examples/ by entering:
 
   `../run_daq.py simulsource_setup.yaml`
 
+The code needed to run data-acquistion based on the package
+*mimocorb.buffer_control.run_mimoDAQ* is shown here: 
 
-The *yaml* file is shown here: 
+.. code-block:: python
+
+  # script run_daq.py
+
+  from mimocorb.buffer_control import run_mimoDAQ
+  daq = run_mimoDAQ()
+  daq.setup()
+  daq.run()
+
+The input *yaml* file for the example provided as part of the package looks
+as follows: 
 
 .. code-block:: yaml
 		
