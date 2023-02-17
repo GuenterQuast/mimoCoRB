@@ -539,7 +539,6 @@ class Writer:
         self._write_counter = 0
         self._active = setup_dict["active"]
         self._paused = setup_dict["paused"]
-        self.start_time = time.time_ns()
         self._debug = setup_dict["debug"]
         if self._debug:
             print(" > DEBUG: Writer created (PID: {:d})".format(os.getpid()))

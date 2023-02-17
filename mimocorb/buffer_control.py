@@ -47,6 +47,8 @@ class buffer_control():
 
       self.workers_setup = False
       self.workers_started = False
+
+      self.status = 'Initialized'
       
   def setup_buffers(self):
     self.ringbuffers = {}
@@ -76,6 +78,8 @@ class buffer_control():
         
         # > Create and store the new ring buffer object (one per ringbuffer definition in the setup yaml file)
         self.ringbuffers[ringbuffer_name] = bm.NewBuffer(num_slots, num_ch, rb_datatype)
+
+    self.status = "BuffersSet"    
     return self.ringbuffers
     
   def setup_workers(self):
@@ -179,15 +183,17 @@ class buffer_control():
                                         args=(source_list, sink_list, observe_list, config_dict),
                                         kwargs=assigned_ringbuffers, name=fkt_py_name))
 
-    self.workers_setup = True     
+    self.workers_setup = True
+    self.status = "WorkersSet"    
 
   def start_workers(self):
     """start all of the (parallel) worker functions
     """
 
     if self.workers_started:
-      print("Workers already started")
-    
+        print("Workers already started - cannot start again")
+        return
+      
     # > To avoid potential blocking during startup, processes will be started in reverse
     #   data flow order (so last item in the processing chain is started first)
     self.process_list.reverse()
@@ -196,6 +202,7 @@ class buffer_control():
         p.start()
 
     self.workers_started = True
+    self.status = "Running"
     return self.process_list
 
   def display_layout(self):
@@ -211,11 +218,12 @@ class buffer_control():
                 '('+str(self.parallel_functions[key][1])+')  ',
                 rb_assigned )
 
-  def set_ending(self):
+  def stop(self):
       """stop writing and reading data, allow processes to finish
       """
       for nam, buf in self.ringbuffers.items():
           buf.set_ending()
+      self.status = "Stopped"
 
   def shutdown(self):
       """Delete buffers, stop processes by calling the shutdown()-Method of the buffer manager
@@ -241,18 +249,24 @@ class buffer_control():
             
       # > delete remaining ring buffer references (so each buffer managers destructor gets called)
       del self.ringbuffers
+      self.status = "Shutdown"
 
   def pause(self):
       """Pause data acquisition
       """
       # disable writing to Buffer RB_1
       self.ringbuffers['RB_1'].pause()
+      self.status="Paused"
 
   def resume(self):
       """re-enable  data acquisition
       """
       # disable writing to Buffer RB_1
-      self.ringbuffers['RB_1'].resume()
+      if self.status == "Paused":
+          self.ringbuffers['RB_1'].resume()
+          self.status="Running"
+      else:
+          print(" !!! Resume only possible from state 'Paused'")
 
   #helper functions
   @staticmethod
@@ -785,7 +799,7 @@ class run_mimoDAQ():
     def keyboard_input(self, cmd_queue):
         """ Read keyboard input, run as background-thread to avoid blocking """
 
-        while self.status != "Stopped":
+        while self.run:
             cmd_queue.put(input())    
 
     @staticmethod        
@@ -806,6 +820,12 @@ class run_mimoDAQ():
   
     def __init__(self, verbose=2):
         self.verbose = verbose
+
+        # general options 
+        # - allow keyboard control
+        self.kbdcontrol = True
+        # - enable GUI
+        self.GUIcontrol = True
 
         # check for / read command line arguments and load DAQ configuration file
         if len(sys.argv)==2:
@@ -858,11 +878,12 @@ class run_mimoDAQ():
             self.bc.display_layout()
             self.bc.display_functions()
 
-    def stop(self, N):
+    def end(self, N):
         # Stop and shut-down
-        #  when done, first stop data flow
-        self.bc.pause()
-                        
+        #  when done, first stop data flow (in case it is still active)
+        if self.bc.status != "Paused":
+            self.bc.pause()
+
         # print statistics
         if self.verbose>0:
             print("\n\n      Execution time: {:.2f}s -  Events processed: {:d}".format(
@@ -870,18 +891,18 @@ class run_mimoDAQ():
     
         time.sleep(0.5) # give some time for buffers to become empty
 
-        # set ending state to allow clean stop for all processes
-        self.bc.set_ending()
-        time.sleep(1.0)   # some grace time for things to finish cleanly ... 
-        # ... before shutting down
+        # set ending state to allow clean ending for all processes
+        if self.bc.status != "Stopped":
+            self.bc.stop()
+            time.sleep(0.5)
+
+        # shut-down all buffers 
         self.bc.shutdown()
                   
     def run(self):                   
         # start data taking loop
-        self.status = "Setup"
+        self.run = True
 
-        # allow keyboard control
-        self.kbdcontrol = True
         # strings for printout
         animation = ['|', '/', '-', '\\']
         animstep = 0
@@ -898,15 +919,16 @@ class run_mimoDAQ():
         E = '\033[1;37;0m'    # end color
         
         # set-up keyboard control
-        if self.kbdcontrol:
+        if self.kbdcontrol or self.GUIcontrol:
             cmdQ = Queue(1)  # Queue for command input from keyboard
             self.kbdthread = threading.Thread(name='kbdInput',
                           target=self.keyboard_input, args=(cmdQ,)).start()
             print("\n" + b + "Keyboard control active" +E)
             print("  type:")
-            print("  " + b + "E<ret>" + E + " to end")
             print("  " + b + "P<ret>" + E + " to pause")
             print("  " + b + "R<ret>" + E + " to resume \n")
+            print("  " + b + "S<ret>" + E + " to stop")
+            print("  " + b + "E<ret>" + E + " to end")
 
         # > start all workers     
         self.process_list = self.bc.start_workers()
@@ -914,20 +936,19 @@ class run_mimoDAQ():
 
         # > activate data taking (in case it was started in paused mode)
         self.start_time = time.time()
-        self.bc.resume()
+        if self.bc.status == "Paused":
+            self.bc.resume()
         
         # > begin data acquisition loop
         N_processed = 0                
         runtime = self.bc.runtime
         runevents = self.bc.runevents
-        run = True
-        self.status = "Running"
         try:
             if self.verbose > 1: print('\n')
-            while run:
+            while self.run:
                 time.sleep(0.5)
 
-                stat = B+g+ self.status + E + ' '
+                stat = B+g+ self.bc.status + E + ' '
                 time_active = time.time() - self.start_time
                 t_act = B+r+ str(int(time_active))+'s ' + E
                 buffer_status = stat + t_act 
@@ -942,26 +963,27 @@ class run_mimoDAQ():
 
                 # check if done
                 # - time limit reached ?
-                if runtime > 0 and time_active >= runtime: run = False
+                if runtime > 0 and time_active >= runtime: self.run = False
                 # - number of requested events accumulated ?   
-                if runevents > 0 and N_processed >= runevents: run = False
+                if runevents > 0 and N_processed >= runevents: self.run = False
                 # - is writer source to 1st buffer exhausted ?   
-                if self.process_list[-1].exitcode == 0: run = False
+                if self.process_list[-1].exitcode == 0: self.run = False
                 # - End command from keyboad
-                if self.kbdcontrol and not cmdQ.empty():
+                if (self.kbdcontrol or self.GUIcontrol) and not cmdQ.empty():
                     cmd = cmdQ.get()
                     print("\n" + cmd)
+                    if cmd == 'S':
+                        print("\n     Stop command recieved \n")
+                        self.bc.stop()
                     if cmd == 'E':
-                        print("\n     Exit command recieved from Keyboard \n")
-                        run = False
-                        self.status = 'Stopped'
+                        print("\n     Exit command recieved \n")
+                        self.run = False
+                        break 
                     elif cmd == 'P':
-                        print("\n     Pause command recieved from Keyboard \n")
+                        print("\n     Pause command recieved \n")
                         self.bc.pause()
-                        self.status = "Paused"
                     elif cmd == 'R':
-                        print("\n     Resume command recieved from Keyboard \n")
-                        self.status = "Running"
+                        print("\n     Resume command recieved \n")
                         self.bc.resume()
 
         except KeyboardInterrupt:
@@ -969,13 +991,10 @@ class run_mimoDAQ():
 
         finally:
 
-          # end keyboard thread
-            self.status = 'Stopped'
           # stop and shut-down  
-            self.stop(N_processed)
+            self.end(N_processed)
+
             if self.kbdcontrol:
-                print(30*' '+'Finished, good bye !  Type <ret> to exit -> ')
+               print(30*' '+'Finished, good bye !  Type <ret> to exit -> ')
             else:
                 input(30*' '+'Finished, good bye !  Type <ret> to exit -> ')
-            
-            
