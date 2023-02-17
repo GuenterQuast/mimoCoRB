@@ -4,6 +4,7 @@ and associated access funtions
 """
 
 from . import mimo_buffer as bm
+from .bufferinfoGUI import bufferinfoGUI 
 import time, os, sys, shutil
 import yaml
 from pathlib import Path
@@ -542,7 +543,6 @@ class BufferToBuffer():
 
 # <-- end class BufferToBuffer
 
-
 class BufferToTxtfile:
     """Save data to file in csv-format
     """
@@ -701,8 +701,7 @@ class ObserverData:
         """
 
         if observe_list is None:
-            raise ValueError("ERROR! Faulty ring buffer configuration" +\
-                             "(source in lifetime_modules: PlotOscilloscope)!!")
+            raise ValueError("ERROR! Faulty ring buffer configuration")
         if len(observe_list)!=1:
             raise ValueError("!ERROR only one observer source supported!!")            
         
@@ -878,24 +877,17 @@ class run_mimoDAQ():
             self.bc.display_layout()
             self.bc.display_functions()
 
-    def end(self, N):
+    def end(self):
         # Stop and shut-down
-        #  when done, first stop data flow (in case it is still active)
-        if self.bc.status != "Paused":
-            self.bc.pause()
-
-        # print statistics
-        if self.verbose>0:
-            print("\n\n      Execution time: {:.2f}s -  Events processed: {:d}".format(
-                   int(100*(time.time()-self.start_time))/100., N) )
-    
-        time.sleep(0.5) # give some time for buffers to become empty
+        #    first, stop data flow (in case it is still active)
+        if self.bc.status == "Running":
+           self.bc.pause()
+           time.sleep(0.5) # give some time for buffers to become empty
 
         # set ending state to allow clean ending for all processes
         if self.bc.status != "Stopped":
             self.bc.stop()
             time.sleep(0.5)
-
         # shut-down all buffers 
         self.bc.shutdown()
                   
@@ -920,9 +912,9 @@ class run_mimoDAQ():
         
         # set-up keyboard control
         if self.kbdcontrol or self.GUIcontrol:
-            cmdQ = Queue(1)  # Queue for command input from keyboard
+            self.cmdQ = Queue(1)  # Queue for command input from keyboard
             self.kbdthread = threading.Thread(name='kbdInput',
-                          target=self.keyboard_input, args=(cmdQ,)).start()
+                          target=self.keyboard_input, args=(self.cmdQ,)).start()
             print("\n" + b + "Keyboard control active" +E)
             print("  type:")
             print("  " + b + "P<ret>" + E + " to pause")
@@ -930,6 +922,18 @@ class run_mimoDAQ():
             print("  " + b + "S<ret>" + E + " to stop")
             print("  " + b + "E<ret>" + E + " to end")
 
+        if self.GUIcontrol:
+            self.logQ = Queue()  # Queue for logging to buffer manager info display
+            self.RBinfoQ = Queue(1)  # Queue Buffer manager info display
+            maxrate = 1200.
+            self.interval = 1000.  # update interval in ms
+            self.RBinfoproc = Process(name='bufferinfoGUI', target = bufferinfoGUI, 
+                                      args=(self.cmdQ, self.logQ, self.RBinfoQ, 
+#                                              cmdQ     BM_logQue    BM_InfoQue      
+                                      maxrate, self.interval) )
+            self.RBinfoproc.start()
+            
+          
         # > start all workers     
         self.process_list = self.bc.start_workers()
         print("{:d} workers started...  ".format(len(self.process_list)), end='')
@@ -947,30 +951,32 @@ class run_mimoDAQ():
             if self.verbose > 1: print('\n')
             while self.run:
                 time.sleep(0.5)
-
                 stat = B+g+ self.bc.status + E + ' '
                 time_active = time.time() - self.start_time
                 t_act = B+r+ str(int(time_active))+'s ' + E
-                buffer_status = stat + t_act 
+                buffer_status_color = stat + t_act
+                buffer_status = time.asctime() + ' ' + self.bc.status + ' ' + str(int(time_active))+'s  '
+                RBinfo = {}
                 for RB_name, buffer in self.ringbuffers.items():
                     Nevents, n_filled, rate = buffer.buffer_status()
                     if RB_name == 'RB_1': N_processed = Nevents
-                    if self.verbose > 1:
-                        buffer_status += B+k+ RB_name +E + ": " +\
-                           B+b+ "{:d}".format(Nevents) +E + "({:d}) {:.3g}Hz ".format(n_filled, rate)
-                        print(" > {}  ".format(animation[animstep]) + buffer_status + 10*' ', end="\r")
-                        animstep = (animstep + 1)%4
-
+                    RBinfo[RB_name]= [Nevents, n_filled, rate]
+                    buffer_status_color += B+k+ RB_name +E + ": " +\
+                      B+b+ "{:d}".format(Nevents) +E + "({:d}) {:.3g}Hz ".format(n_filled, rate)
+                    buffer_status += RB_name + ": " +\
+                      "{:d}".format(Nevents) + "({:d}) {:.3g}Hz ".format(n_filled, rate)
+                if self.verbose > 1:
+                    print(" > {}  ".format(animation[animstep]) + buffer_status_color + 10*' ', end="\r")
+                    animstep = (animstep + 1)%4
+                if self.GUIcontrol:
+                    if int(time_active)%10 == 0:
+                        self.logQ.put(buffer_status)
+                    self.RBinfoQ.put( (self.bc.status, time_active, N_processed, time_active,
+                                       RBinfo['RB_1'][2], RBinfo['RB_1'][1] ) )
                 # check if done
-                # - time limit reached ?
-                if runtime > 0 and time_active >= runtime: self.run = False
-                # - number of requested events accumulated ?   
-                if runevents > 0 and N_processed >= runevents: self.run = False
-                # - is writer source to 1st buffer exhausted ?   
-                if self.process_list[-1].exitcode == 0: self.run = False
-                # - End command from keyboad
-                if (self.kbdcontrol or self.GUIcontrol) and not cmdQ.empty():
-                    cmd = cmdQ.get()
+                # - end command from keyboad or GUI ? 
+                if (self.kbdcontrol or self.GUIcontrol) and not self.cmdQ.empty():
+                    cmd = self.cmdQ.get()
                     print("\n" + cmd)
                     if cmd == 'S':
                         print("\n     Stop command recieved \n")
@@ -986,15 +992,41 @@ class run_mimoDAQ():
                         print("\n     Resume command recieved \n")
                         self.bc.resume()
 
+                # keep loop active while in stopped state        
+                if self.bc.status == "Stopped":
+                    continue
+
+                # - time limit reached ?
+                if runtime > 0 and time_active >= runtime:
+                    self.run = False
+                # - number of requested events accumulated ?   
+                if runevents > 0 and N_processed >= runevents:
+                    self.run = False
+                # - is writer source to 1st buffer exhausted ?   
+                if self.process_list[-1].exitcode == 0:
+                    self.run = False
+
         except KeyboardInterrupt:
             print('\n'+sys.argv[0]+': keyboard interrupt - closing down cleanly ...')
 
-        finally:
+        finally:          
 
+          # print End-of-Run statistics
+            EoR_info = "\n      Execution time: {:.2f}s -  Events processed: {:d}".format(
+                   int(10*(time.time()-self.start_time))/10., N_processed)
+            if self.verbose>0:
+                print('\n' + EoR_info)
+            if self.GUIcontrol:
+               self.logQ.put(time.asctime() + ' End of Run' + EoR_info)
+    
           # stop and shut-down  
-            self.end(N_processed)
-
+            self.end()
+            
             if self.kbdcontrol:
                print(30*' '+'Finished, good bye !  Type <ret> to exit -> ')
             else:
                 input(30*' '+'Finished, good bye !  Type <ret> to exit -> ')
+
+            if self.GUIcontrol and self.RBinfoproc.is_alive():
+                input (30*' '+'Type <ret> again to close Run Control Window\n')
+                self.RBinfoproc.terminate()
