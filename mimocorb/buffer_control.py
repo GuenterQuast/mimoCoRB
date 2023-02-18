@@ -53,18 +53,20 @@ class buffer_control():
       
   def setup_buffers(self):
     self.ringbuffers = {}
+    self.ringbuffer_names = []
     for i in range(1, self.number_of_ringbuffers):
         # > Concescutive and concise ring buffer names are assumed! (aka: "RB_1", "RB_2", ...)
-        ringbuffer_name = "RB_" + str(i)
+        RBnam = "RB_" + str(i)
+        self.ringbuffer_names.append(RBnam)
         # > Check if the ring buffer exists in the setup_yaml file
         try:
-            RB_exists = self.buffers_dict[i-1][ringbuffer_name]
+            RB_exists = self.buffers_dict[i-1][RBnam]
         except KeyError:
             raise RuntimeError("Ring buffer '{}' not found in setup congiguration!\n".format(
-                ringbuffer_name))
-        num_slots = self.buffers_dict[i-1][ringbuffer_name]['number_of_slots']
-        num_ch = self.buffers_dict[i-1][ringbuffer_name]['channel_per_slot']
-        data_type = self.buffers_dict[i-1][ringbuffer_name]['data_type']  # simple string type or list expected
+                RBnam))
+        num_slots = self.buffers_dict[i-1][RBnam]['number_of_slots']
+        num_ch = self.buffers_dict[i-1][RBnam]['channel_per_slot']
+        data_type = self.buffers_dict[i-1][RBnam]['data_type']  # simple string type or list expected
         # > Create the buffer data structure (data type of the underlying buffer array)
         if type(data_type) == str:
             rb_datatype = np.dtype(data_type)
@@ -78,7 +80,7 @@ class buffer_control():
                " or a list of tuples (see numpy.dtype()-API reference)".format(data_type))
         
         # > Create and store the new ring buffer object (one per ringbuffer definition in the setup yaml file)
-        self.ringbuffers[ringbuffer_name] = bm.NewBuffer(num_slots, num_ch, rb_datatype)
+        self.ringbuffers[RBnam] = bm.NewBuffer(num_slots, num_ch, rb_datatype)
 
     self.status = "BuffersSet"    
     return self.ringbuffers
@@ -869,6 +871,7 @@ class run_mimoDAQ():
         self.bc = buffer_control(self.ringbuffers_dict,
                                  self.parallel_functions_dict, self.directory_prefix)
         self.ringbuffers = self.bc.setup_buffers()
+        self.RBnames = self.bc.ringbuffer_names
         print("{:d} buffers created...  ".format(len(self.ringbuffers)), end='')
             
         # > set-up  workers     
@@ -877,8 +880,14 @@ class run_mimoDAQ():
             self.bc.display_layout()
             self.bc.display_functions()
 
-    def end(self):
-        # Stop and shut-down
+    def end(self, twait=3.):
+        """
+        clean shutdown of daq suite
+
+        Arg: 
+
+            twait: waiting time for processes to finish before shutdown
+        """
         #    first, stop data flow (in case it is still active)
         if self.bc.status == "Running":
            self.bc.pause()
@@ -887,7 +896,7 @@ class run_mimoDAQ():
         # set ending state to allow clean ending for all processes
         if self.bc.status != "Stopped":
             self.bc.stop()
-            time.sleep(0.5)
+            time.sleep(twait)
         # shut-down all buffers 
         self.bc.shutdown()
                   
@@ -918,20 +927,21 @@ class run_mimoDAQ():
             print("\n" + b + "Keyboard control active" +E)
             print("  type:")
             print("  " + b + "P<ret>" + E + " to pause")
-            print("  " + b + "R<ret>" + E + " to resume \n")
+            print("  " + b + "R<ret>" + E + " to resume")
             print("  " + b + "S<ret>" + E + " to stop")
             print("  " + b + "E<ret>" + E + " to end")
 
         if self.GUIcontrol:
             self.logQ = Queue()  # Queue for logging to buffer manager info display
             self.RBinfoQ = Queue(1)  # Queue Buffer manager info display
-            maxrate = 1200.
+            self.maxrate = 1500.
             self.interval = 1000.  # update interval in ms
             self.RBinfoproc = Process(name='bufferinfoGUI', target = bufferinfoGUI, 
                                       args=(self.cmdQ, self.logQ, self.RBinfoQ, 
 #                                              cmdQ     BM_logQue    BM_InfoQue      
-                                      maxrate, self.interval) )
+                                            self.RBnames, self.maxrate, self.interval) )
             self.RBinfoproc.start()
+            print("\n" + b + "Graphical User Interface active " + E + "\n")
             
           
         # > start all workers     
@@ -947,32 +957,35 @@ class run_mimoDAQ():
         N_processed = 0                
         runtime = self.bc.runtime
         runevents = self.bc.runevents
+        RBinfo = {}
         try:
             if self.verbose > 1: print('\n')
             while self.run:
-                time.sleep(0.5)
                 stat = B+g+ self.bc.status + E + ' '
-                time_active = time.time() - self.start_time
+                time_active = (time.time() - self.start_time)
+                tact_p1s = int(10*(time.time() - self.start_time)) # int in 1s/10 
                 t_act = B+r+ str(int(time_active))+'s ' + E
                 buffer_status_color = stat + t_act
                 buffer_status = time.asctime() + ' ' + self.bc.status + ' ' + str(int(time_active))+'s  '
-                RBinfo = {}
-                for RB_name, buffer in self.ringbuffers.items():
-                    Nevents, n_filled, rate = buffer.buffer_status()
-                    if RB_name == 'RB_1': N_processed = Nevents
-                    RBinfo[RB_name]= [Nevents, n_filled, rate]
-                    buffer_status_color += B+k+ RB_name +E + ": " +\
-                      B+b+ "{:d}".format(Nevents) +E + "({:d}) {:.3g}Hz ".format(n_filled, rate)
-                    buffer_status += RB_name + ": " +\
-                      "{:d}".format(Nevents) + "({:d}) {:.3g}Hz ".format(n_filled, rate)
-                if self.verbose > 1:
-                    print(" > {}  ".format(animation[animstep]) + buffer_status_color + 10*' ', end="\r")
-                    animstep = (animstep + 1)%4
+                # status update once/s
+                if tact_p1s%10 == 0 or len(RBinfo)==0:
+                    for RB_name, buffer in self.ringbuffers.items():
+                        Nevents, n_filled, rate = buffer.buffer_status()
+                        if RB_name == 'RB_1': N_processed = Nevents
+                        RBinfo[RB_name]= [Nevents, n_filled, rate]
+                        buffer_status_color += B+k+ RB_name +E + ": " +\
+                          B+b+ "{:d}".format(Nevents) +E + "({:d}) {:.3g}Hz ".format(n_filled, rate)
+                        buffer_status += RB_name + ": " +\
+                          "{:d}".format(Nevents) + "({:d}) {:.3g}Hz ".format(n_filled, rate)
+                    if self.verbose > 1:
+                        print(" > {}  ".format(animation[animstep]) + buffer_status_color + 10*' ', end="\r")
+                        animstep = (animstep + 1)%4
                 if self.GUIcontrol:
-                    if int(time_active)%10 == 0:
-                        self.logQ.put(buffer_status)
-                    self.RBinfoQ.put( (self.bc.status, time_active, N_processed, time_active,
-                                       RBinfo['RB_1'][2], RBinfo['RB_1'][1] ) )
+                    if tact_p1s%600 == 0: 
+                        self.logQ.put(buffer_status)  # print line to log every 60 s
+                    if self.RBinfoQ.empty(): # update rate display when requested
+                        self.RBinfoQ.put( (self.bc.status, time_active, N_processed, RBinfo ) )
+
                 # check if done
                 # - end command from keyboad or GUI ? 
                 if (self.kbdcontrol or self.GUIcontrol) and not self.cmdQ.empty():
@@ -1005,6 +1018,8 @@ class run_mimoDAQ():
                 # - is writer source to 1st buffer exhausted ?   
                 if self.process_list[-1].exitcode == 0:
                     self.run = False
+                    
+                time.sleep(0.1)  # <-- end while run:
 
         except KeyboardInterrupt:
             print('\n'+sys.argv[0]+': keyboard interrupt - closing down cleanly ...')
@@ -1020,7 +1035,7 @@ class run_mimoDAQ():
                self.logQ.put(time.asctime() + ' End of Run' + EoR_info)
     
           # stop and shut-down  
-            self.end()
+            self.end(twait=2.)
             
             if self.kbdcontrol:
                print(30*' '+'Finished, good bye !  Type <ret> to exit -> ')

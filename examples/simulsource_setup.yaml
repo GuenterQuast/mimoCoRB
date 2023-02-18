@@ -93,6 +93,7 @@ Functions:
   - Fkt_3:
       file_name: "modules/save_files"
       fkt_name: "save_to_txt"
+      config_file: "config/save_lifetime.yaml"
       num_process: 1
       RB_assign:
            RB_3: "read"     # pulse data
