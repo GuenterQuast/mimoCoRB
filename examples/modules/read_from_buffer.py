@@ -26,14 +26,18 @@ def read_from_buffer(source_list=None, sink_list=None,
 
     count = 0
     decay_time = 0. 
-    decay_time_sq = 0. 
+    decay_time_sq = 0.
+    deadtime_f = 0.
 
     # -- start collecting data
     while active_event.is_set():
+        #  expect (metadata, data) or None if end 
         d = next( readData(), None )   # blocks until new data received!
         if d is not None:
             metadata = d[0]
             last_event_number = metadata[0]
+            deadtime_f += metadata[2]
+            # 
             data = d[1]
             count = count+1
             t = data[0][0]
@@ -45,9 +49,10 @@ def read_from_buffer(source_list=None, sink_list=None,
     # end-of-run action(s)
     # print summary wehen Reader becomes inactive    
     print("\n ->> process 'read_from_buffer': SUMMARY")
-    print("   last event seen: {:d}".format(int(last_event_number)))
+    print("   last event seen: {:d}".format(int(last_event_number)),
+          " average deadtime: {:.1f}%".format(100*deadtime_f/count) ) 
     # total event, count, mean decay time and its uncertainty
-    print("   received # of events: {:d}".format(count), 
+    print("   received # of events: {:d}".format(count),
           "   mean decay time: {:2g}".format(decay_time/count),
           "+/- {:1g}".format(np.sqrt(decay_time_sq - decay_time**2/count)/count) )
 

@@ -1,5 +1,5 @@
 """
-Collection of classes with graphics functions to plot buffer data
+**plot_buffer** Collection of classes with graphics functions to plot buffer data
 """
 
 import numpy as np

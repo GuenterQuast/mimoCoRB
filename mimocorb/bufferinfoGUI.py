@@ -15,11 +15,15 @@ import matplotlib.pyplot as plt, matplotlib.animation as anim
 from cycler import cycle
 
 class plot_bufferinfo(object):
-  """ 
-  display statistics from Buffer Manager
+  """display statistics from Buffer Manager
 
-    uses multiprocessing.Queue() to display buffer information:
-    total number of events, data acquisition rate, buffer filling level
+  uses multiprocessing.Queue() to display buffer information:
+  total number of events, data acquisition rate, buffer filling level
+
+  :param Q:    multiprocessing.Queue() for status info
+  :param RBnames:  list, buffer names, used as line labels
+  :param maxrate: maximum rate for y-axis
+  :param interval: update interval
   """
 
   def __init__(self, Q, RBnames, maxRate=1500., interval=1000.):
@@ -107,13 +111,13 @@ def bufferinfoGUI(Qcmd, Qlog, Qinfo,
                   RBnames=["RB_1"], maxRate = 100. , interval = 1000.):
   """
   Show Buffer Manager logging messages and rate history and command buttons
-    Args:
-      Qcmd      multiprocessing.Queue for command passing to calling process
-      Qlog:     multiprocessing.Queue() for logging-info  
-      Qinfo:    multiprocessing.Queue() for status info
-      RBnames:  list, buffer names, used as line labels
-      maxrate: maximum rate for y-axis
-      interval: update interval
+    
+  :param Qcmd: multiprocessing.Queue for command passing to calling process
+  :param Qlog:     multiprocessing.Queue() for logging-info  
+  :param Qinfo:    multiprocessing.Queue() for status info
+  :param RBnames:  list, buffer names, used as line labels
+  :param maxrate: maximum rate for y-axis
+  :param interval: update interval
   """
 
   def wrtoLog(T):
@@ -238,6 +242,3 @@ def bufferinfoGUI(Qcmd, Qlog, Qinfo,
 #  except:
 #    print('*==* bufferinfoGUI: termination signal received')
 #  sys.exit()
-
-
-  

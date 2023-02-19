@@ -9,6 +9,7 @@ import sys, time
 def simulation_source(source_list=None, sink_list=None, observe_list=None, config_dict=None, **rb_info):
     """
     Generate simulated data and pass data to buffer
+
     The class mimocorb.buffer_control/SourceToBuffer is used to interface to the
     newBuffer and Writer classes of the package mimoCoRB.mimo_buffer
 

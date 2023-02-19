@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 """
-**rb_unittest:** application example for mimo_buffer 
+**rb_unittest:** application example for mimo_buffer
 
 This code may serve as a very basic starting point for own projects 
 
@@ -17,9 +17,9 @@ from multiprocessing import Process, Value
 from mimocorb import mimo_buffer as bm
 
 # global variables 
-N_requested = 1000  # numer of data injectios ("events")
+N_requested = 1000  # number of data injections ("events")
 Time_tick = 0.001   # time between events
-Ncpu1 = 2           # number of parallel abalyzer processes
+Ncpu1 = 2           # number of parallel analyzer processes
 
 def data_generator(sink_dict):
     """writes continuously rising integers to buffer specified in sink_dict

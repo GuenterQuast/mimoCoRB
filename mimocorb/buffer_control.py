@@ -5,6 +5,7 @@ and associated access funtions
 
 from . import mimo_buffer as bm
 from .bufferinfoGUI import bufferinfoGUI 
+
 import time, os, sys, shutil
 import yaml
 from pathlib import Path
@@ -315,7 +316,7 @@ class buffer_control():
 
 class SourceToBuffer:
     """
-    Read data from source (e.g. file, simulation, Picoscope etc.) 
+    Read data from external source (e.g. front-end device, file, simulation, etc.) 
     and put data in mimo_buffer. 
     """
 
@@ -352,6 +353,7 @@ class SourceToBuffer:
 
         self.get_data_from_ufunc = ufunc
         self.event_count = 0
+        self.T_last = time.time()
        
     def __del__(self):
         pass
@@ -368,18 +370,23 @@ class SourceToBuffer:
             
             self.event_count += 1
 
-            # get new buffer abd store event data and meta-data
-            buffer = self.sink.get_new_buffer()            
+            # get new buffer abd store event data and meta-data           
             data = self.get_data_from_ufunc(self.number_of_channels)
-            self.sink.set_metadata(self.event_count, time.time(), 0)
-            buffer[:]['chA'] = data[0]
-            if self.number_of_channels > 1:
-                buffer[:]['chB'] = data[1]
-            if self.number_of_channels > 2:
-                buffer[:]['chC'] = data[2]
-            if self.number_of_channels > 3:
-                buffer[:]['chD'] = data[3]
-        # make sure last data entry is processed        
+            timestamp = time.time_ns()//1000
+            T_data_ready = time.time()
+            buffer = self.sink.get_new_buffer()
+            # - fill data and metadata 
+            for i in range(self.number_of_channels):
+                chnam = 'ch' + chr(ord('A') + i)
+                buffer[:][chnam] = data[i]
+                
+            # - account for deadtime
+            T_buffer_ready = time.time()
+            deadtime = T_buffer_ready - T_data_ready
+            deadtime_fraction = deadtime /(T_buffer_ready-self.T_last)
+            self.sink.set_metadata(self.event_count, timestamp, deadtime_fraction)
+            self.T_last = T_buffer_ready
+        # make sure last data entry is also processed        
         self.sink.process_buffer()
 
 # <-- end class SourceToBuffer
@@ -786,13 +793,23 @@ class ObserverData:
 
 class run_mimoDAQ():
     """
-    Setup and run Data Aquisition with mimiCoRB buffer manager   
+    Setup and run Data Aquisition with mimoCoRB buffer manager   
+
+    The layout of ringbuffers and associated functions is defined
+    in a configuration file in yaml format. 
 
     Functions:
 
-      - setup
-      - run
-      - stop
+      - setup()
+      - run()
+      - end()
+
+    Data acquisition stops when either of the following conditions is met:
+
+      - number of requested events processed
+      - requested run-time reached
+      - end command issued from Keyboard or graphical interface
+
     """
 
   # --- helper classes for keyboard interaction -----
@@ -967,7 +984,7 @@ class run_mimoDAQ():
                 t_act = B+r+ str(int(time_active))+'s ' + E
                 buffer_status_color = stat + t_act
                 buffer_status = time.asctime() + ' ' + self.bc.status + ' ' + str(int(time_active))+'s  '
-                # status update once/s
+                # status update once per second
                 if tact_p1s%10 == 0 or len(RBinfo)==0:
                     for RB_name, buffer in self.ringbuffers.items():
                         Nevents, n_filled, rate = buffer.buffer_status()
@@ -980,10 +997,12 @@ class run_mimoDAQ():
                     if self.verbose > 1:
                         print(" > {}  ".format(animation[animstep]) + buffer_status_color + 10*' ', end="\r")
                         animstep = (animstep + 1)%4
+                # print line to log every 60 s
                 if self.GUIcontrol:
                     if tact_p1s%600 == 0: 
-                        self.logQ.put(buffer_status)  # print line to log every 60 s
-                    if self.RBinfoQ.empty(): # update rate display when requested
+                        self.logQ.put(buffer_status)  
+                    if self.RBinfoQ.empty() and not self.bc.status =="Stopped":
+                        # update rate display
                         self.RBinfoQ.put( (self.bc.status, time_active, N_processed, RBinfo ) )
 
                 # check if done
@@ -993,6 +1012,7 @@ class run_mimoDAQ():
                     print("\n" + cmd)
                     if cmd == 'S':
                         print("\n     Stop command recieved \n")
+                        self.logQ.put(time.asctime() + ' Run stopped')  
                         self.bc.stop()
                     if cmd == 'E':
                         print("\n     Exit command recieved \n")
@@ -1000,9 +1020,11 @@ class run_mimoDAQ():
                         break 
                     elif cmd == 'P':
                         print("\n     Pause command recieved \n")
+                        self.logQ.put(time.asctime() + ' Run paused')  
                         self.bc.pause()
                     elif cmd == 'R':
                         print("\n     Resume command recieved \n")
+                        self.logQ.put(time.asctime() + ' Run resumed')  
                         self.bc.resume()
 
                 # keep loop active while in stopped state        
@@ -1034,7 +1056,7 @@ class run_mimoDAQ():
             if self.GUIcontrol:
                self.logQ.put(time.asctime() + ' End of Run' + EoR_info)
     
-          # stop and shut-down  
+          # stop and shutdown  
             self.end(twait=2.)
             
             if self.kbdcontrol:
@@ -1045,3 +1067,19 @@ class run_mimoDAQ():
             if self.GUIcontrol and self.RBinfoproc.is_alive():
                 input (30*' '+'Type <ret> again to close Run Control Window\n')
                 self.RBinfoproc.terminate()
+
+if __name__ == "__main__": # ----------------------------------------------------------------------
+
+
+  # example code to run a data acquitistion suite definde in a yaml config
+
+  # execute via:   python3 -m mimocorb.buffer_control <config file>
+  
+  print('\n*==* script ' + sys.argv[0] + ' running \n')
+
+  daq = run_mimoDAQ()
+
+  daq.setup()
+
+  daq.run()
+
