@@ -82,7 +82,7 @@ class NewBuffer:
         self.dtype = dtype
         m_bytes = number_of_slots * values_per_slot * np.dtype(dtype).itemsize
         self.m_share = shared_memory.SharedMemory(create=True, size=m_bytes)
-        self.metadata_dtype = [('counter', np.longlong), ('timestamp', np.longlong), ('deadtime', np.float64)]
+        self.metadata_dtype = [('counter', np.longlong), ('timestamp', np.float64), ('deadtime', np.float64)]
         m_bytes = number_of_slots * np.dtype(self.metadata_dtype).itemsize
         self.m_metadata_share = shared_memory.SharedMemory(create=True, size=m_bytes)
 
@@ -624,7 +624,7 @@ class Writer:
         """
         if self._current_buffer_index is not None:
             if self._metadata[self._current_buffer_index]['timestamp'] == -1:
-                self._metadata[self._current_buffer_index]['timestamp'] = time.time_ns()//1000
+                self._metadata[self._current_buffer_index]['timestamp'] = time.time_ns()/1000.
             self._filled_queue.put(self._current_buffer_index)
             self._current_buffer_index = None
 
