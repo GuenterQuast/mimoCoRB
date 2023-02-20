@@ -23,7 +23,7 @@ class plot_bufferinfo(object):
   :param Q:    multiprocessing.Queue() for status info
   :param RBnames:  list, buffer names, used as line labels
   :param maxrate: maximum rate for y-axis
-  :param interval: update interval
+  :param interval: graphics update interval in ms 
   """
 
   def __init__(self, Q, RBnames, maxRate=1500., interval=1000.):
@@ -79,35 +79,43 @@ class plot_bufferinfo(object):
       self.ro = 0.
       self.n0 = 0
       self.t0 = time.time()
+      self.tlast = time.time()
       return self.animlines + self.animtxts
 
   def __call__(self, n):
-    if n == 0:
-       self.init()
 
-    k = n%self.Npoints
+    # ensure timing precision by adjusting sleep time with system clock
+    timestamp = time.time()
+    delta_time = timestamp - self.tlast
+    self.tlast = timestamp
+    tcor = delta_time - self.interval
+    # 10% of sleep time in FuncAnimation, rest here via (corrected) sleep
+    time.sleep(.9*self.interval-tcor) if tcor>0 else time.sleep(.9*self.interval)   
+
+    # retrieve data (non-blocking to keep event loop active)
     try: 
-      status, active_time, Nevents, deadtime, RBinfo = \
-                 self.Q.get(True, 0.5)
+        status, active_time, Nevents, deadtime, RBinfo = \
+            self.Q.get(block=True, timeout=0.5)
     except:
-      return self.animlines + self.animtxts
+        return self.animlines + self.animtxts 
 
+    # update animated graphics objects   
+    k = n%self.Npoints
     for i in range(self.Nlines):
         R = self.R[i]
         R[k] = RBinfo[self.RBnames[i]][2]   
         self.animlines[i].set_ydata(np.concatenate( (R[k+1:], R[:k+1]) ))
 
-    txtStat=status
     self.animtxts[0].set_text( \
        "Time active: {:.1f}s     Number of Events: {:d}     deadtime: {:.1f}%".format(
            active_time, Nevents, 100*deadtime) + 
-        10*' ' + "Status: {:s}  ".format(txtStat) )
+        10*' ' + "Status: {:s}  ".format(status) )
     self.animtxts[1].set_text( \
      'current rate: {:.3g}Hz    in buffer: {:d}'.format(
           RBinfo[self.RBnames[0]][2], RBinfo[self.RBnames[0]][1]) )
 
     return self.animlines + self.animtxts
-
+  
 def bufferinfoGUI(Qcmd, Qlog, Qinfo,
                   RBnames=["RB_1"], maxRate = 100. , interval = 1000.):
   """
@@ -118,7 +126,7 @@ def bufferinfoGUI(Qcmd, Qlog, Qinfo,
   :param Qinfo:    multiprocessing.Queue() for status info
   :param RBnames:  list, buffer names, used as line labels
   :param maxrate: maximum rate for y-axis
-  :param interval: update interval
+  :param interval: update interval for graphics in ms
   """
 
   def wrtoLog(T):
@@ -235,7 +243,7 @@ def bufferinfoGUI(Qcmd, Qlog, Qinfo,
 
 # set up matplotlib animation for rate history
     RBiAnim = anim.FuncAnimation(figRBi, RBi, sequence_gen,
-                     interval=interval, init_func=RBi.init,
+                     interval=0.1*interval, init_func=RBi.init,
                      blit=True, fargs=None, repeat=True, save_count=None) 
                          # save_count=None is a (temporary) work-around 
                          #     to fix memory leak in animate
