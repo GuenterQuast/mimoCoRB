@@ -971,7 +971,8 @@ class run_mimoDAQ():
             self.bc.resume()
         
         # > begin data acquisition loop
-        N_processed = 0                
+        N_processed = 0
+        deadtime = 0.
         runtime = self.bc.runtime
         runevents = self.bc.runevents
         RBinfo = {}
@@ -987,8 +988,10 @@ class run_mimoDAQ():
                 # status update once per second
                 if tact_p1s%10 == 0 or len(RBinfo)==0:
                     for RB_name, buffer in self.ringbuffers.items():
-                        Nevents, n_filled, rate = buffer.buffer_status()
-                        if RB_name == 'RB_1': N_processed = Nevents
+                        Nevents, n_filled, rate, av_deadtime = buffer.buffer_status()
+                        if RB_name == 'RB_1':
+                            N_processed = Nevents
+                            deadtime = av_deadtime
                         RBinfo[RB_name]= [Nevents, n_filled, rate]
                         buffer_status_color += B+k+ RB_name +E + ": " +\
                           B+b+ "{:d}".format(Nevents) +E + "({:d}) {:.3g}Hz ".format(n_filled, rate)
@@ -1003,7 +1006,7 @@ class run_mimoDAQ():
                         self.logQ.put(buffer_status)  
                     if self.RBinfoQ.empty() and not self.bc.status =="Stopped":
                         # update rate display
-                        self.RBinfoQ.put( (self.bc.status, time_active, N_processed, RBinfo ) )
+                        self.RBinfoQ.put( (self.bc.status, time_active, N_processed, av_deadtime, RBinfo ) )
 
                 # check if done
                 # - end command from keyboad or GUI ? 

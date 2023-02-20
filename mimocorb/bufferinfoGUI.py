@@ -87,7 +87,7 @@ class plot_bufferinfo(object):
 
     k = n%self.Npoints
     try: 
-      status, active_time, Nevents, RBinfo = \
+      status, active_time, Nevents, deadtime, RBinfo = \
                  self.Q.get(True, 0.5)
     except:
       return self.animlines + self.animtxts
@@ -99,8 +99,9 @@ class plot_bufferinfo(object):
 
     txtStat=status
     self.animtxts[0].set_text( \
-       "Time active: {:.1f}s     Number of Events: {:d}  Status: {:s}  ".format(
-           active_time, Nevents, txtStat) )
+       "Time active: {:.1f}s     Number of Events: {:d}     deadtime: {:.1f}%".format(
+           active_time, Nevents, 100*deadtime) + 
+        10*' ' + "Status: {:s}  ".format(txtStat) )
     self.animtxts[1].set_text( \
      'current rate: {:.3g}Hz    in buffer: {:d}'.format(
           RBinfo[self.RBnames[0]][2], RBinfo[self.RBnames[0]][1]) )

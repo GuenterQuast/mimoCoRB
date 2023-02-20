@@ -86,6 +86,11 @@ class NewBuffer:
         m_bytes = number_of_slots * np.dtype(self.metadata_dtype).itemsize
         self.m_metadata_share = shared_memory.SharedMemory(create=True, size=m_bytes)
 
+        # !!! access to metadata in shared-memory 
+        self._metadata = np.ndarray(shape=self.number_of_slots, dtype=self.metadata_dtype,
+                                    buffer=self.m_metadata_share.buf)
+
+        
         # Setup queues
         # > Queue with all EMPTY memory slots ready to be used by a writer (implicitly kept in order)
         self.writer_empty_queue = SimpleQueue()
@@ -140,7 +145,6 @@ class NewBuffer:
 
         # variables for buffer statitiscs (evaluated in buffer_status() )
         self.Tstart = time.time()
-        self.cumulative_event_count = 0         # cumulative number of events
         self.init_buffer_status()
 
     def new_reader_group(self):
@@ -271,6 +275,12 @@ class NewBuffer:
                         self.write_pointer = max(new_data_index+self.number_of_slots, self.write_pointer)
                     else:
                         self.write_pointer = max(new_data_index, self.write_pointer)
+                # spy on metadata
+                self.sum_deadtimes += self._metadata[new_data_index]['deadtime']
+                # counter = self._metadata[new_data_index]['counter']
+                # timestamp = self._metadata[new_data_index]['timestamp']
+                # deadtime = self._metadata[new_data_index]['deadtime']
+           
             for reader_queue in self.reader_todo_queue_list:
                 reader_queue.put(new_data_index)
 
@@ -371,6 +381,9 @@ class NewBuffer:
     def init_buffer_status(self):
         self.Tlast = self.Tstart
         self.Nlast = 0
+        self.cumulative_event_count = 0         # cumulative number of events
+        self.sum_deadtimes = 0. 
+        self.dtlast = 0.
         
     def buffer_status(self):
         """Processing Rate and approximate number of free slots in this ringbuffer.
@@ -395,8 +408,12 @@ class NewBuffer:
         dN = self.cumulative_event_count - self.Nlast
         self.Nlast = self.cumulative_event_count
         rate = dN/dT
+        # determine average dead time of events this buffer
+        dD = self.sum_deadtimes - self.dtlast
+        self.dtlast = self.sum_deadtimes      
+        av_deadtime = dD/(max(1, dN))
         
-        return self.cumulative_event_count, n_filled, rate
+        return self.cumulative_event_count, n_filled, rate, av_deadtime
 
     def pause(self):
         """Disable writing to ringbuffer (paused)
