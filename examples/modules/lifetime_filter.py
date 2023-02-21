@@ -57,6 +57,10 @@ def calculate_decay_time(source_list=None, sink_list=None, observe_list=None, co
     trigger_position_tolerance = config_dict["trigger_position_tolerance"]
     signatures = config_dict["signatures"]
 
+    # Load reference pulse
+    reference_pulse = None if "reference_pulse_file" not in config_dict \
+        else np.fromfile(config_dict["reference_pulse_file"])
+    
     # get format of pulse parameter array from sink[1]
     if len(sink_list) > 1:
         store_pulse_parameters = True  
@@ -112,27 +116,26 @@ def calculate_decay_time(source_list=None, sink_list=None, observe_list=None, co
                 first_pos = []
                 second_pos = []
                 for ch in correlation_matrix.dtype.names:
-                    # Process first peak (muon)
-                    idx = correlation_matrix[ch][0]
-                    if idx >= 0:
-                        p_pos = peaks[ch][idx]
-                        p_height = peaks_prop[ch]["prominences"][idx]
-                        this_pulse, p_new_pos, p_int = normed_pulse(input_data[ch], p_pos, p_height, analogue_offset)
-                        first_pos.append(p_pos)
-                        pulse_parameters["1st_{:s}_p".format(ch)] = p_pos
-                        pulse_parameters["1st_{:s}_h".format(ch)] = p_height
-                        pulse_parameters["1st_{:s}_int".format(ch)] = p_int,
-                    
-                    # Process second peak (electron/positron)
-                    idx = correlation_matrix[ch][1]
-                    if idx >= 0:
-                        p_pos = peaks[ch][idx]
-                        p_height = peaks_prop[ch]["prominences"][idx]
-                        this_pulse, p_new_pos, p_int = normed_pulse(input_data[ch], p_pos, p_height, analogue_offset)
-                        second_pos.append(p_pos)
-                        pulse_parameters["2nd_{:s}_p".format(ch)] = [p_pos,]
-                        pulse_parameters["2nd_{:s}_h".format(ch)] = [p_height,]
-                        pulse_parameters["2nd_{:s}_int".format(ch)] = [p_int,]
+                    # Process first peak (muon) and second peak (decay electron)
+                    for i in range(2):
+                        idx = correlation_matrix[ch][i]
+                        if idx >= 0:
+                            p_pos = peaks[ch][idx]
+                            p_height = peaks_prop[ch]["prominences"][idx]
+                            this_pulse, p_new_pos, p_int = normed_pulse(input_data[ch], p_pos, p_height, analogue_offset)
+                            if reference_pulse is not None:
+                                correction = correlate_pulses(this_pulse, reference_pulse)
+                                p_pos = p_new_pos + correction
+                            if i == 0:
+                                first_pos.append(p_pos)
+                                pulse_parameters["1st_{:s}_p".format(ch)] = p_pos
+                                pulse_parameters["1st_{:s}_h".format(ch)] = p_height
+                                pulse_parameters["1st_{:s}_int".format(ch)] = p_int,
+                            else:
+                                second_pos.append(p_pos)
+                                pulse_parameters["2nd_{:s}_p".format(ch)] = p_pos
+                                pulse_parameters["2nd_{:s}_h".format(ch)] = p_height
+                                pulse_parameters["2nd_{:s}_int".format(ch)] = p_int
 
                 pulse_parameters['decay_time'] = [(np.mean(second_pos) - np.mean(first_pos)) * sample_time_ns,]
                 signature_type = _sigtype
@@ -147,7 +150,7 @@ def calculate_decay_time(source_list=None, sink_list=None, observe_list=None, co
                     if signature_type == 0:
                          return [pulse_parameters, None]  # pulse parameters decay to top              
                     elif signature_type == 1:
-                         return [None, pulse_parameters]  # pulse paramerters decay to bottom              
+                         return [None, pulse_parameters]  # pulse parameters decay to bottom              
             else:
                 return 1                   # only copy data   
 
