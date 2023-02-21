@@ -96,7 +96,7 @@ def simulation_source(source_list=None, sink_list=None, observe_list=None, confi
                   pulse[ip, pos2:pos2+plen] += pheight2 * pulse_template
 
         pulse += analogue_offset_mv  # apply analogue offset
-        return pulse
+        yield(pulse)
         
     simulsource = SourceToBuffer(
            sink_list, observe_list, config_dict, ufunc=get_simpulses, **rb_info)

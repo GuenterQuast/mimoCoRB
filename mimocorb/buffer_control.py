@@ -371,7 +371,7 @@ class SourceToBuffer:
             self.event_count += 1
 
             # get new buffer abd store event data and meta-data           
-            data = self.get_data_from_ufunc(self.number_of_channels)
+            data = next(self.get_data_from_ufunc(self.number_of_channels))
             timestamp = time.time_ns()/1000.  # type float64
             T_data_ready = time.time()
             buffer = self.sink.get_new_buffer()
