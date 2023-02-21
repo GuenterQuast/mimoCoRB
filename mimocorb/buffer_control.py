@@ -351,9 +351,11 @@ class SourceToBuffer:
 
         self.number_of_channels = len(self.sink.dtype)
 
-        self.get_data_from_ufunc = ufunc
         self.event_count = 0
         self.T_last = time.time()
+
+        # set-up generator for the data
+        self.userdata_generator = ufunc(self.number_of_channels)
        
     def __del__(self):
         pass
@@ -362,6 +364,7 @@ class SourceToBuffer:
 
     def __call__(self):
      # start_data_capture
+      
         while self.sink._active.is_set():
             # do not write data if in paused mode
             if self.sink._paused.is_set():
@@ -370,8 +373,12 @@ class SourceToBuffer:
             
             self.event_count += 1
 
-            # get new buffer abd store event data and meta-data           
-            data = next(self.get_data_from_ufunc(self.number_of_channels))
+            # get new buffer abd store event data and meta-data
+            try:          
+                data = next(self.userdata_generator)
+            except:
+                break
+              
             timestamp = time.time_ns()/1000.  # type float64
             T_data_ready = time.time()
             buffer = self.sink.get_new_buffer()

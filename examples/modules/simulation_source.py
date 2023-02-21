@@ -49,25 +49,8 @@ def simulation_source(source_list=None, sink_list=None, observe_list=None, confi
     detector_efficiency = 0.95
     stopping_probability = 0.10
 
-    global event_count
-    event_count = 0 
-    
-    def get_simpulses(nchan=3):
-        """generate simulated data, called by instance of class mimoCoRB.SourceToBuffer
-        """
-        global event_count
-
-        event_count +=1 
-        if events_required != 0 and event_count > events_required:
-            sys.exit()
-    
-        # repect wait time (rate adjustment)
-        if random: # random ...
-            time.sleep(-sleeptime*np.log(np.random.rand())) # random Poisson sleept time
-        else:           # ... or fixed time 
-            time.sleep(sleeptime)  # fixed sleep time
-
-        # initialise with noise signal
+    def simulate(nchan):
+        # initialize with noise signal
         pulse = np.float64(noise * (0.5-np.random.rand(nchan, number_of_samples)) ) 
 
         # one pulse at trigger position in layers one and two
@@ -96,10 +79,33 @@ def simulation_source(source_list=None, sink_list=None, observe_list=None, confi
                   pulse[ip, pos2:pos2+plen] += pheight2 * pulse_template
 
         pulse += analogue_offset_mv  # apply analogue offset
-        yield(pulse)
+        return(pulse)
+    
+    def yield_simpulses(nchan=3):
+        """generate simulated data, called by instance of class mimoCoRB.SourceToBuffer
+        """
+
+        event_count = 0
+
+       # event_count +=1 
+       # if events_required != 0 and event_count > events_required:
+       #     sys.exit()
+
+        while events_required != 0 and event_count < events_required:
+
+        # repect wait time (rate adjustment)
+            if random: # random ...
+                time.sleep(-sleeptime*np.log(np.random.rand())) # random Poisson sleept time
+            else:           # ... or fixed time 
+                time.sleep(sleeptime)  # fixed sleep time
+
+            pulse = simulate(nchan)
+            yield(pulse)
+            event_count += 1
+        
         
     simulsource = SourceToBuffer(
-           sink_list, observe_list, config_dict, ufunc=get_simpulses, **rb_info)
+           sink_list, observe_list, config_dict, ufunc=yield_simpulses, **rb_info)
     # TODO: Change to logger!
     # print("** simulation_source ** started, config_dict: \n", config_dict)
     # print("?> sample interval: {:02.1f}ns".format(osci.time_interval_ns.value))
