@@ -1,6 +1,6 @@
 """
 Collection of classes to set-up, manage and access ringbuffers
-and associated access funtions 
+and associated functions 
 """
 
 from . import mimo_buffer as bm
@@ -195,7 +195,7 @@ class buffer_control():
     """
 
     if self.workers_started:
-        print("Workers already started - cannot start again")
+        print("!! Workers already started - cannot start again")
         return
       
     # > To avoid potential blocking during startup, processes will be started in reverse
@@ -210,11 +210,15 @@ class buffer_control():
     return self.process_list
 
   def display_layout(self):
+      """Print list of buffers
+      """
       print("List of buffers")
       for name, buffer in self.ringbuffers.items():
           print(name, buffer.number_of_slots, buffer.values_per_slot)        
 
   def display_functions(self):
+      """Print list of functions and buffer associations
+      """
       print("List of functions")
       for key in self.parallel_functions:
           rb_assigned = self.parallel_functions[key][2]
@@ -263,7 +267,7 @@ class buffer_control():
       self.status="Paused"
 
   def resume(self):
-      """re-enable  data acquisition
+      """Re-enable  data acquisition after pause
       """
       # disable writing to Buffer RB_1
       if self.status == "Paused":
@@ -277,13 +281,13 @@ class buffer_control():
   def get_config(config_file):
     """
     Args:
-        config_file: defined in main_setup file (yaml) with fixed name key config_file
+        config_file: defined in main setup file (yaml)
 
     Returns: yaml configuration file content (dict)
     """
     with open(os.path.abspath(config_file), "r") as f:
-        config_str = yaml.load(f, Loader=yaml.FullLoader)  # SafeLoader
-    return config_str
+        config_dict = yaml.load(f, Loader=yaml.FullLoader)  # SafeLoader
+    return config_dict
 
   @staticmethod
   def import_function(module_path, function_name):
@@ -315,6 +319,7 @@ class buffer_control():
 
 
 class SourceToBuffer:
+    # new name: RB_importer
     """
     Read data from external source (e.g. front-end device, file, simulation, etc.) 
     and put data in mimo_buffer. 
@@ -375,7 +380,7 @@ class SourceToBuffer:
 
             # get new buffer abd store event data and meta-data
             try:          
-                data = next(self.userdata_generator)
+                data, metadata = next(self.userdata_generator)
             except:
                 break
               
@@ -391,7 +396,11 @@ class SourceToBuffer:
             T_buffer_ready = time.time()
             deadtime = T_buffer_ready - T_data_ready
             deadtime_fraction = deadtime /(T_buffer_ready-self.T_last)
-            self.sink.set_metadata(self.event_count, timestamp, deadtime_fraction)
+            if metadata is None:
+                self.sink.set_metadata(self.event_count, timestamp, deadtime_fraction)
+            else:
+                self.sink.set_metadata(metadata)
+                
             self.T_last = T_buffer_ready
         # make sure last data entry is also processed        
         self.sink.process_buffer()
@@ -400,6 +409,7 @@ class SourceToBuffer:
 
 
 class BufferData:
+    # new name: RB_exporter
     """
     Read data from buffer and send to requesting client (via python yield())
     """
@@ -449,8 +459,8 @@ class BufferData:
 # <-- end class BufferData
 
 
-
 class BufferToBuffer():
+    # new name: RB_transferrer
     """Read data from input buffer, filter data and write to output buffer(s)
 
        Args: 
@@ -485,6 +495,8 @@ class BufferToBuffer():
       #   get source 
         if source_list is not None:
             self.reader = bm.Reader(source_list[0])
+            if len(source_list) > 1:
+                print("!!! more than one reader process currently not supported")
         else:
             self.reader = None
 
@@ -560,6 +572,7 @@ class BufferToBuffer():
 # <-- end class BufferToBuffer
 
 class BufferToTxtfile:
+    # new name: RB_export_to_txt
     """Save data to file in csv-format
     """
       
@@ -582,13 +595,13 @@ class BufferToTxtfile:
         self.source = None
         for key, value in rb_info.items():
             if value == 'read':
-                for i in range(len(source_list)):
-                    self.source = bm.Reader(source_list[i])
+                self.source = bm.Reader(source_list[0])
+                if len(source_list) > 1:     
+                    print("!!! more than one reader process currently not supported")
             elif value == 'write':
-                raise ValueError("!ERROR Writing to buffer not foreseen!!")
+                print("!!! Writing to buffer not foreseen !!")
             elif value == 'observe':
-                for i in range(len(observe_list)):
-                    pass
+                print("!!! Observer processes not foreseen !!")
 
         if self.source is None:
             raise ValueError("Faulty ring buffer configuration passed. No source found!")
@@ -642,6 +655,7 @@ class BufferToTxtfile:
 
             
 class BufferToParquetfile:
+    # new name: RB_to_parquetfile
     """Save data a set of parquet-files packed as a tar archive
     """
     def __init__(self, source_list=None, observe_list=None, config_dict=None, **rb_info):
@@ -659,13 +673,15 @@ class BufferToParquetfile:
         self.source = None
         for key, value in rb_info.items():
             if value == 'read':
-                for i in range(len(source_list)):
-                    self.source = bm.Reader(source_list[i])
+                self.source = bm.Reader(source_list[0])
+                if len(source_list) > 1:     
+                    print("!!! more than one reader process currently not supported")
+
             elif value == 'write':
-                raise ValueError("!ERROR Writing to buffer not foreseen!!")
+                print("!!! Writing to buffer not foreseen!!")
             elif value == 'observe':
-                for i in range(len(observe_list)):
-                    pass
+                print("!!! Observer Process not foreseen!!")
+
                   
         if self.source is None:
             raise ValueError("Faulty ring buffer configuration passed to 'SaveBufferParquet'!")
@@ -701,6 +717,7 @@ class BufferToParquetfile:
 # <-- end class BufferToTxtfile
 
 class ObserverData:
+    # new name: RB_observer
     """
     Deliver data from buffer to an observer process
     """
@@ -718,22 +735,23 @@ class ObserverData:
 
         if observe_list is None:
             raise ValueError("ERROR! Faulty ring buffer configuration")
-        if len(observe_list)!=1:
-            raise ValueError("!ERROR only one observer source supported!!")            
         
         self.source = None
         for key, value in rb_info.items():
             if value == 'read':
-                raise ValueError("!ERROR Reading buffer not foreseen!!")
+                print("!!! Reading buffer not foreseen!!")
             elif value == 'write':
-                raise ValueError("!ERROR Writing to buffer not foreseen!!")
+                print("!!! Writing to buffer not foreseen!!")
             elif value == 'observe':
                 self.source = bm.Observer(observe_list[0])
+                if len(observe_list) > 1:
+                    print("!!! More than one observer presently not foreseen!!")
+                  
         if self.source is None:
-            print("ERROR! Faulty ring buffer configuration passed to 'PlotOscilloscope'!!")
+            print("ERROR! Faulty ring buffer configuration passed - no source buffer specified !")
             sys.exit()
 
-        #  evaluate information from config dict     
+        #  evaluate information from config dict to set sleep time     
         self.min_sleeptime = 1.0 if "min_sleeptime" not in config_dict else config_dict["min_sleeptime"] 
 
         self.data_lock = threading.Lock()
@@ -800,7 +818,7 @@ class ObserverData:
 
 class run_mimoDAQ():
     """
-    Setup and run Data Aquisition with mimoCoRB buffer manager   
+    Setup and run Data Aquisition suite with mimoCoRB buffer manager   
 
     The layout of ringbuffers and associated functions is defined
     in a configuration file in yaml format. 
@@ -815,6 +833,7 @@ class run_mimoDAQ():
 
       - number of requested events processed
       - requested run-time reached
+      - inuput source exhausted
       - end command issued from Keyboard or graphical interface
 
     """
@@ -822,7 +841,7 @@ class run_mimoDAQ():
   # --- helper classes for keyboard interaction -----
 
     def keyboard_input(self, cmd_queue):
-        """ Read keyboard input, run as background-thread to avoid blocking """
+        """ Read keyboard input and send to Qeueu, runing as background-thread to avoid blocking """
 
         while self.run:
             cmd_queue.put(input())    
@@ -844,6 +863,9 @@ class run_mimoDAQ():
   # --- end helpers ------------------------
   
     def __init__(self, verbose=2):
+        """
+        Initialize ringbuffers and associated functions from main configuration file
+        """
         self.verbose = verbose
 
         # general options 
@@ -870,7 +892,7 @@ class run_mimoDAQ():
         # > Get start time
         start_time = time.localtime()
     
-        # > Create a 'target' directory for output of this run
+        # > Create a 'target' sub-directory for output of this run
         template_name = Path(self.setup_filename).stem
         template_name = template_name[:template_name.find("setup")]
         self.directory_prefix = "target/" + template_name + \
@@ -1079,7 +1101,6 @@ class run_mimoDAQ():
                 self.RBinfoproc.terminate()
 
 if __name__ == "__main__": # ----------------------------------------------------------------------
-
 
   # example code to run a data acquitistion suite definde in a yaml config
 

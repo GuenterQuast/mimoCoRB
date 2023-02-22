@@ -100,7 +100,8 @@ def simulation_source(source_list=None, sink_list=None, observe_list=None, confi
                 time.sleep(sleeptime)  # fixed sleep time
 
             pulse = simulate(nchan)
-            yield(pulse)
+            # deliver pulse data and no metadata
+            yield(pulse, None)
             event_count += 1
         
         
