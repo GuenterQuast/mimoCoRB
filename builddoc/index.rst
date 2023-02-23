@@ -29,8 +29,8 @@ Typical examples of random consumers are displays of a subset of the
 wave forms or of intermediate analysis results.
 
 This project originated from an effort to structure and generalize
-data acquision for several experiments in advanced physics laboratory
-courses at Karlruhe Institute of Technology (KIT).
+data acquistion for several experiments in advanced physics laboratory
+courses at Karlsruhe Institute of Technology (KIT).
 
 As a simple demonstration, we provide data from simulated signals as would
 be recorded by a detector for cosmic muons with three detection layers.
@@ -65,22 +65,25 @@ released and overwritten by new data when all consuming processes
 have finished.
 As digital filtering of incoming data may be very CPU intensive,
 multi-processing and multi-core capable components are needed to
-ensure sufficient processing power. `mimoCoRB.mimo_buffer` implements
-such a buffer allowing multiple processes to read ("multiple out")
-or write ("multiple in") to the buffer space. 
+ensure sufficient processing power to process and anylyze data.
+`mimoCoRB.mimo_buffer` implements such a buffer allowing multiple 
+processes to read ("multiple out") or write ("multiple in") to the 
+buffer space. 
 Because processing of the data, i.e. digital filtering, selection, 
 compression and storage or real-time visualization of the data may 
 be a complex workflow, buffers may be arranged in chains where one 
 or several reader processes of a buffer write to one or to several 
-output buffer(s). Finally, raw or processed data must be extracted
-from the buffers in the chain to be stored for off-line analysis. 
+output buffer(s). 
 
 Memory management and access control is provided by the class 
 **newBuffer**. To control the data flow in such a data acquisition
 suite, three types of access are needed, implemented as 
 **Writer**, **Reader** and **Observer** classes. Readers of
 the same type are grouped together for multi-processing
-of compute-intense tasks and form a Reader-group.
+of compute-intense tasks and form a Reader-group. 
+Observers receive only a sub-set of the data and are mainly 
+intended to be used for visual inspection or graphical representation
+of samples of the recorded or processed data. 
 
 Processes for data provisioning from front-end hardware or 
 from other sources, like disk files, web streams or simulation,
@@ -259,12 +262,14 @@ Access Classes in the module *buffer_control*
 
 To ease user interaction with the buffer manager, a set of additional classes 
 is provided in the module *buffer_control* to set-up and manage cascades of 
-ringbuffers and the associated sub-processes for filling, filtering and extracting
+ringbuffers and the associated functions for filling, filtering and extracting
 data. These classes are also interesting for developers wanting to help improving
 the package. 
 
+The classes are: 
+
   - `class buffer_control`
-     Set-up and management of ringbuffers and associated sub-processes
+     Set-up and management of ringbuffers and associated sub-processes.
 
   - `class SourceToBuffer`
       Read data from source (front-end like a PicoScope USB oscilloscope, of from file or simulation) 
@@ -288,13 +293,16 @@ the package.
     
 These classes shield much of the complexity from the user, who can
 thus concentrate on writing the pieces of code need to acquire and
-process the data. 
+process the data. Functions are executed as sub-processes and therefore
+make optimal use of multi-core architectures. 
 
 The access classes expect as input lists of dictionaries with the parameters
 of buffers to read from (**source_list**), to write to (**sing_list**) or to
 observe (**observe_list**). An additional dictionary (**config_dict**) provides
 additional parameters for the specific functionality, for example names of
 functions to read data, filter or manipulate data or the names of target files.
+The interface for passing data between to the user-defined function is implemented
+as a python generator.   
 
 The overarching class **buffer_control** provides methods to setup buffers and 
 worker processes and to control the data acquisition process. The methods 
@@ -312,7 +320,7 @@ a quick overview of the status of all buffers and to monitor long-term stability
 Therefore, a graphical display with the processing rate of all buffers is
 provided by the class **bufferinfoGUI**. A text window receives frequent 
 updates of the number of events processed by each buffer and of the buffer 
-fill-level. Buttons feed back information to the calling process *run_mimoDAQ*
+fill-levels. Buttons feed back information to the calling process *run_mimoDAQ*
 and allow passing, resuming and ending the data acquisition.
 
 
@@ -324,7 +332,7 @@ The suggested structure of the work-space is as follows:
 
 .. code-block::
 
-  |--> <user working directory>
+  |--> <user working directory>       # the main configuration script resides here
                     |
                     | --> modules     # project-specific, user-supplied python code
                     | --> config      # configuration files in yaml format
@@ -356,8 +364,8 @@ the execution script `run_daq.py` in the top-level directory of the package.
 The *python* files `simulation_source.py`, `liftime_filter.py` and
 `save_files.py` contain the user code for data generation, analysis
 and filtering and extraction of the final data to disk files. The
-`.yaml` file `simulation_config.yaml` contains configurable parameters
-provided to these functions.
+`.yaml` files `simulation_config.yaml` and `save_lifetimes.yaml` contain 
+configurable parameters provided to these functions.
 
 An observer process receives a sub-set of the data in the second
 buffer and shows them as an oscilloscope display on screen while
@@ -367,7 +375,7 @@ This example is executed form the directory `examples/` by entering:
 
   `../run_daq.py simulsource_setup.yaml`
 
-The code needed to run data-acquisition based on the package
+The code needed to run a data acquisition based on the package
 *mimocorb.buffer_control.run_mimoDAQ* is shown here: 
 
 .. code-block:: python
@@ -520,4 +528,3 @@ Module Documentation
 
 .. automodule:: read_from_buffer
      :members:	
-
