@@ -125,7 +125,7 @@ class NewBuffer:
         self.writers_paused.clear()  
 
         # Setup filled buffer dispatcher (in background thread)
-        self._writer_queue_thread = threading.Thread(target=self.writer_queue_listener,
+        self._writer_queue_thread = threading.Thread(target=self._writer_queue_listener,
                                                      name="Main writer queue listener")
         self._writer_queue_thread.start()
         self.writer_created = False
@@ -133,19 +133,19 @@ class NewBuffer:
 
         # Setup observer web socket (in background thread)
         self.observer_event_loop = asyncio.new_event_loop()
-        self.event_loop_thread = threading.Thread(target=self.event_loop_executor, args=(self.observer_event_loop,),
+        self.event_loop_thread = threading.Thread(target=self._event_loop_executor, args=(self.observer_event_loop,),
                                                   name="Main observer event loop")
         self.observer_port = -1
         self.event_loop_thread.start()
-        self.observer_server_ready = threading.Event()
-        self.observer_server_ready.clear()
-        asyncio.run_coroutine_threadsafe(self.observer_main(), self.observer_event_loop)
-        self.observer_server_ready.wait()
-        asyncio.run_coroutine_threadsafe(self.observer_check_active_state(), self.observer_event_loop)
+        self._observer_server_ready = threading.Event()
+        self._observer_server_ready.clear()
+        asyncio.run_coroutine_threadsafe(self._observer_main(), self.observer_event_loop)
+        self._observer_server_ready.wait()
+        asyncio.run_coroutine_threadsafe(self._observer_check_active_state(), self.observer_event_loop)
 
         # variables for buffer statitiscs (evaluated in buffer_status() )
         self.Tstart = time.time()
-        self.init_buffer_status()
+        self._init_buffer_status()
 
     def new_reader_group(self):
         """Method to create a new reader group.
@@ -170,7 +170,7 @@ class NewBuffer:
         done_heap = []
         self.reader_done_heap_list.append(done_heap)
         # Start background thread to listen on the done-queue (in lack of an event driven queue implementation)
-        queue_listener = threading.Thread(target=self.reader_queue_listener, args=(done_queue, done_heap),
+        queue_listener = threading.Thread(target=self._reader_queue_listener, args=(done_queue, done_heap),
                                           name="Main reader queue listener")
         queue_listener.start()
         self.reader_queue_listener_thread_list.append(queue_listener)
@@ -182,7 +182,7 @@ class NewBuffer:
                       "debug": self._debug}
         return setup_dict
 
-    def reader_queue_listener(self, done_queue, done_heap):
+    def _reader_queue_listener(self, done_queue, done_heap):
         """
         Internal method run in a background thread (one for each reader group). It handles dispatching free
         ringbuffer elements.
@@ -199,17 +199,17 @@ class NewBuffer:
                     if last_index < self.read_pointer:
                         last_index += self.number_of_slots
                 heapq.heappush(done_heap, last_index)
-                self.increment_reader_pointer()
+                self._increment_reader_pointer()
         if self._debug:
             print(" > DEBUG: Reader dispatcher closed in main thread!")
 
-    def increment_reader_pointer(self):
+    def _increment_reader_pointer(self):
         """
-        Internal method called by a ``reader_queue_listener()``-thread after a new element was marked
+        Internal method called by a ``_reader_queue_listener()``-thread after a new element was marked
         as 'processing is done'. It is checked whether all reader groups have completed processing the oldest
         ringbuffer element, and if so, adds it to the 'free ringbuffer elements' queue used by the ``Writer``-instances.
         For this function to work properly and without race conditions self.heap_lock has to be acquired
-        BEFORE entering the function (see ``reader_queue_listener()``-method).
+        BEFORE entering the function (see ``_reader_queue_listener()``-method).
         """
         # Check if every reader group is done with the last element (this implicitly keeps the write queue in the right
         # order at the cost of possible buffer overruns if one reader hangs/takes too long to process the data)
@@ -259,9 +259,9 @@ class NewBuffer:
         # If the write pointer was incremented, check if it's possible to further increment it (enabeling the writer 
         # pointer to 'catch up' if an element was stuck for a long time)
         if pop_last_element:
-            self.increment_reader_pointer()
+            self._increment_reader_pointer()
 
-    def writer_queue_listener(self):
+    def _writer_queue_listener(self):
         """Internal method run in a background thread.
         It takes the index (a 'pointer' in the array) of the 'ready to process' ringbuffer element from
         the ``writer_filled_queue`` and distributes it to every reader group (reader_todo_queue).
@@ -301,7 +301,7 @@ class NewBuffer:
                       "debug": self._debug}
         return setup_dict
 
-    def event_loop_executor(self, loop: asyncio.AbstractEventLoop) -> None:
+    def _event_loop_executor(self, loop: asyncio.AbstractEventLoop) -> None:
         """Internal method continuously run in a background thread.
         It runs the asynchronous event loop needed for the websocket based IPC of ``Observer``-instances.
         """
@@ -317,18 +317,18 @@ class NewBuffer:
                 print(" > DEBUG: Observer event loop in main thread closed!")
             del loop            
 
-    async def observer_main(self):
+    async def _observer_main(self):
         """Internal asynchronous method run in the background to handle websocket connections.
         A websocket server is started on the loopback device, providing IPC between the main process
         and an ``Observer``-instance running in another process.
         """
-        self._my_ws = await ws.serve(self.observer_server, "localhost")
+        self._my_ws = await ws.serve(self._observer_server, "localhost")
         self.observer_port = (self._my_ws.sockets[0]).getsockname()[1]
-        self.observer_server_ready.set()
+        self._observer_server_ready.set()
         if self._debug:
             print("> WS port: {}\n".format(self.observer_port))
 
-    async def observer_server(self, websocket, path):
+    async def _observer_server(self, websocket, path):
         """Internal asynchronous method implementing the ``Observer`` IPC.
         As of now: for every message, the current ``write_pointer`` is sent (index in the shared
         memory array containing the latest added element to the ringbuffer).
@@ -345,7 +345,7 @@ class NewBuffer:
                 # await websocket.send("{}".format(self.write_pointer))
                 await websocket.send("{}".format(self.write_pointer%self.number_of_slots))
 
-    async def observer_check_active_state(self) -> None:
+    async def _observer_check_active_state(self) -> None:
         """Internal asynchronous function to check if ``NewBuffer.shutdown()`` was called
         """
         while self.observers_active.is_set():
@@ -378,7 +378,7 @@ class NewBuffer:
                       "debug": self._debug}
         return setup_dict
 
-    def init_buffer_status(self):
+    def _init_buffer_status(self):
         self.Tlast = self.Tstart
         self.Nlast = 0
         self.cumulative_event_count = 0         # cumulative number of events
@@ -449,7 +449,7 @@ class NewBuffer:
         # Disable writing new data to the buffer 
         self.writers_active.clear()
         # In case no new data is written to the buffer, send something to the
-        # writer_filled_queue to unblock writer_queue_listener(...) and allow the thread to terminate
+        # writer_filled_queue to unblock _writer_queue_listener(...) and allow the thread to terminate
         self.writer_filled_queue.put(None)
         # Observers may be terminated at any point, but active websocket connections while 
         # shutting down may raise unexpected errors. Prevent this by clearing observer activity.
@@ -827,7 +827,7 @@ class Observer:
         self._copy_lock = threading.Lock()
         self._new_element = threading.Event()
         self._new_element.clear()
-        self._event_loop_thread = threading.Thread(target=self.event_loop_executor, args=(self.event_loop,),
+        self._event_loop_thread = threading.Thread(target=self._event_loop_executor, args=(self.event_loop,),
                                                    name="Event loop thread")
         self._event_loop_thread.start()
         self.connection_established = threading.Event()
@@ -859,7 +859,7 @@ class Observer:
         del self._copy_buffer
         self._m_share.close()
 
-    def event_loop_executor(self, loop: asyncio.AbstractEventLoop) -> None:
+    def _event_loop_executor(self, loop: asyncio.AbstractEventLoop) -> None:
         """Internal function executing the event loop for the websocket connection 
             in a different thread.
         """
@@ -870,7 +870,7 @@ class Observer:
             loop.run_until_complete(loop.shutdown_asyncgens())
             loop.close()
             if self._debug:
-                print(" > DEBUG: Observer.event_loop_executor() ended")
+                print(" > DEBUG: Observer._event_loop_executor() ended")
             del loop
 
     async def establish_connection(self) -> None:

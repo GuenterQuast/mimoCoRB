@@ -109,7 +109,7 @@ class buffer_control():
         shutil.copyfile(os.path.abspath(cfg_common),
                         os.path.dirname(self.out_dir) + "/" + os.path.basename(cfg_common))
         #    and and load the configuration
-        config_dict_common = self.get_config(cfg_common)
+        config_dict_common = self._get_config(cfg_common)
         # if runtime defined, override previous value
         if 'runtime' in config_dict_common['general']: 
             self.runtime = config_dict_common['general']['runtime'] 
@@ -148,7 +148,7 @@ class buffer_control():
             # > In case of a function specific configuration file, copy it over into the target directory
             shutil.copyfile(os.path.abspath(cfg_file_name),
                             os.path.dirname(self.out_dir) + "/" + os.path.basename(cfg_file_name))
-            config_dict = self.get_config(cfg_file_name)
+            config_dict = self._get_config(cfg_file_name)
 
         # > Pass the target-directory created above to the worker function (so, if applicable,
         #   it can safe own data in this directory and everything is contained there)
@@ -180,7 +180,7 @@ class buffer_control():
         if not observe_list:
             observe_list = None
         # > Create worker processes executing the specified functions in parallel
-        function = self.import_function(file_py_name, fkt_py_name)
+        function = self._import_function(file_py_name, fkt_py_name)
         self.parallel_functions['FKT_'+str(i)] = (fkt_py_name, number_of_processes, assigned_ringbuffers)
         for k in range(number_of_processes):
             self.process_list.append(Process(target=function,
@@ -278,7 +278,7 @@ class buffer_control():
 
   #helper functions
   @staticmethod
-  def get_config(config_file):
+  def _get_config(config_file):
     """
     Args:
         config_file: defined in main setup file (yaml)
@@ -290,7 +290,7 @@ class buffer_control():
     return config_dict
 
   @staticmethod
-  def import_function(module_path, function_name):
+  def _import_function(module_path, function_name):
     """
     Import a named object defined in a config yaml file from a module.
 
