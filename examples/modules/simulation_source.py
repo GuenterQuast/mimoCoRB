@@ -24,7 +24,7 @@ def simulation_source(source_list=None, sink_list=None, observe_list=None, confi
     Internal parameters of the simulated physics process (the decay of a muon) 
     are (presently) not exposed to user.         
     """
-    
+
     # evaluate configuration dictionary
     events_required = 1000 if "eventcount" not in config_dict \
         else config_dict["eventcount"]            
@@ -105,8 +105,8 @@ def simulation_source(source_list=None, sink_list=None, observe_list=None, confi
             event_count += 1
         
         
-    simulsource = rbImport(
-           sink_list, observe_list, config_dict, ufunc=yield_simpulses, **rb_info)
+    simulsource = rbImport(config_dict = config_dict, sink_list= sink_list, 
+                            ufunc=yield_simpulses, **rb_info)
     # TODO: Change to logger!
     # print("** simulation_source ** started, config_dict: \n", config_dict)
     # print("?> sample interval: {:02.1f}ns".format(osci.time_interval_ns.value))

@@ -324,7 +324,7 @@ class rbImport:
     and put data in mimo_buffer. 
     """
 
-    def __init__(self, sink_list=None, observe_list=None, config_dict=None, ufunc=None, **rb_info):
+    def __init__(self, sink_list=None, config_dict=None, ufunc=None, **rb_info):
         """
         Class to provide external input data to a buffer, usually "RB_1"
 
@@ -412,7 +412,7 @@ class rbExport:
     Read data from buffer and send to requesting client (via python yield())
     """
 
-    def __init__(self, source_list=None, observe_list=None, config_dict=None, **rb_info):
+    def __init__(self, source_list=None, config_dict=None, **rb_info):
         """
         Class acting as a python generator to extract data and send to client 
 
@@ -475,7 +475,7 @@ class rbTransfer():
            store accepted data in buffers
              
     """
-    def __init__(self, source_list=None, sink_list=None, observe_list=None,
+    def __init__(self, source_list=None, sink_list=None,
                  config_dict=None, ufunc=None, **rb_info):
         """
         Class to filter data in input buffer and transfer to output buffer(s)
@@ -572,7 +572,7 @@ class rb_toTxtfile:
     """Save data to file in csv-format
     """
       
-    def __init__(self, source_list=None, observe_list=None, config_dict=None, **rb_info):
+    def __init__(self, source_list=None, config_dict=None, **rb_info):
         """
         Class to extract data and store in csv file
 
@@ -653,7 +653,7 @@ class rb_toTxtfile:
 class rb_toParquetfile:
     """Save data a set of parquet-files packed as a tar archive
     """
-    def __init__(self, source_list=None, observe_list=None, config_dict=None, **rb_info):
+    def __init__(self, source_list=None, config_dict=None, **rb_info):
         """
         Class to extract data and store in tar archive of parquet files
 

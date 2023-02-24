@@ -140,7 +140,7 @@ class plotWaveformBuffer():
         """
 
         # access to buffer data
-        self.data_reader = rbObserver(observe_list, config_dict, **rb_info)
+        self.data_reader = rbObserver(observe_list=observe_list, config_dict=config_dict, **rb_info)
         self.active_event = self.data_reader.source._active
 
         self.source_dict = observe_list[0]

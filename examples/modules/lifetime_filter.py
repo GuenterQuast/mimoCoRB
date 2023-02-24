@@ -155,8 +155,8 @@ def calculate_decay_time(source_list=None, sink_list=None, observe_list=None, co
                 return 1                   # only copy data   
 
 
-    filter = rbTransfer(
-        source_list, sink_list, observe_list, config_dict, ufunc=find_double_pulses, **rb_info)
+    filter = rbTransfer(source_list=source_list, sink_list=sink_list, config_dict=config_dict,
+                        ufunc=find_double_pulses, **rb_info)
     filter()
 
     

@@ -21,7 +21,7 @@ def read_from_buffer(source_list=None, sink_list=None,
     :param input: configuration dictionary 
 
     """
-    readData = rbExport(source_list, config_dict, **rb_info)
+    readData = rbExport(source_list=source_list, config_dict=config_dict, **rb_info)
     active_event = readData.source._active
 
     count = 0
