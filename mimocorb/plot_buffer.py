@@ -9,7 +9,7 @@ from cycler import cycler
 import time
 
 # access to mimiCoRB Observer class
-from .buffer_control import ObserverData
+from .buffer_control import rbObserver
 
 
 class WaveformPlotter(object):
@@ -122,7 +122,7 @@ class WaveformPlotter(object):
 
 class plotWaveformBuffer():
     """
-    Plot data using an mimiCoRB Observer 
+    Plot data using a mimiCoRB Observer 
     """    
     import matplotlib
     import matplotlib.pyplot as plt, matplotlib.animation as anim
@@ -140,7 +140,7 @@ class plotWaveformBuffer():
         """
 
         # access to buffer data
-        self.data_reader = ObserverData(observe_list, config_dict, **rb_info)
+        self.data_reader = rbObserver(observe_list, config_dict, **rb_info)
         self.active_event = self.data_reader.source._active
 
         self.source_dict = observe_list[0]

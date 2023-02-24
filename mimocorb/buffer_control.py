@@ -318,8 +318,7 @@ class buffer_control():
 # <-- end class buffer_control
 
 
-class SourceToBuffer:
-    # new name: RB_importer
+class rbImport:
     """
     Read data from external source (e.g. front-end device, file, simulation, etc.) 
     and put data in mimo_buffer. 
@@ -405,11 +404,10 @@ class SourceToBuffer:
         # make sure last data entry is also processed        
         self.sink.process_buffer()
 
-# <-- end class SourceToBuffer
+# <-- end class rbImport
 
 
-class BufferData:
-    # new name: RB_exporter
+class rbExport:
     """
     Read data from buffer and send to requesting client (via python yield())
     """
@@ -456,11 +454,10 @@ class BufferData:
     def __del__(self):
         pass
 
-# <-- end class BufferData
+# <-- end class rbExport
 
 
-class BufferToBuffer():
-    # new name: RB_transferrer
+class rbTransfer():
     """Read data from input buffer, filter data and write to output buffer(s)
 
        Args: 
@@ -569,10 +566,9 @@ class BufferToBuffer():
         # TODO: remove debug or change to logger
         # print("?>", self.status)
 
-# <-- end class BufferToBuffer
+# <-- end class rbTransfer
 
-class BufferToTxtfile:
-    # new name: RB_export_to_txt
+class rb_toTxtfile:
     """Save data to file in csv-format
     """
       
@@ -654,8 +650,7 @@ class BufferToTxtfile:
             input_data = self.source.get()
 
             
-class BufferToParquetfile:
-    # new name: RB_to_parquetfile
+class rb_toParquetfile:
     """Save data a set of parquet-files packed as a tar archive
     """
     def __init__(self, source_list=None, observe_list=None, config_dict=None, **rb_info):
@@ -714,10 +709,9 @@ class BufferToParquetfile:
     def __del__(self):
         self.tar.close()
 
-# <-- end class BufferToTxtfile
+# <-- end class rb_toParqeutfile
 
-class ObserverData:
-    # new name: RB_observer
+class rbObserver:
     """
     Deliver data from buffer to an observer process
     """
@@ -814,7 +808,7 @@ class ObserverData:
                 yield(None)
                 break
   
-# <-- end class ObserverData
+# <-- end class rbObserver
 
 class run_mimoDAQ():
     """

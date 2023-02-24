@@ -1,9 +1,9 @@
 """**mimo-ringbuffer**:
 
-Module implementing a multiple-in multiple-out ringbuffer appropriate for multiprocessing.
+Module implementing a multiple-in multiple-out ringbuffer appropriate for multi-core multiprocessing.
 
-The ringbuffer creation and management is handled by the ``NewBuffer``-class. Access to
-the content is possible through the ``Reader``, ``Writer`` and ``Observer`` classes.
+The ringbuffer creation and management is handled by the class ``NewBuffer``. 
+Buffer access is managed by the``Reader``, ``Writer`` and ``Observer``  classes.
 
 classes: 
 
@@ -89,7 +89,6 @@ class NewBuffer:
         # !!! access to metadata in shared-memory 
         self._metadata = np.ndarray(shape=self.number_of_slots, dtype=self.metadata_dtype,
                                     buffer=self.m_metadata_share.buf)
-
         
         # Setup queues
         # > Queue with all EMPTY memory slots ready to be used by a writer (implicitly kept in order)

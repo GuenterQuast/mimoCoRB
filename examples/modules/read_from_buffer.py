@@ -11,17 +11,17 @@ from threading import Thread
 import sys, time
 
 # module to read data from buffer 
-from mimocorb.buffer_control import BufferData
+from mimocorb.buffer_control import rbExport
 
 def read_from_buffer(source_list=None, sink_list=None,
                      observe_list=None, config_dict=None, **rb_info):
     """
-    Read data from mimiCoRB buffer using the interface class mimo_control.BufferData
+    Read data from mimiCoRB buffer using the interface class mimo_control.rbExport
 
     :param input: configuration dictionary 
 
     """
-    readData = BufferData(source_list, config_dict, **rb_info)
+    readData = rbExport(source_list, config_dict, **rb_info)
     active_event = readData.source._active
 
     count = 0

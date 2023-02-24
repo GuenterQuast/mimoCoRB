@@ -270,19 +270,23 @@ The classes are:
 
   - `class buffer_control`
      Set-up and management of ringbuffers and associated sub-processes.
+     This is the overarching class with access to all created buffers and sub-processes.
 
-  - `class SourceToBuffer`
+  - `class rbImport`
       Read data from source (front-end like a PicoScope USB oscilloscope, of from file or simulation) 
       and put data in mimo_buffer
 
-  - `class BufferToBuffer`
-      Read data from input buffer, filter an/or reformat data  and write to output buffer(s)
+  - `class rbTransfer`
+      Read data from a mimo_buffer, filter and/or reformat data and write to output mimo_buffer(s)
    
-  - `class BufferToTxtfile`:
-      Save buffer data to file in csv-format
+  - `class rbExport`
+      Read data from mimo_buffer and analyze, without writing to another ringbuffer
+
+- `class rb_toTxtfile`:
+      Save mimo_buffer data to file in csv-format
       
-  - `class BufferToParquetfile`:
-      Save buffer data to tar-file; data is packed in Parquet format
+  - `class rb_toParquetfile`:
+      Save mimo_buffer data to tar-file; data is packed in Parquet format
 
   - `class run_mimoDAQ`:
       Setup and run data acquisition with mimoCoRB buffer manager   
@@ -313,22 +317,24 @@ data provisioning, filtering and storage. *run_mimoDAQ* is controlled either
 by keyboard commands of from a graphical user interface; pre-defined conditions
 on the total number of events processed, the duration of the data taking run
 or finishing of the writer process to the first buffer due to source exhaustion
-can also be defined to end data taking.
+can also be defined to end data taking. The class structure and depenencies
+are shown in the figure below.
+
+.. image:: class_structure.png
+  :width: 1024
+  :alt: The structure of a mimoCoRB project
 
 For complex setups and longer data-taking periods it is important to gain 
 a quick overview of the status of all buffers and to monitor long-term stability. 
 Therefore, a graphical display with the processing rate of all buffers is
 provided by the class **bufferinfoGUI**. A text window receives frequent 
 updates of the number of events processed by each buffer and of the buffer 
-fill-levels. Buttons feed back information to the calling process *run_mimoDAQ*
-and allow passing, resuming and ending the data acquisition.
+fill-levels. KLick-buttons send information via a dedicated commane queue 
+to the calling process *run_mimoDAQ* and allow pausing, resuming and ending 
+the data acquisition.
 
-
-Application example
-...................
-
-The subdirectory examples/ contains a rather complete application use case.
-The suggested structure of the work-space is as follows:
+The suggested structure of the project work-space for mimiCoRB applications 
+is as follows:
 
 .. code-block::
 
@@ -338,6 +344,12 @@ The suggested structure of the work-space is as follows:
                     | --> config      # configuration files in yaml format
                     | --> target      # output of data-acquisition run(s)
 
+
+
+Application example
+...................
+
+The subdirectory examples/ contains a rather complete application use case.
 Examples of code snippets and configuration data are provided in the subdirectories
 `examples/modules/` and `examples/config/`, respectively.
 Waveform data, as provided by, for example, a multi-channel digital
@@ -354,7 +366,7 @@ below [source: Master's Thesis Christoph Mayer, ETP 2022].
 Note that the oscilloscope is replaced by a signal simulation in the 
 provided example. 
 
-.. image:: _static/mimoCoRB_lifetime.png
+.. image:: mimoCoRB_lifetime.png
   :width: 650
   :alt: The signal processing chain for the lifetime measurement	  
 

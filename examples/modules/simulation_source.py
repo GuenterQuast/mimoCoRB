@@ -2,7 +2,7 @@
 **simulation_source**: Generate simulated wave form data
 """
 
-from mimocorb.buffer_control import SourceToBuffer
+from mimocorb.buffer_control import rbImport
 import numpy as np
 import sys, time
 
@@ -10,7 +10,7 @@ def simulation_source(source_list=None, sink_list=None, observe_list=None, confi
     """
     Generate simulated data and pass data to buffer
 
-    The class mimocorb.buffer_control/SourceToBuffer is used to interface to the
+    The class mimocorb.buffer_control/rbImport is used to interface to the
     newBuffer and Writer classes of the package mimoCoRB.mimo_buffer
 
     :param config_dict: configuration dictionary
@@ -82,7 +82,7 @@ def simulation_source(source_list=None, sink_list=None, observe_list=None, confi
         return(pulse)
     
     def yield_simpulses(nchan=3):
-        """generate simulated data, called by instance of class mimoCoRB.SourceToBuffer
+        """generate simulated data, called by instance of class mimoCoRB.rbImport
         """
 
         event_count = 0
@@ -105,7 +105,7 @@ def simulation_source(source_list=None, sink_list=None, observe_list=None, confi
             event_count += 1
         
         
-    simulsource = SourceToBuffer(
+    simulsource = rbImport(
            sink_list, observe_list, config_dict, ufunc=yield_simpulses, **rb_info)
     # TODO: Change to logger!
     # print("** simulation_source ** started, config_dict: \n", config_dict)

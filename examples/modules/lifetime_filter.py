@@ -17,7 +17,7 @@ The relevant configuration parameters can be found in the section
 
 """ 
 
-from mimocorb.buffer_control import BufferToBuffer
+from mimocorb.buffer_control import rbTransfer
 import numpy as np
 import pandas as pd
 import os, sys
@@ -79,7 +79,7 @@ def calculate_decay_time(source_list=None, sink_list=None, observe_list=None, co
 #                        ('2nd_chD_h', 'float64'), ('2nd_chD_p', 'int32'), ('2nd_chD_int', 'float64')] )
     
     def find_double_pulses(input_data):   
-        """filter data, function to be called by instance of class mimoCoRB.BufferToBuffer
+        """filter data, function to be called by instance of class mimoCoRB.rbTransfer
 
            Args:  input data as structured ndarray
     
@@ -155,9 +155,9 @@ def calculate_decay_time(source_list=None, sink_list=None, observe_list=None, co
                 return 1                   # only copy data   
 
 
-    accessor = BufferToBuffer(
+    filter = rbTransfer(
         source_list, sink_list, observe_list, config_dict, ufunc=find_double_pulses, **rb_info)
-    accessor()
+    filter()
 
     
 if __name__ == "__main__":
