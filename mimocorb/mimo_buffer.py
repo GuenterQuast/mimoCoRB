@@ -130,17 +130,8 @@ class NewBuffer:
         self.writer_created = False
         self.reader_queue_listener_thread_list = []
 
-        # Setup observer web socket (in background thread)
-        self.observer_event_loop = asyncio.new_event_loop()
-        self.event_loop_thread = threading.Thread(target=self._event_loop_executor, args=(self.observer_event_loop,),
-                                                  name="Main observer event loop")
-        self.observer_port = -1
-        self.event_loop_thread.start()
-        self._observer_server_ready = threading.Event()
-        self._observer_server_ready.clear()
-        asyncio.run_coroutine_threadsafe(self._observer_main(), self.observer_event_loop)
-        self._observer_server_ready.wait()
-        asyncio.run_coroutine_threadsafe(self._observer_check_active_state(), self.observer_event_loop)
+
+        self._observer_websocket_initialized = False
 
         # variables for buffer statitiscs (evaluated in buffer_status() )
         self.Tstart = time.time()
@@ -300,63 +291,88 @@ class NewBuffer:
                       "debug": self._debug}
         return setup_dict
 
-    def _event_loop_executor(self, loop: asyncio.AbstractEventLoop) -> None:
-        """Internal method continuously run in a background thread.
-        It runs the asynchronous event loop needed for the websocket based IPC of ``Observer``-instances.
+    
+    def _init_websocket(self) -> bool:
         """
-        if self._debug:
-            print("\ > DEBUG: Started event loop in main thread!")
-        asyncio.set_event_loop(loop)
-        try:
-            loop.run_forever()
-        finally:
-            loop.run_until_complete(loop.shutdown_asyncgens())
-            loop.close()
+        Setup web socket connection for observer (running in background thread)
+        """            
+
+        #  --- web socket functions 
+        def _event_loop_executor(loop: asyncio.AbstractEventLoop) -> None:
+            """Internal method continuously run in a background thread.
+            It runs the asynchronous event loop needed for the websocket based IPC of ``Observer``-instances.
+            """
             if self._debug:
-                print(" > DEBUG: Observer event loop in main thread closed!")
-            del loop            
+                print("\ > DEBUG: Started event loop in main thread!")
+            asyncio.set_event_loop(loop)
+            try:
+                loop.run_forever()
+            finally:
+                loop.run_until_complete(loop.shutdown_asyncgens())
+                loop.close()
+                if self._debug:
+                    print(" > DEBUG: Observer event loop in main thread closed!")
+                del loop            
 
-    async def _observer_main(self):
-        """Internal asynchronous method run in the background to handle websocket connections.
-        A websocket server is started on the loopback device, providing IPC between the main process
-        and an ``Observer``-instance running in another process.
-        """
-        self._my_ws = await ws.serve(self._observer_server, "localhost")
-        self.observer_port = (self._my_ws.sockets[0]).getsockname()[1]
-        self._observer_server_ready.set()
-        if self._debug:
-            print("> WS port: {}\n".format(self.observer_port))
-
-    async def _observer_server(self, websocket, path):
-        """Internal asynchronous method implementing the ``Observer`` IPC.
-        As of now: for every message, the current ``write_pointer`` is sent (index in the shared
-        memory array containing the latest added element to the ringbuffer).
-        **CAUTION!** The ringbuffer element *IS NOT LOCKED*, so it has to be copied as soon as possible
-        in the ``Observer``-process. For conventional signal analysis chains and PC setups, this
-        should not be a constraint. But it might be possible that data seen by the ``Observer``
-        instance are corrupted (especially with a not ideal ringbuffer configuration and/or a heavily loaded
-        PC system).
-
-        **``Observer``-instances MUST NOT rely on data integrity!!**
-        """
-        async for message in websocket:
-            with self.write_pointer_lock:
-                # await websocket.send("{}".format(self.write_pointer))
-                await websocket.send("{}".format(self.write_pointer%self.number_of_slots))
-
-    async def _observer_check_active_state(self) -> None:
-        """Internal asynchronous function to check if ``NewBuffer.shutdown()`` was called
-        """
-        while self.observers_active.is_set():
-            await asyncio.sleep(0.5)
-        if self._debug:
-            print(" > DEBUG: Observer received closed signal in main thread!")
-        self._my_ws.close()
-        await self._my_ws.wait_closed()
-        self.observer_event_loop.stop()
+        async def _observer_server(websocket, path) -> None:
+            """
+            Internal asynchronous method implementing the ``Observer`` IPC.
             
+            As of now: for every message, the current ``write_pointer`` is sent (index in the shared
+            memory array containing the latest added element to the ringbuffer).
+            **CAUTION!** The ringbuffer element *IS NOT LOCKED*, so it has to be copied as soon as possible
+            in the ``Observer``-process. For conventional signal analysis chains and PC setups, this
+            should not be a constraint. But it might be possible that data seen by the ``Observer``
+            instance are corrupted (especially with a not ideal ringbuffer configuration and/or a heavily loaded
+            PC system).
+
+            **``Observer``-instances MUST NOT rely on data integrity!!**
+            """
+            async for message in websocket:
+                with self.write_pointer_lock:
+                    # await websocket.send("{}".format(self.write_pointer))
+                    await websocket.send("{}".format(self.write_pointer%self.number_of_slots))
+
+        async def _observer_check_active_state() -> None:
+            """
+            Internal asynchronous function to check if ``NewBuffer.shutdown()`` was called
+            """
+            while self.observers_active.is_set():
+                await asyncio.sleep(0.5)
+            if self._debug:
+                print(" > DEBUG: Observer received closed signal in main thread!")
+            self._my_ws.close()
+            await self._my_ws.wait_closed()
+            self.observer_event_loop.stop()
+
+        async def _observer_main() -> None:
+            """Internal asynchronous method run in the background to handle websocket connections.
+            A websocket server is started on the loopback device, providing IPC between the main process
+            and an ``Observer``-instance running in another process.
+            """
+            self._my_ws = await ws.serve(_observer_server, "localhost")
+            self.observer_port = (self._my_ws.sockets[0]).getsockname()[1]
+            self._observer_server_ready.set()
+            if self._debug:
+                print("> WS port: {}\n".format(self.observer_port))
+
+        #  --- end websocket functions        
+
+        self.observer_event_loop = asyncio.new_event_loop()
+        self.event_loop_thread = threading.Thread(target=_event_loop_executor,
+                                                  args=(self.observer_event_loop,),
+                                                  name="Main observer event loop")
+        self.observer_port = -1
+        self.event_loop_thread.start()
+        self._observer_server_ready = threading.Event()
+        self._observer_server_ready.clear()
+        asyncio.run_coroutine_threadsafe(_observer_main(), self.observer_event_loop)
+        self._observer_server_ready.wait()
+        asyncio.run_coroutine_threadsafe(_observer_check_active_state(), self.observer_event_loop)
+        return True
+         
     def new_observer(self):
-        """Method to create a new observer.
+        """Method to create a new (web-socket based) observer.
         It's possible to create multiple observers and simply share the setup dictionary between different
         ``Observer``-instances (analogues to the behavior of the ``new_reader_group``).
         It might be possible that data seen by an ``Observer`` instance are corrupted (especially
@@ -367,9 +383,14 @@ class NewBuffer:
         :return: The ``setup_dict`` object passed to an ``Observer``-instance to grant access to this ringbuffer.
         :rtype: dict
         """
+
+        # set-up websocket connection and all needed background threads if not yet existing
+        if not self._observer_websocket_initialized:
+            self._observer_websocket_initialized = self._init_websocket()
+        
         # Observer class just maps the memory share and asks the ringbuffer manager via websocket
         # for the newest entry (so the main programm doesn't block, even if the observer process hangs/dies).
-        # Data might be corrupted/not coherent, so the observer HAS to handle that gracefully
+        # Data might be corrupted/incoherent, so the observer HAS to handle that gracefully
         setup_dict = {"number_of_slots": self.number_of_slots, "values_per_slot": self.values_per_slot,
                       "dtype": self.dtype, "mshare_name": self.m_share.name,
                       "metadata_share_name": self.m_metadata_share.name,
@@ -488,7 +509,10 @@ class NewBuffer:
         self._writer_queue_thread.join()
         for t in self.reader_queue_listener_thread_list:
             t.join()
-        self.event_loop_thread.join()
+        try:
+            self.event_loop_thread.join()
+        except:
+            pass
         self.m_share.close()
         self.m_share.unlink()
         self.m_metadata_share.close()
