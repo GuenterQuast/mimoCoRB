@@ -154,7 +154,7 @@ class plotWaveformBuffer():
         
         # animate graphics
         while self.active_event.is_set():
-           data = next(self.data_reader(), None)
+           data, metadata = next(self.data_reader())
            if data is not None:
               channel_lines = self.osciplot(data) # update graphics
            else:
@@ -163,6 +163,6 @@ class plotWaveformBuffer():
                break
               
         # finished
-        #   possibly add some code to store graphics 
-        
+        #   possibly add some code to store graphics
+        # print(" * PlotWaveformBuffer ended normally")
         raise SystemExit
