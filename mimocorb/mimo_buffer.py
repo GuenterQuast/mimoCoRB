@@ -24,7 +24,7 @@ classes:
 """
 
 import numpy as np
-from multiprocessing import shared_memory, Lock, SimpleQueue, Event
+from multiprocessing import shared_memory, Lock, SimpleQueue, Queue, Event
 import threading
 import heapq
 import websockets as ws
@@ -86,9 +86,12 @@ class NewBuffer:
         m_bytes = number_of_slots * np.dtype(self.metadata_dtype).itemsize
         self.m_metadata_share = shared_memory.SharedMemory(create=True, size=m_bytes)
 
-        # !!! access to metadata in shared-memory 
+        # !!! access to (meta)data in shared-memory 
+        self._buffer = np.ndarray(shape=(self.number_of_slots, self.values_per_slot),
+                                  dtype=self.dtype, buffer=self.m_share.buf)
         self._metadata = np.ndarray(shape=self.number_of_slots, dtype=self.metadata_dtype,
                                     buffer=self.m_metadata_share.buf)
+
         
         # Setup queues
         # > Queue with all EMPTY memory slots ready to be used by a writer (implicitly kept in order)
@@ -104,12 +107,13 @@ class NewBuffer:
         # > List containing the 'done'-heaps of all reader groups.
         self.reader_done_heap_list = []
 
-        # Setup threading lock
+        # Setup threading locks
         self.read_pointer_lock = Lock()  # Lock to synchronise self.read_pointer manipulations
         self.write_pointer_lock = Lock()  # Lock to synchronise self.write_pointer access
         self.heap_lock = Lock()  # Lock to synchronise manipulations on the reader group 'done'-heaps
 
-        # Setup pointer
+
+        # Setup pointers
         self.read_pointer = 0  # Pointer referencing the oldest element that is currently worked on by any reader
         self.write_pointer = 0  # Pointer referencing the newest element added to the buffer (might be wrong at startup)
 
@@ -129,7 +133,6 @@ class NewBuffer:
         self._writer_queue_thread.start()
         self.writer_created = False
         self.reader_queue_listener_thread_list = []
-
 
         self._observer_websocket_initialized = False
 
@@ -291,6 +294,49 @@ class NewBuffer:
                       "debug": self._debug}
         return setup_dict
 
+    def _observerQ_listener(self):
+        """Put latest data in Queue for observer if empty 
+        """
+        while self.observers_active.is_set():
+            if self.observerQ.empty():
+                with self.write_pointer_lock:
+                    idx = self.write_pointer%self.number_of_slots
+                    mdata = np.array(self._metadata[idx], copy=True)
+                    data = np.array(self._buffer[idx, :], copy=True)
+                self.observerQ.put( (data, mdata) )
+            else:
+                time.sleep(0.03)
+        # reache end: send None to signal end-of-run to client            
+        if self.observerQ.empty():
+            self.observerQ.put( None, True, 2.5 )
+        del self.observerQ
+        
+    def new_observer(self):
+        """Method to create a new (Queue based) observer.
+
+        Method: a copy of the most recent data is transferred via a Queue whenever the Queue 
+        (of size 1) becomes empty. Sending data to the Queue is handled in a sparate thread
+        
+        :return: The ``setup_dict`` object passed to an ``Observer``-instance to give access to
+           the dataQueue defined for this ringbuffer.
+        :rtype: dict
+        """
+
+        # create a Queue with size of one (Queue.empty() can be used to synchronize with client) 
+        self.observerQ = Queue(1)
+
+        setup_dict = {"number_of_slots": self.number_of_slots, "values_per_slot": self.values_per_slot,
+                      "dtype": self.dtype, "mshare_name": self.m_share.name,
+                      "metadata_share_name": self.m_metadata_share.name,
+                      "dataQ": self.observerQ, "active": self.observers_active, 
+                      "debug": self._debug}
+            
+        self.observerQ_listener_thread = threading.Thread(target=self._observerQ_listener,
+                                          name="observer_queue_listener")
+        self.observerQ_listener_thread.start()
+
+        return setup_dict
+
     
     def _init_websocket(self) -> bool:
         """
@@ -323,8 +369,8 @@ class NewBuffer:
             **CAUTION!** The ringbuffer element *IS NOT LOCKED*, so it has to be copied as soon as possible
             in the ``Observer``-process. For conventional signal analysis chains and PC setups, this
             should not be a constraint. But it might be possible that data seen by the ``Observer``
-            instance are corrupted (especially with a not ideal ringbuffer configuration and/or a heavily loaded
-            PC system).
+            instance are corrupted (especially with a not ideal ringbuffer configuration and/or a heavily 
+            loaded PC system).
 
             **``Observer``-instances MUST NOT rely on data integrity!!**
             """
@@ -371,7 +417,7 @@ class NewBuffer:
         asyncio.run_coroutine_threadsafe(_observer_check_active_state(), self.observer_event_loop)
         return True
          
-    def new_observer(self):
+    def new_WSobserver(self):
         """Method to create a new (web-socket based) observer.
         It's possible to create multiple observers and simply share the setup dictionary between different
         ``Observer``-instances (analogues to the behavior of the ``new_reader_group``).
@@ -509,6 +555,7 @@ class NewBuffer:
         self._writer_queue_thread.join()
         for t in self.reader_queue_listener_thread_list:
             t.join()
+        # for web-socket observer    
         try:
             self.event_loop_thread.join()
         except:
@@ -517,7 +564,7 @@ class NewBuffer:
         self.m_share.unlink()
         self.m_metadata_share.close()
         self.m_metadata_share.unlink()
-
+        
     def __del__(self):
         # unlink shared memory if not done yet
         try:
@@ -529,7 +576,6 @@ class NewBuffer:
             pass
 
 # <<-- end class NewBuffer
-
 
 class Writer:
     """
@@ -805,10 +851,53 @@ class Reader:
 
 # <<-- end class Reader
 
-
 class Observer:
     """
-    Class for reading selected elements from a ringbuffer.
+    Class for reading selected elements from a ringbuffer via q multiprocessing Queue
+
+    The data transfer is implemented via a multiprocessing Queue and interfaces 
+    with the ringbuffer manager (``NewBuffer``-class).
+    """
+    def __init__(self, setup_dict):
+        """Constructor to create an ``Observer``-object that grants access to the ringbuffer
+        specified in the ``setup_dict`` object.
+
+        :param setup_dict: The setup dictionary for the *observer* this instance is a part of.
+            The setup dictionary can be obtained by calling ``NewBuffer.new_Qobserver()`` in
+            this instances' parent process. Sharing the same setup dictionary between multiple
+            observer processes is possible, calling ``NewBuffer.new_Qobserver()`` multiple 
+            times is allowed as well.
+        """
+        self._active = setup_dict["active"]
+        self._debug = setup_dict["debug"]
+        self.dataQ = setup_dict["dataQ"]
+
+        if self._debug:
+            print(" > DEBUG: QObserver  created (PID: {:d})".format(os.getpid()))
+
+    def get(self):
+        """
+        Get latest element from buffer: metadata  and data
+
+        As new data is provided and transferred as soon as data is read from 
+        the Queue, the get() method must not be called too frequentls 
+        """
+        # transferred data is either None (end of data taking) or a tuple  (metadata, data)
+        d = self.dataQ.get()
+        return d
+
+    def __del__(self):
+        """
+        Destructor of the ``QObserver`` class
+        """
+        if self._debug:
+            print(" > DEBUG: QObserver destructor called (PID: {:d})".format(os.getpid()))
+
+# <<-- end class QObserver
+
+class WSObserver:
+    """
+    Class for reading selected elements from a ringbuffer via websocket
 
     Ringbuffer elements are structured NumPy arrays. The returned array will not change
     until the next ``Observer.get()``-call, the ringbuffer element is not blocked. The data transfer

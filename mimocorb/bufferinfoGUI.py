@@ -90,7 +90,7 @@ class plot_bufferinfo(object):
     self.tlast = timestamp
     tcor = delta_time - self.interval
     # 10% of sleep time in FuncAnimation, rest here via (corrected) sleep
-    time.sleep(.9*self.interval-tcor) if tcor>0 else time.sleep(.9*self.interval)   
+    time.sleep(max(0,.9*self.interval-tcor)) if tcor>0 else time.sleep(.9*self.interval)   
 
     # retrieve data (non-blocking to keep event loop active)
     try: 

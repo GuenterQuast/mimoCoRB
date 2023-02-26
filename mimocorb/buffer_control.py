@@ -11,7 +11,7 @@ import yaml
 from pathlib import Path
 import numpy as np
 from numpy.lib import recfunctions as rfn
-from multiprocessing import Process, Queue
+from multiprocessing import Process, active_children, Queue
 import threading
 import pandas as pd
 import io, tarfile
@@ -50,7 +50,11 @@ class buffer_control():
       self.workers_setup = False
       self.workers_started = False
 
+      self.cumulative_pause_time = 0.
+      self.start_time = 0.
+    
       self.status = 'Initialized'
+
       
   def setup_buffers(self):
     self.ringbuffers = {}
@@ -194,6 +198,7 @@ class buffer_control():
     """start all of the (parallel) worker functions
     """
 
+    self.start_time = time.time()
     if self.workers_started:
         print("!! Workers already started - cannot start again")
         return
@@ -265,6 +270,7 @@ class buffer_control():
       # disable writing to Buffer RB_1
       self.ringbuffers['RB_1'].pause()
       self.status="Paused"
+      self.pause_time = time.time()
 
   def resume(self):
       """Re-enable  data acquisition after pause
@@ -276,6 +282,8 @@ class buffer_control():
       else:
           print(" !!! Resume only possible from state 'Paused'")
 
+      self.cumulative_pause_time += time.time() - self.pause_time
+          
   #helper functions
   @staticmethod
   def _get_config(config_file):
@@ -711,7 +719,60 @@ class rb_toParquetfile:
 
 # <-- end class rb_toParqeutfile
 
+
 class rbObserver:
+    """
+    Deliver data from buffer to an observer process
+    """
+    def __init__(self, observe_list=None, config_dict=None, **rb_info):
+        """
+        Class to extract data from buffer as an observer 
+
+        :param observe_list: list of length 1 with dictionary for Observer
+        :param config_dict: application-specific configuration (minimum wait time)
+
+        :return generator: implemented in __call__ method
+        :rtype python generator
+        :param rb_info: dictionary with names and function (read, write, observe) of ring buffers
+        """
+
+        if observe_list is None:
+            raise ValueError("ERROR! Faulty ring buffer configuration")
+
+        self.source = None
+        for key, value in rb_info.items():
+            if value == 'read':
+                print("!!! Reading buffer not foreseen!!")
+            elif value == 'write':
+                print("!!! Writing to buffer not foreseen!!")
+            elif value == 'observe':
+                self.source = bm.Observer(observe_list[0])
+                if len(observe_list) > 1:
+                    print("!!! More than one observer presently not foreseen!!")
+                  
+        if self.source is None:
+            print("ERROR! Faulty ring buffer configuration passed - no source buffer specified !")
+            sys.exit()
+
+        #  evaluate information from config dict to set sleep time     
+        self.min_sleeptime = 1.0 if "min_sleeptime" not in config_dict else config_dict["min_sleeptime"] 
+
+    def __call__(self):
+        # sart reading and save to text file
+        while self.source._active.is_set():
+            data = self.source.get()
+            if data is None:  # recieve none
+                 break                     
+            yield ( (data[0], data[1]) )
+            time.sleep(0.03) # wait for data, avoid blocking !               
+        # end seen
+        yield(None)
+            
+    def __del__(self):
+        pass
+
+
+class rbWSObserver:
     """
     Deliver data from buffer to an observer process
     """
@@ -959,6 +1020,9 @@ class run_mimoDAQ():
         U = '\033[4;37;48m'   # underline
         E = '\033[1;37;0m'    # end color
         
+        self.cmdQ = None
+        self.logQ = None
+        self.RBinfoQ = None
         # set-up keyboard control
         if self.kbdcontrol or self.GUIcontrol:
             self.cmdQ = Queue(1)  # Queue for command input from keyboard
@@ -989,7 +1053,7 @@ class run_mimoDAQ():
         print("{:d} workers started...  ".format(len(self.process_list)), end='')
 
         # > activate data taking (in case it was started in paused mode)
-        self.start_time = time.time()
+        self.start_time = self.bc.start_time
         if self.bc.status == "Paused":
             self.bc.resume()
         
@@ -1003,7 +1067,7 @@ class run_mimoDAQ():
             if self.verbose > 1: print('\n')
             while self.run:
                 stat = B+g+ self.bc.status + E + ' '
-                time_active = (time.time() - self.start_time)
+                time_active = time.time() - self.start_time - self.bc.cumulative_pause_time
                 tact_p1s = int(10*(time.time() - self.start_time)) # int in 1s/10 
                 t_act = B+r+ str(int(time_active))+'s ' + E
                 buffer_status_color = stat + t_act
@@ -1084,9 +1148,12 @@ class run_mimoDAQ():
     
           # stop and shutdown  
             self.end(twait=2.)
+            if self.cmdQ is not None: # remove all entries from command Q
+                while not self.cmdQ.empty():
+                    self.cmdQ.get() 
             
             if self.kbdcontrol:
-               print(30*' '+'Finished, good bye !  Type <ret> to exit -> ')
+                print(30*' '+'Finished, good bye !  Type <ret> to exit -> ')
             else:
                 input(30*' '+'Finished, good bye !  Type <ret> to exit -> ')
 
@@ -1094,9 +1161,17 @@ class run_mimoDAQ():
                 input (30*' '+'Type <ret> again to close Run Control Window\n')
                 self.RBinfoproc.terminate()
 
+    # get all active child processes
+    active = active_children()
+    for child in active:
+        print(" !! Killing child process", child)
+        child.terminate()
+
+
+                
 if __name__ == "__main__": # ----------------------------------------------------------------------
 
-  # example code to run a data acquitistion suite definde in a yaml config
+  # example code to run a data acquitistion suite defined in a yaml config
 
   # execute via:   python3 -m mimocorb.buffer_control <config file>
   
