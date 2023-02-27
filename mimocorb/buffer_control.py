@@ -759,15 +759,15 @@ class rbObserver:
 
     def __call__(self):
         # sart reading and save to text file
-        while self.source._active.is_set():
-            data = self.source.get()
-            if data is None:  # recieve none
+        while True:
+            # data = self.source.get() # use get() function
+            data = self.source.dataQ.get()  # use queue directly
+            if data is None:  # recieved none, end!
                  break                     
-            yield ( (data[0], data[1]) )
-            time.sleep(0.03) # wait for data, avoid blocking !               
-        # end seen
+            yield ( data )
+        # end seen, pass None 
         yield(None)
-            
+        
     def __del__(self):
         pass
 

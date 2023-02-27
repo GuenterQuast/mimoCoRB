@@ -304,12 +304,10 @@ class NewBuffer:
                     mdata = np.array(self._metadata[idx], copy=True)
                     data = np.array(self._buffer[idx, :], copy=True)
                 self.observerQ.put( (data, mdata) )
-            else:
-                time.sleep(0.03)
-        # reache end: send None to signal end-of-run to client            
-        if self.observerQ.empty():
-            self.observerQ.put( None, True, 2.5 )
-        del self.observerQ
+            time.sleep(0.03)
+        # reached end:
+        #   send None to signal end-of-run to client, give some grace time before timing-out   
+        self.observerQ.put( None, block=True, timeout=3.)
         
     def new_observer(self):
         """Method to create a new (Queue based) observer.

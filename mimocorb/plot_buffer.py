@@ -16,8 +16,9 @@ class WaveformPlotter(object):
     """
     Oscilloscope-like display of wave from buffer data
 
-    The __call__ method of this class updates only the time-depenent
-    input data and redraws the figure.
+    The __call__ method of this class receives input data and
+    updates and redraws only the new elements of the figure
+    created in __init__
     """
 
     def __init__(self, conf_dict=None, dtypes=None, fig = None):
@@ -49,6 +50,8 @@ class WaveformPlotter(object):
         sample_time_ns = self.conf_dict['sample_time_ns']
         channel_range = 500 if 'channel_range' not in self.conf_dict else \
             self.conf_dict['channel_range']
+        trigger_level = None if 'trigger_level' not in self.conf_dict else \
+            self.conf_dict['trigger_level']            
         self.analogue_offset = 0. if 'analogue_offset' not in self.conf_dict else \
             1000.*self.conf_dict['analogue_offset']
         pre_trigger_samples = 0. if 'pre_trigger_samples' not in self.conf_dict else \
@@ -115,8 +118,7 @@ class WaveformPlotter(object):
             self.ax.draw_artist(line)
             # finish the blitting process
             self.fig.canvas.blit(self.ax.bbox)    
-        plt.pause(min(0.2, self.min_sleeptime))
-        time.sleep(self.min_sleeptime)
+        plt.pause(min(0.05, self.min_sleeptime))
 
 # <<- end class WaveformPlotter
 
@@ -139,11 +141,16 @@ class plotWaveformBuffer():
             describe the waveform data as for oscilloscope setup
         """
 
+        # get update interval from dictionary
+        self.min_sleeptime = 1.0 if "min_sleeptime" not in config_dict else \
+            config_dict["min_sleeptime"] 
+
         # access to buffer data
         self.data_reader = rbObserver(observe_list=observe_list, config_dict=config_dict, **rb_info)
         self.active_event = self.data_reader.source._active
 
         self.source_dict = observe_list[0]
+        # initialize oscilloscope-like display
         self.osciplot = WaveformPlotter(conf_dict=config_dict, dtypes=self.source_dict['dtype'])
 
         # initialize graphics        
@@ -153,10 +160,17 @@ class plotWaveformBuffer():
     def __call__(self):
         
         # animate graphics
-        while self.active_event.is_set():
-           data, metadata = next(self.data_reader())
+        while True:
+           data = next(self.data_reader())
            if data is not None:
-              channel_lines = self.osciplot(data) # update graphics
+              channel_lines = self.osciplot(data[0]) # update graphics with data
+              # interrupted sleep so that end-event (=None) is not missed
+              dt = 0
+              while self.active_event.is_set():
+                  time.sleep(0.025)
+                  dt +=0.025
+                  if dt >= self.min_sleeptime:
+                      break 
            else:
                # print("plotWaveformBuffer: 'None' recieved - ending")
                # end if empty end-of-run event received, of if data generator is exhausted or deleted
