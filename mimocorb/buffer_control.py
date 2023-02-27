@@ -317,7 +317,10 @@ class buffer_control():
         path_sys = str(res).removesuffix(py_module)  # path to directory
         if path_sys not in sys.path:
             sys.path.append(path_sys)
-        module = __import__(py_module, globals(), locals(), fromlist=[function_name])
+            module = __import__(py_module, globals(), locals(), fromlist=[function_name])
+            sys.path.remove(path_sys)
+        else:   
+            module = __import__(py_module, globals(), locals(), fromlist=[function_name])
     except ImportError as ie:
         print("Import Error!", ie)
         return None
