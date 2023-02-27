@@ -102,9 +102,9 @@ class buffer_control():
     self.parallel_functions = {}
     
     # get configuration file and time or events per run
-    self.runtime = 0 if 'runtime' not in  self.functions_dict[0]['Fkt_main'] else \
+    self.runtime = 0 if 'runtime' not in self.functions_dict[0]['Fkt_main'] else \
         self.functions_dict[0]['Fkt_main']['runtime']
-    self.runevents = 0 if 'runevents' not in  self.functions_dict[0]['Fkt_main'] else \
+    self.runevents = 0 if 'runevents' not in self.functions_dict[0]['Fkt_main'] else \
         self.functions_dict[0]['Fkt_main']['runevents']
     
     if 'config_file' in self.functions_dict[0]["Fkt_main"]: 
@@ -114,9 +114,11 @@ class buffer_control():
                         os.path.dirname(self.out_dir) + "/" + os.path.basename(cfg_common))
         #    and and load the configuration
         config_dict_common = self._get_config(cfg_common)
-        # if runtime defined, override previous value
+        # if runtime and runevents defined, override previous value
         if 'runtime' in config_dict_common['general']: 
             self.runtime = config_dict_common['general']['runtime'] 
+        if 'runevents' in config_dict_common['general']: 
+            self.runevents = config_dict_common['general']['runevents'] 
 
     for i in range(1, self.number_of_functions):
         # > Concescutive and concise function names are assumed! (aka: "Fkt_1", "Fkt_2", ...)
@@ -1021,8 +1023,9 @@ class run_mimoDAQ():
         c = '\033[1;36;48m'
         B = '\033[1;37;48m'   # bold
         U = '\033[4;37;48m'   # underline
-        E = '\033[1;37;0m'    # end color
-        
+        E = '\033[1;37;0m'    # end
+
+        print(" - - - - -")
         self.cmdQ = None
         self.logQ = None
         self.RBinfoQ = None
@@ -1031,8 +1034,7 @@ class run_mimoDAQ():
             self.cmdQ = Queue(1)  # Queue for command input from keyboard
             self.kbdthread = threading.Thread(name='kbdInput',
                           target=self.keyboard_input, args=(self.cmdQ,)).start()
-            print("\n" + b + "Keyboard control active" +E)
-            print("  type:")
+            print(c+"Keyboard control active"+E+"   type:")
             print("  " + b + "P<ret>" + E + " to pause")
             print("  " + b + "R<ret>" + E + " to resume")
             print("  " + b + "S<ret>" + E + " to stop")
@@ -1048,15 +1050,20 @@ class run_mimoDAQ():
 #                                              cmdQ     BM_logQue    BM_InfoQue      
                                             self.RBnames, self.maxrate, self.interval) )
             self.RBinfoproc.start()
-            print("\n" + b + "Graphical User Interface active " + E + "\n")
-            
+            print(c+"Graphical User Interface active " + E)
+
+        if self.bc.runtime > 0:    
+            print(c+"Run ends"+E+" if runtime >=", self.bc.runtime,'s')
+        if self.bc.runevents > 0:    
+            print(c+"Run ends"+E+" if number of recorded events >=", self.bc.runevents)
           
         # > start all workers     
         self.process_list = self.bc.start_workers()
-        print("{:d} workers started...  ".format(len(self.process_list)), end='')
+        self.start_time = self.bc.start_time
+        print("\n"+8*' '+"{:d} workers started - ".format(len(self.process_list)),
+              time.asctime())
 
         # > activate data taking (in case it was started in paused mode)
-        self.start_time = self.bc.start_time
         if self.bc.status == "Paused":
             self.bc.resume()
         
@@ -1067,7 +1074,6 @@ class run_mimoDAQ():
         runevents = self.bc.runevents
         RBinfo = {}
         try:
-            if self.verbose > 1: print('\n')
             while self.run:
                 stat = B+g+ self.bc.status + E + ' '
                 time_active = time.time() - self.start_time - self.bc.cumulative_pause_time
@@ -1104,19 +1110,19 @@ class run_mimoDAQ():
                     cmd = self.cmdQ.get()
                     print("\n" + cmd)
                     if cmd == 'S':
-                        print("\n     Stop command recieved \n")
+                        print("\n     Stop command recieved")
                         self.logQ.put(time.asctime() + ' Run stopped')  
                         self.bc.stop()
                     if cmd == 'E':
-                        print("\n     Exit command recieved \n")
+                        print("\n     Exit command recieved")
                         self.run = False
                         break 
                     elif cmd == 'P':
-                        print("\n     Pause command recieved \n")
+                        print("\n     Pause command recieved")
                         self.logQ.put(time.asctime() + ' Run paused')  
                         self.bc.pause()
                     elif cmd == 'R':
-                        print("\n     Resume command recieved \n")
+                        print("\n     Resume command recieved")
                         self.logQ.put(time.asctime() + ' Run resumed')  
                         self.bc.resume()
 
