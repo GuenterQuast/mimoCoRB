@@ -660,15 +660,17 @@ class rb_toTxtfile:
 
     def __call__(self):
         # sart reading and save to text file
-        input_data = self.source.get()
         while self.source._active.is_set():
+            input_data = self.source.get()
+            if input_data is None:
+                break   # last event is none
             metadata = np.array(self.source.get_metadata())
             data = rfn.structured_to_unstructured(input_data[0])
             newline = np.append(metadata, data)
             self.df.iloc[0] = newline
             self.df.to_csv(self.filename, mode='a', sep="\t", header=False, index=False)
-            input_data = self.source.get()
-
+   #  END
+        print("\n ** rb_toTxtfile: end seen")       
             
 class rb_toParquetfile:
     """Save data a set of parquet-files packed as a tar archive
@@ -709,12 +711,14 @@ class rb_toParquetfile:
         tar_filename = config_dict["directory_prefix"]+"/"+config_dict["filename"]+".tar"
         self.tar = tarfile.TarFile(tar_filename, "w")
 
-
+        
     def __call__(self):
         # stard reading and save to tarred parquet file
         while self.source._active.is_set():
             # get data
             input_data = self.source.get()
+            if input_data is None:
+                break  # end if None received
             df = pd.DataFrame(data=input_data)
             counter, timestamp, deadtime = self.source.get_metadata()
             # convert to parquet format and append to tar-file
@@ -725,9 +729,14 @@ class rb_toParquetfile:
             tarinfo.size = ioBuffer.getbuffer().nbytes
             ioBuffer.seek(0)                           # reset file pointer
             self.tar.addfile(tarinfo, ioBuffer)        # add to tar-file
-    
+
+        # close file    
+        self.tar.close()
+        # print("\n ** rb_toParquet: end seen")
+
     def __del__(self):
         self.tar.close()
+        # print(" ** rb_toParquet: file closed")
 
 # <-- end class rb_toParqeutfile
 
@@ -918,13 +927,13 @@ class run_mimoDAQ():
     @staticmethod        
     class tc:
         """define terminal color codes"""
-        r = '\033[1;31;48m'
-        g = '\033[1;32;48m'  # green color
-        b = '\033[1;34;48m'
-        k = '\033[1;30;48m'
-        y = '\033[1;33;48m'   # yellow color
-        p = '\033[1;35;48m'
-        c = '\033[1;36;48m'
+        k = '\033[1;30;48m'  # black
+        r = '\033[1;31;48m'  # red
+        g = '\033[1;32;48m'  # green
+        y = '\033[1;33;48m'  # yellow
+        b = '\033[1;34;48m'  # blue
+        p = '\033[1;35;48m'  # pink
+        c = '\033[1;36;48m'   # cyan
         B = '\033[1;37;48m'   # bold
         U = '\033[4;37;48m'   # underline
         E = '\033[1;37;0m'    # end color
@@ -1023,13 +1032,13 @@ class run_mimoDAQ():
         animation = ['|', '/', '-', '\\']
         animstep = 0
         # terminal colors 
-        r = '\033[1;31;48m'
-        g = '\033[1;32;48m'  # green color
-        b = '\033[1;34;48m'
-        k = '\033[1;30;48m'
+        k = '\033[1;30;48m'   # grey
+        r = '\033[1;31;48m'   # red
+        g = '\033[1;32;48m'   # green
         y = '\033[1;33;48m'   # yellow color
-        p = '\033[1;35;48m'
-        c = '\033[1;36;48m'
+        b = '\033[1;34;48m'   # blue
+        p = '\033[1;35;48m'   # pink
+        c = '\033[1;36;48m'   # cyan
         B = '\033[1;37;48m'   # bold
         U = '\033[4;37;48m'   # underline
         E = '\033[1;37;0m'    # end
@@ -1084,12 +1093,12 @@ class run_mimoDAQ():
         RBinfo = {}
         try:
             while self.run:
-                stat = B+g+ self.bc.status + E + ' '
+                stat = r+self.bc.status+E+' '
                 time_active = time.time() - self.start_time - self.bc.cumulative_pause_time
                 tact_p1s = int(10*(time.time() - self.start_time)) # int in 1s/10 
-                t_act = B+r+ str(int(time_active))+'s ' + E
+                t_act = p+str(int(time_active))+'s '+E
                 buffer_status_color = stat + t_act
-                buffer_status = time.asctime() + ' ' + self.bc.status + ' ' + str(int(time_active))+'s  '
+                buffer_status = time.asctime()+' '+self.bc.status+' '+str(int(time_active))+'s  '
                 # status update once per second
                 if tact_p1s%10 == 0 or len(RBinfo)==0:
                     for RB_name, buffer in self.ringbuffers.items():
@@ -1098,9 +1107,9 @@ class run_mimoDAQ():
                             N_processed = Nevents
                             deadtime = av_deadtime
                         RBinfo[RB_name]= [Nevents, n_filled, rate]
-                        buffer_status_color += B+k+ RB_name +E + ": " +\
-                          B+b+ "{:d}".format(Nevents) +E + "({:d}) {:.3g}Hz ".format(n_filled, rate)
-                        buffer_status += RB_name + ": " +\
+                        buffer_status_color += k+RB_name+E+": "+\
+                          p+"{:d}".format(Nevents)+E+"({:d}) {:.3g}Hz ".format(n_filled, rate)
+                        buffer_status += RB_name+": "+\
                           "{:d}".format(Nevents) + "({:d}) {:.3g}Hz ".format(n_filled, rate)
                     if self.verbose > 1:
                         print(" > {}  ".format(animation[animstep]) + buffer_status_color + 10*' ', end="\r")

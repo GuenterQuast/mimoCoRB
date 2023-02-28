@@ -31,7 +31,8 @@ def read_from_buffer(source_list=None, sink_list=None,
     last_event_number = 0
     
     # -- start collecting data
-    while active_event.is_set():
+#    while active_event.is_set():
+    while True:
         #  expect  data, metadata) or None if end 
         d = next( readData(), None )   # blocks until new data received!
         if d is not None:
