@@ -357,8 +357,9 @@ class rbImport:
             if value == 'read':
                 raise ValueError("ERROR! reading buffes not foreseen!!")              
             elif value == 'write':
-                for i in range(len(sink_list)):
-                    self.sink = bm.Writer(sink_list[i])
+                self.sink = bm.Writer(sink_list[0])
+                if len(sink_list) > 1:
+                    print("!!! More than one sink presently not foreseen!!")
             elif value == 'observe':
                 for i in range(len(observe_list)):
                     pass
@@ -372,7 +373,7 @@ class rbImport:
         self.T_last = time.time()
 
         # set-up generator for the data
-        self.userdata_generator = ufunc(self.number_of_channels)
+        self.userdata_generator = ufunc()
        
     def __del__(self):
         pass
@@ -1053,9 +1054,9 @@ class run_mimoDAQ():
             print(c+"Graphical User Interface active " + E)
 
         if self.bc.runtime > 0:    
-            print(c+"Run ends"+E+" if runtime >=", self.bc.runtime,'s')
+            print(c+"Run ends after"+E, self.bc.runtime,"s")
         if self.bc.runevents > 0:    
-            print(c+"Run ends"+E+" if number of recorded events >=", self.bc.runevents)
+            print(c+"Run ends after"+E, self.bc.runevents, "events")
           
         # > start all workers     
         self.process_list = self.bc.start_workers()
@@ -1114,7 +1115,7 @@ class run_mimoDAQ():
                         self.logQ.put(time.asctime() + ' Run stopped')  
                         self.bc.stop()
                     if cmd == 'E':
-                        print("\n     Exit command recieved")
+                        print("\n     Exit command recieved - wait for shutdown")
                         self.run = False
                         break 
                     elif cmd == 'P':

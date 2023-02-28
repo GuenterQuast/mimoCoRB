@@ -37,6 +37,7 @@ def simulation_source(source_list=None, sink_list=None, observe_list=None, confi
     pre_trigger_samples = config_dict["pre_trigger_samples"]
     analogue_offset_mv = config_dict["analogue_offset"]*1000.
 
+    # parameters for simulation
     plen = 400//sample_time_ns # 400 ns pulse window
     tau = plen/4. # decay time of exponential pulse
     mn_position = pre_trigger_samples
@@ -80,8 +81,9 @@ def simulation_source(source_list=None, sink_list=None, observe_list=None, confi
 
         pulse += analogue_offset_mv  # apply analogue offset
         return(pulse)
+
     
-    def yield_simpulses(nchan=3):
+    def yield_simpulses():
         """generate simulated data, called by instance of class mimoCoRB.rbImport
         """
 
@@ -99,7 +101,7 @@ def simulation_source(source_list=None, sink_list=None, observe_list=None, confi
             else:           # ... or fixed time 
                 time.sleep(sleeptime)  # fixed sleep time
 
-            pulse = simulate(nchan)
+            pulse = simulate(number_of_channels)
             # deliver pulse data and no metadata
             yield(pulse, None)
             event_count += 1
@@ -107,6 +109,9 @@ def simulation_source(source_list=None, sink_list=None, observe_list=None, confi
         
     simulsource = rbImport(config_dict = config_dict, sink_list= sink_list, 
                             ufunc=yield_simpulses, **rb_info)
+    number_of_channels = len(simulsource.sink.dtype)
+    # possibly check consistency of provided dtype with simulation !
+    
     # TODO: Change to logger!
     # print("** simulation_source ** started, config_dict: \n", config_dict)
     # print("?> sample interval: {:02.1f}ns".format(osci.time_interval_ns.value))
