@@ -334,7 +334,8 @@ class buffer_control():
 class rbImport:
     """
     Read data from external source (e.g. front-end device, file, simulation, etc.) 
-    and put data in mimo_buffer. 
+    and put data in mimo_buffer. Data is read by calling a user-supplied generator
+    function for data and metadata.
     """
 
     def __init__(self, sink_list=None, config_dict=None, ufunc=None, **rb_info):
@@ -420,10 +421,11 @@ class rbImport:
 
 # <-- end class rbImport
 
-
 class rbExport:
     """
-    Read data from buffer and send to requesting client (via python yield())
+    Read data from buffer and send to requesting client (via Python yield()).
+    Data are provided by a generator function yielding data and metadata in 
+    the __call__() method of the class. 
     """
 
     def __init__(self, source_list=None, config_dict=None, **rb_info):
@@ -460,7 +462,7 @@ class rbExport:
             if self.source.data_available():
                 data = self.source.get()
                 metadata = np.array(self.source.get_metadata())
-                yield ( (metadata, data) )
+                yield ( (data, metadata) )
             else:
                 time.sleep(0.05) # wait for data, avoid blocking !               
         yield(None)
@@ -473,6 +475,10 @@ class rbExport:
 
 class rbTransfer():
     """Read data from input buffer, filter data and write to output buffer(s)
+       Data is provided as the argument to a user-defined filter function
+       returing None if data is to be rejected, a number if data is to
+       be copied to another buffer, or a list of processed input data write
+       to additional buffers. 
 
        Args: 
 
@@ -728,7 +734,9 @@ class rb_toParquetfile:
 
 class rbObserver:
     """
-    Deliver data from buffer to an observer process
+    Deliver data from buffer to an observer process. A tuple (data, metadata) 
+    is provided by a generator function ( i.e. via yield()) implemented in 
+    the __call__() method of the class. 
     """
     def __init__(self, observe_list=None, config_dict=None, **rb_info):
         """

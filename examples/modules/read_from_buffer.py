@@ -32,14 +32,14 @@ def read_from_buffer(source_list=None, sink_list=None,
     
     # -- start collecting data
     while active_event.is_set():
-        #  expect (metadata, data) or None if end 
+        #  expect  data, metadata) or None if end 
         d = next( readData(), None )   # blocks until new data received!
         if d is not None:
-            metadata = d[0]
+            metadata = d[1]
             last_event_number = metadata[0]
             deadtime_f += metadata[2]
             # 
-            data = d[1]
+            data = d[0]
             count = count+1
             t = data[0][0]
             decay_time += t 

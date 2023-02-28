@@ -269,31 +269,47 @@ the package.
 The classes are: 
 
   - `class buffer_control`
-     Set-up and management of ringbuffers and associated sub-processes.
-     This is the overarching class with access to all created buffers and sub-processes.
+      Set-up and management of ringbuffers and associated sub-processes.
+      This is the overarching class with access to all created buffers and sub-processes.
 
   - `class rbImport`
       Read data from source (front-end like a PicoScope USB oscilloscope, of from file or simulation) 
-      and put data in mimo_buffer
+      and put data in mimo_buffer. Data is read by calling a user-supplied
+      generator function for data and metadata.
 
   - `class rbTransfer`
-      Read data from a mimo_buffer, filter and/or reformat data and write to output mimo_buffer(s)
-   
+      Read data from a mimo_buffer, filter and/or reformat data and write to output mimo_buffer(s).
+      Data is provided as the argument to a user-defined filter function returing None if data is
+      to be rejected, a number if data is to be copied to another buffer, or a
+      list of processed input data to write to additional buffers. 
+      
   - `class rbExport`
-      Read data from mimo_buffer and analyze, without writing to another ringbuffer
-
-- `class rb_toTxtfile`:
+      Read data from mimo_buffer and analyze (with user-supplied code),
+      without writing to another ringbuffer. Data is provided by a generator
+      function in the __call__() method of the class yielding a tuple of
+      data and metadata. 
+      
+  - `class rbObserver`
+      Deliver data from a buffer to an observer process. A tuple (data, metadata) 
+      is provided by a generator function ( i.e. via yield()) implemented in the
+      __call__() method of the class. 
+      
+  - `class rb_toTxtfile`:
       Save mimo_buffer data to file in csv-format
       
   - `class rb_toParquetfile`:
-      Save mimo_buffer data to tar-file; data is packed in Parquet format
+      Save mimo_buffer data to tar-file; each data record is packed in
+      Parquet format
 
-  - `class run_mimoDAQ`:
-      Setup and run data acquisition with mimoCoRB buffer manager   
+  - `class run_mimoDAQ`
+      Setup and run Data Aquisition suite with mimoCoRB buffer manager.   
+      The layout of ringbuffers and associated functions are defined in
+      a configuration file in *yaml* format. 
 
   -  class `bufferinfoGUI`:
       A graphical interface showing buffer rates and status information 
-      and control buttons. 
+      and providing some control buttons interacting with the runDAQ
+      class 
     
 These classes shield much of the complexity from the user, who can
 thus concentrate on writing the pieces of code need to acquire and
