@@ -1032,7 +1032,7 @@ class run_mimoDAQ():
         self.RBinfoQ = None
         # set-up keyboard control
         if self.kbdcontrol or self.GUIcontrol:
-            self.cmdQ = Queue(1)  # Queue for command input from keyboard
+            self.cmdQ = Queue()  # Queue for command input from keyboard
             self.kbdthread = threading.Thread(name='kbdInput',
                           target=self.keyboard_input, args=(self.cmdQ,)).start()
             print(c+"Keyboard control active"+E+"   type:")
