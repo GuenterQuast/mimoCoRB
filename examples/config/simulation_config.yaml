@@ -58,5 +58,11 @@ plot_graph:
   pre_trigger_samples: *pre_trigger_samples
 
 read_from_buffer:
-  dummy: none   # need an empty dictionay
-
+  dummy: none   # need at least one entry
+  # define a histogram 
+  histograms:
+    - [0., 15000.,  75, 9.9, "Tau (ns)", 1]
+    #  min  max    nbins ymax  name     lin/log
+  title: "Lifetime histogram"
+  variables:
+    - decay_time

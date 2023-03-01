@@ -18,4 +18,4 @@ __version__ = _version_info._get_version_string()
 __version__ += _version_suffix
 
 __all__ = ['mimo_buffer', 'buffer_control', 'bufferinfoGUI',
-           'plot_buffer' ]
+           'plot_buffer', 'histogram_buffer' ]
