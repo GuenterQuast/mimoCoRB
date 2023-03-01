@@ -1,9 +1,9 @@
-# -*- coding: utf-8 -*-
-
 """
-Module buffer_histograms 
+**histogram_buffer** collection of classes to produce histograms
 
-Show animated histogram display of scalar buffer variables 
+Show animated histogram display of scalar buffer variables
+
+code adapted from https://github.com/GuenterQuast/picoDAQ
 """
 
 import time, numpy as np
