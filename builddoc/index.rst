@@ -65,7 +65,7 @@ released and overwritten by new data when all consuming processes
 have finished.
 As digital filtering of incoming data may be very CPU intensive,
 multi-processing and multi-core capable components are needed to
-ensure sufficient processing power to process and anylyze data.
+ensure sufficient processing power to process and analyze data.
 `mimoCoRB.mimo_buffer` implements such a buffer allowing multiple 
 processes to read ("multiple out") or write ("multiple in") to the 
 buffer space. 
@@ -274,14 +274,15 @@ The classes are:
 
   - `class rbImport`
       Read data from source (front-end like a PicoScope USB oscilloscope, of from file or simulation) 
-      and put data in mimo_buffer. Data is read by calling a user-supplied
+      and put data in a mimo_buffer. Data is input is handled by a call of a user-supplied
       generator function for data and metadata.
 
   - `class rbTransfer`
       Read data from a mimo_buffer, filter and/or reformat data and write to output mimo_buffer(s).
-      Data is provided as the argument to a user-defined filter function returing None if data is
-      to be rejected, a number if data is to be copied to another buffer, or a
-      list of processed input data to write to additional buffers. 
+      Data is provided as the argument to a user-defined filter function returning *None* if data 
+      is to be discarded, a number if data is to be copied to another buffer, or - otionally - a 
+      list of data records produced from processed input data. If such data are provided, a 
+      respective number of ringbuffers as destination must be configured.
       
   - `class rbExport`
       Read data from mimo_buffer and analyze (with user-supplied code),
@@ -295,16 +296,20 @@ The classes are:
       __call__() method of the class. 
       
   - `class rb_toTxtfile`:
-      Save mimo_buffer data to file in csv-format
+      Save mimo_buffer data to a file in csv-format. The header line of this file contains
+      the keys of the respective columns, which are derived from the datatype of the structured
+      ringbuffer array. Aliases for improved clarity can be provided in the configuration file. 
       
   - `class rb_toParquetfile`:
-      Save mimo_buffer data to tar-file; each data record is packed in
-      Parquet format
+      Save mimo_buffer data to an archive in  *tar* foramt; each data record is packed in
+      Parquet format.
 
   - `class run_mimoDAQ`
-      Setup and run Data Aquisition suite with mimoCoRB buffer manager.   
+      Setup and run Data Acquisition suite with mimoCoRB buffer manager.   
       The layout of ringbuffers and associated functions are defined in
-      a configuration file in *yaml* format. 
+      a configuration file in *yaml* format. All configured functions are 
+      executed as worker processes in separate sub-processes and therefore 
+      optimal use is made of of multi-core architectures. 
 
   -  class `bufferinfoGUI`:
       A graphical interface showing buffer rates and status information 
@@ -313,16 +318,14 @@ The classes are:
     
 These classes shield much of the complexity from the user, who can
 thus concentrate on writing the pieces of code need to acquire and
-process the data. Functions are executed as sub-processes and therefore
-make optimal use of multi-core architectures. 
-
+process the data. 
 The access classes expect as input lists of dictionaries with the parameters
-of buffers to read from (**source_list**), to write to (**sing_list**) or to
+of buffers to read from (**source_list**), to write to (**sink_list**) or to
 observe (**observe_list**). An additional dictionary (**config_dict**) provides
-additional parameters for the specific functionality, for example names of
+the additional parameters needed for the specific functionality, for example names of
 functions to read data, filter or manipulate data or the names of target files.
-The interface for passing data between to the user-defined function is implemented
-as a python generator.   
+The interface for passing data between the user-defined functions and ringbuffers
+relies on Python generators (i.e. the *yield* instruction).
 
 The overarching class **buffer_control** provides methods to setup buffers and 
 worker processes and to control the data acquisition process. The methods 
@@ -333,7 +336,7 @@ data provisioning, filtering and storage. *run_mimoDAQ* is controlled either
 by keyboard commands of from a graphical user interface; pre-defined conditions
 on the total number of events processed, the duration of the data taking run
 or finishing of the writer process to the first buffer due to source exhaustion
-can also be defined to end data taking. The class structure and depenencies
+can also be defined to end data taking. The class structure and dependencies
 are shown in the figure below.
 
 .. image:: class_structure.png
@@ -345,7 +348,7 @@ a quick overview of the status of all buffers and to monitor long-term stability
 Therefore, a graphical display with the processing rate of all buffers is
 provided by the class **bufferinfoGUI**. A text window receives frequent 
 updates of the number of events processed by each buffer and of the buffer 
-fill-levels. KLick-buttons send information via a dedicated commane queue 
+fill-levels. Klick-buttons send information via a dedicated command queue 
 to the calling process *run_mimoDAQ* and allow pausing, resuming and ending 
 the data acquisition.
 
@@ -360,19 +363,28 @@ is as follows:
                     | --> config      # configuration files in yaml format
                     | --> target      # output of data-acquisition run(s)
 
-
+For illustration and as a starting point for own applications, a stand-alone example 
+is provided as part of the package, as described in the following section. 
+                    
 
 Application example
 ...................
 
-The subdirectory examples/ contains a rather complete application use case.
-Examples of code snippets and configuration data are provided in the subdirectories
-`examples/modules/` and `examples/config/`, respectively.
+The subdirectory *examples/* contains a rather complete application use case.
+It runs stand-alone and uses as input simulated waveform data of short pulses
+in a scintillator detector. The simulated physics process corresponds to 
+signatures produced by cosmic muons. Of particular interest in this case are 
+(rare) signatures with a double-pulse structure, where the first pule originates
+from a detected muon and the second one from a decay electron of a muon that
+is stopped in or near a detection layer. 
+
+Examples of code snippets and configuration data are provided in the 
+subdirectories `examples/modules/` and `examples/config/`, respectively.
 Waveform data, as provided by, for example, a multi-channel digital
 oscilloscope, are generated and filled into the first one of a cascaded set
 of three ringbuffers. The raw data are analyzed, and accepted data with a
 double-pulse signature are selected and directly passed on to a second
-ringbuffer. A third buffer contains only the information about found
+ringbuffer. A third buffer contains only the information on found
 signal pulses; a result file in *csv* format contains the data extracted
 from this buffer. Configuration files and the recorded data files are stored
 in the subdirectory `examples/target/<projectname>_<date_and_time>`. 
