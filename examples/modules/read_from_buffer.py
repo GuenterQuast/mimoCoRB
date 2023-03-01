@@ -1,13 +1,9 @@
 """
 **read_from_buffer**: example of a module reading and analyzing data 
 from a buffer
-
-Since reading blocks when no new data is available, a 2nd thread
-is started to collect data at the end
 """
 
 import numpy as np
-from threading import Thread
 import sys, time
 
 # module to read data from buffer 
