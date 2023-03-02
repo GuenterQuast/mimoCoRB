@@ -3,6 +3,13 @@
 from a buffer and producing histograms of variables
 
 Uses modules mimocorb.buffer_control.rbExport and mimocorb.plot_Histograms
+
+Actions:
+
+  - evaluate configuration dictionary
+  - optional: start sub-process for histogramming
+  - read and analyze data from buffer
+  - optional: pass data to histogrammer
 """
 
 import numpy as np
@@ -20,7 +27,6 @@ def read_from_buffer(source_list=None, sink_list=None,
     and show histograms of variables selectet in configuration dictionary
 
     :param input: configuration dictionary 
-
     """
 
     # evaluate configuration dictionary
@@ -36,7 +42,7 @@ def read_from_buffer(source_list=None, sink_list=None,
         if nHist != len(varnams):
             raise SystemExit(" ERROR: lists of variables and histograms must have same length")
       # create an empty list of lists for data to be histogrammed
-        histdata = [[] for i in range(nHist)]
+        histdata = [ [] for i in range(nHist)]
       # create a multiprocesssing Queue to tranfer information to plotting routine
         histQ = Queue(1)
       # start background process  
@@ -59,25 +65,33 @@ def read_from_buffer(source_list=None, sink_list=None,
 #    while active_event.is_set():
 
     while True:
-        #  expect  data, metadata) or None if end 
-        d = next( readData(), None )   # blocks until new data received!
-        if d is not None:
+        #  expect  data, metadata) or None if end
+        #while not readData.source.data_available(): # wait for data to avoid blocking
+        #    time.sleep(0.05)
+        d = next( readData(), None )   # this blocks until new data provided !
+        if d is not None:  # new data received ------
             metadata = d[1]
             last_event_number = metadata[0]
             deadtime_f += metadata[2]
             # 
             data = d[0]
-            if hist_dict is not None:
+            
+            # - analyse (some of) the data        
+            t = data[0]['decay_time']
+            decay_time += t 
+            decay_time_sq += t*t
+            
+            # - store and possibly transfer data to be histogrammed
+            if hist_dict is not None and histP.is_alive():
               # retrieve histogram variables
                 for i, vnam in enumerate(varnams):
                     histdata[i].append(data[0][vnam])
                 if histQ.empty():
                     histQ.put(histdata)
-                    histdata = [[] for i in range(nHist)]            
-            count = count+1
-            t = data[0]['decay_time']
-            decay_time += t 
-            decay_time_sq += t*t
+                    histdata = [ [] for i in range(nHist)]
+
+            # - count events        
+            count = count+1      # ---- end processing data
         else:            
             break
 

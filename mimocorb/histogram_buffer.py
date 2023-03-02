@@ -121,6 +121,12 @@ class animHists(object):
     return graf_objects # return tuple of graphics objects
 
   def __call__(self, vals):
+
+    if vals is None:
+      # return old values if no new data
+      return tuple(self.animtxts)  \
+        + tuple(itertools.chain.from_iterable(self.rects) ) 
+      
     # add recent values to frequency array, input is a list of arrays
     for ih in range(self.nHist):
       vs = vals[ih]
@@ -160,24 +166,27 @@ def plot_Histograms(Q, Hdescripts, interval, name = 'Histograms'):
     cnt = 0
     try:
       while True:
-        while not Q.qsize(): 
-          time.sleep(0.1)
-        valueslist = Q.get()
+#        while not Q.qsize(): 
+#          time.sleep(0.1)
+        if not Q.qsize():
+          yield(None)
+        else:  
+          v = Q.get(timeout=0.1)
+          yield v
         cnt+=1
-        yield valueslist
     except:
       print('*==* yieldData_fromQ: termination signal received')
       return
 
 
 # ------- executable part -------- 
-#  print(' -> mpHist starting')
+#  print(' -> plot_Histograms starting')
 
 #  try:
   H = animHists(Hdescripts, name)
   figH = H.fig
 # set up matplotlib animation
-  HAnim = anim.FuncAnimation(figH, H, yieldData_fromQ, 
+  Hanim = anim.FuncAnimation(figH, H, yieldData_fromQ, 
                       init_func=H.init, interval=interval, blit=True,
                       fargs=None, repeat=True, save_count=None)
                            # save_count=None is a (temporary) work-around 
@@ -185,5 +194,5 @@ def plot_Histograms(Q, Hdescripts, interval, name = 'Histograms'):
   plt.show()
   
 #  except:
-#    print('*==* mpHist: termination signal recieved')
+#    print('*==* plot_Histgrams: termination signal recieved')
   sys.exit()

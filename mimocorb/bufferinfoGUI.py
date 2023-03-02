@@ -1,5 +1,7 @@
 """*bufferInfoGUI*
 Graphical display of buffer status
+
+code adapted from https://github.com/GuenterQuast/picoDAQ
 """
 
 import sys, time, numpy as np

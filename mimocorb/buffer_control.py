@@ -1063,11 +1063,11 @@ class run_mimoDAQ():
             self.RBinfoQ = Queue(1)  # Queue Buffer manager info display
             self.maxrate = 1500.
             self.interval = 1000.  # update interval in ms
-            self.RBinfoproc = Process(name='bufferinfoGUI', target = bufferinfoGUI, 
+            self.RBinfo_proc = Process(name='bufferinfoGUI', target = bufferinfoGUI, 
                                       args=(self.cmdQ, self.logQ, self.RBinfoQ, 
 #                                              cmdQ     BM_logQue    BM_InfoQue      
                                             self.RBnames, self.maxrate, self.interval) )
-            self.RBinfoproc.start()
+            self.RBinfo_proc.start()
             print(c+"Graphical User Interface active " + E)
 
         if self.bc.runtime > 0:    
@@ -1184,9 +1184,9 @@ class run_mimoDAQ():
             else:
                 input(30*' '+'Finished, good bye !  Type <ret> to exit -> ')
 
-            if self.GUIcontrol and self.RBinfoproc.is_alive():
+            if self.GUIcontrol and self.RBinfo_proc.is_alive():
                 input (30*' '+'Type <ret> again to close Run Control Window\n')
-                self.RBinfoproc.terminate()
+                self.RBinfo_proc.terminate()
 
     # get all active child processes
     active = active_children()
