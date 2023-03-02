@@ -195,4 +195,4 @@ def plot_Histograms(Q, Hdescripts, interval, name = 'Histograms'):
   
 #  except:
 #    print('*==* plot_Histgrams: termination signal recieved')
-  sys.exit()
+  raise SystemExit
