@@ -438,102 +438,122 @@ as follows:
   RingBuffer:
     # define ring buffers
     - RB_1:
-      # raw input data buffer (waveforms from PicoScope, filele_source or simulation_source)
-      number_of_slots: 128
-      channel_per_slot: 4250
-      data_type:
-          1: ['chA', "float64"]
-          2: ['chB', "float64"]
-          3: ['chC', "float64"]
-          4: ['chD', "float64"]          
+        # raw input data buffer (waveforms from PicoScope, filele_source or simulation_source)
+        number_of_slots: 128
+        channel_per_slot: 4250
+        data_type:
+            1: ['chA', "float64"]
+            2: ['chB', "float64"]
+            3: ['chC', "float64"]
+            4: ['chD', "float64"]          
     - RB_2:
         # buffer with accepted signatures (here double-pulses)
         number_of_slots: 128
         channel_per_slot: 4250
         data_type:
-          1: ['chA', "float64"]
-          2: ['chB', "float64"]
-          3: ['chC', "float64"]
-          4: ['chD', "float64"]          
+            1: ['chA', "float64"]
+            2: ['chB', "float64"]
+            3: ['chC', "float64"]
+            4: ['chD', "float64"]          
     - RB_3:
         # buffer with pulse parameters (derived from waveforms)
         number_of_slots: 32
         channel_per_slot: 1
         data_type:
-          1: ['decay_time', "int32"]
-          3: ['1st_chA_h', "float64"]
-          4: ['1st_chB_h', "float64"]
-          5: ['1st_chC_h', "float64"]          
-          6: ['1st_chA_p', "int32"]
-          7: ['1st_chB_p', "int32"]
-          8: ['1st_chC_p', "int32"]
-          9: ['1st_chA_int', "float64"]
-          10: ['1st_chB_int', "float64"]
-          11: ['1st_chC_int', "float64"]
-          12: ['2nd_chA_h', "float64"]
-          13: ['2nd_chB_h', "float64"]
-          14: ['2nd_chC_h', "float64"]
-          15: ['2nd_chA_p', "int32"]
-          16: ['2nd_chB_p', "int32"]
-          17: ['2nd_chC_p', "int32"]
-          18: ['2nd_chA_int', "float64"]
-          19: ['2nd_chB_int', "float64"]
-          20: ['2nd_chC_int', "float64"]
-          21: ['1st_chD_h', "float64"]
-          22: ['1st_chD_p', "int32"]
-          23: ['1st_chD_int', "float64"]
-          24: ['2nd_chD_h', "float64"]
-          25: ['2nd_chD_p', "int32"]
-          26: ['2nd_chD_int', "float64"]
+            1: ['decay_time', "int32"]
+            3: ['1st_chA_h', "float64"]
+            4: ['1st_chB_h', "float64"]
+            5: ['1st_chC_h', "float64"]          
+            6: ['1st_chA_p', "int32"]
+            7: ['1st_chB_p', "int32"]
+            8: ['1st_chC_p', "int32"]
+            9: ['1st_chA_int', "float64"]
+            10: ['1st_chB_int', "float64"]
+            11: ['1st_chC_int', "float64"]
+            12: ['2nd_chA_h', "float64"]
+            13: ['2nd_chB_h', "float64"]
+            14: ['2nd_chC_h', "float64"]
+            15: ['2nd_chA_p', "int32"]
+            16: ['2nd_chB_p', "int32"]
+            17: ['2nd_chC_p', "int32"]
+            18: ['2nd_chA_int', "float64"]
+            19: ['2nd_chB_int', "float64"]
+            20: ['2nd_chC_int', "float64"]
+            21: ['1st_chD_h', "float64"]
+            22: ['1st_chD_p', "int32"]
+            23: ['1st_chD_int', "float64"]
+            24: ['2nd_chD_h', "float64"]
+            25: ['2nd_chD_p', "int32"]
+            26: ['2nd_chD_int', "float64"]
 
   Functions:
     # define functions and assignments
     - Fkt_main:
-       config_file: "config/simulation_config.yaml"
+        config_file: "config/simulation_config.yaml"
     - Fkt_1:
-       file_name: "modules/simulation_source"
-       kt_name: "simulation_source"
-       num_process: 1
-       RB_assign:
-         RB_1: "write"
+         file_name: "modules/simulation_source"
+         fkt_name: "simulation_source"
+         num_process: 1
+         RB_assign:
+             RB_1: "write"
     - Fkt_2:
-       file_name: "modules/lifetime_filter"
-       fkt_name: "calculate_decay_time"
-       num_process: 2
-       RB_assign:
-         RB_1: "read"     # input
-         RB_2: "write"    # waveform to save (if double pulse was found)
-         RB_3: "write"    # pulse data
+         file_name: "modules/lifetime_filter"
+         fkt_name: "calculate_decay_time"
+         num_process: 2
+         RB_assign:
+             RB_1: "read"     # input
+             RB_2: "write"    # waveform to save (if double pulse was found)
+             RB_3: "write"    # pulse data
     - Fkt_3:
-       file_name: "modules/save_files"
-       fkt_name: "save_to_txt"
-       num_process: 1
-       RB_assign:
-         RB_3: "read"     # pulse data
+        file_name: "modules/save_files"
+        fkt_name: "save_to_txt"
+        config_file: "config/save_lifetime.yaml"
+        num_process: 1
+        RB_assign:
+             RB_3: "read"     # pulse data
     - Fkt_4:
-       file_name: "modules/save_files"
-       fkt_name: "save_parquet"
-       num_process: 1
-       RB_assign:
-         RB_2: "read"     # waveform to save
-    - Fkt_5:
-       file_name: "mimocorb/plot"
-       fkt_name: "plot_graph"
-       num_process: 1
-       RB_assign:
-         RB_2: "observe"  # double pulse waveform
+        file_name: "modules/save_files"
+        fkt_name: "save_parquet"
+        num_process: 1
+        RB_assign:
+             RB_2: "read"     # waveform to save
 
 The configuration file referenced in the line 
 `config_file: "config/simulation_config.yaml"` provides the
 information needed by the user-supplied functions.
 
+The example coming with this package contains two more convenience
+functions, one for an observer process displaying a random sample of
+waveforms in an oscilloscope display, and a second one for on-line
+analysis and histogramming of buffer data. The addendum to the
+configuration looks as follows: 
 
-Indices and tables
-==================
+.. code-block:: yaml
+		
+   - Fkt_5:
+        file_name: "modules/plot_waveform"
+        fkt_name: "plot_graph"
+        num_process: 1
+        RB_assign:
+             RB_2: "observe"  # double pulse waveform
+    - Fkt_6:
+        file_name: "modules/read_from_buffer"
+        fkt_name: "read_from_buffer"
+        num_process: 1
+        RB_assign:
+           RB_3: "read"  # pulse parameters
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+These additional functions rely on the modules `mimocorb.plot_buffer` and
+`mimocorb.histogram_buffer`, which provide animated displays of waveforms
+similar to an oscilloscope and a histogram package for life-updates of
+frequency distributions of scalar variables. A screenshot of a data-acquistion
+run with input from simulated datat is shown in the figure below.
+
+
+.. image:: mimoCoRB_screenshot.png
+  :width: 1024
+  :alt: Screenshot of a simulation run
+
 
 ====================
 Module Documentation 
