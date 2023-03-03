@@ -450,8 +450,7 @@ class rbExport:
             elif value == 'write':
                 raise ValueError("!ERROR Writing to buffer not foreseen!!")
             elif value == 'observe':
-                for i in range(len(observe_list)):
-                    pass
+                raise ValueError("!ERROR additional Observer presently not foreseen!!")
 
         if self.source is None:
             raise ValueError("Faulty ring buffer configuration passed. No source found!")

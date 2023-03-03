@@ -171,7 +171,7 @@ class NewBuffer:
                       "dtype": self.dtype, "mshare_name": self.m_share.name,
                       "metadata_share_name": self.m_metadata_share.name,
                       "todo_queue": todo_queue, "done_queue": done_queue,
-                      "active": self.readers_active,
+                      "active": self.readers_active, "paused": self.writers_paused,
                       "debug": self._debug}
         return setup_dict
 
@@ -327,7 +327,7 @@ class NewBuffer:
                       "dtype": self.dtype, "mshare_name": self.m_share.name,
                       "metadata_share_name": self.m_metadata_share.name,
                       "dataQ": self.observerQ, "active": self.observers_active, 
-                      "debug": self._debug}
+                      "paused": self.writers_paused, "debug": self._debug}
             
         self.observerQ_listener_thread = threading.Thread(target=self._observerQ_listener,
                                           name="observer_queue_listener")
@@ -494,9 +494,10 @@ class NewBuffer:
     def set_ending(self):
         """ Stop data flow (before shut-down)
         """
-        self.writers_active.clear()
+        self.writers_paused.set()   # raise paused flag 
+        self.writers_active.clear() # 
         time.sleep(0.5)
-        self.readers_active.clear()
+        self.readers_active.set()   # keep readers still active 
         
     def shutdown(self):
         """Shut down the ringbuffer(s): close background threads, terminate associated processes and
@@ -534,9 +535,12 @@ class NewBuffer:
             # in case self.read_pointer lapped the ring buffer
             with self.write_pointer_lock:
                 latest_observed_index = self.write_pointer
-        
-        # Now quit all reader processes (they are currently all blocking and waiting on the reader_todo_queue)
+
+        # set status flags to indicate end-of-run (not paused, active cleared)        
         self.readers_active.clear()
+        self.writers_paused.clear() 
+        # Now quit all reader processes (they are currently all blocking and waiting on the reader_todo_queue)
+
         wait_shutdown = True
         while wait_shutdown:
             wait_shutdown = False
@@ -769,6 +773,7 @@ class Reader:
         # Setup class status variables
         self._last_get_index = None
         self._active = setup_dict["active"]
+        self._paused = setup_dict["paused"]
         self._debug = setup_dict["debug"]
         if self._debug:
             print(" > DEBUG: Reader created (PID: {:d})".format(os.getpid()))
@@ -867,6 +872,7 @@ class Observer:
             times is allowed as well.
         """
         self._active = setup_dict["active"]
+        self._paused = setup_dict["paused"]
         self._debug = setup_dict["debug"]
         self.dataQ = setup_dict["dataQ"]
 

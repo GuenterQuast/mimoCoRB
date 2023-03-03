@@ -54,6 +54,7 @@ def read_from_buffer(source_list=None, sink_list=None,
   # initialze access to mimo_buffer    
     readData = rbExport(source_list=source_list, config_dict=config_dict, **rb_info)
     active_event = readData.source._active
+    paused_event = readData.source._paused
 
     count = 0
     decay_time = 0. 
@@ -74,14 +75,12 @@ def read_from_buffer(source_list=None, sink_list=None,
             last_event_number = metadata[0]
             deadtime_f += metadata[2]
             # 
-            data = d[0]
-            
-            # - analyse (some of) the data        
+            data = d[0]   
+         # - analyse (some of) the data        
             t = data[0]['decay_time']
             decay_time += t 
-            decay_time_sq += t*t
-            
-            # - store and possibly transfer data to be histogrammed
+            decay_time_sq += t*t            
+         # - store and possibly transfer data to be histogrammed
             if hist_dict is not None and histP.is_alive():
               # retrieve histogram variables
                 for i, vnam in enumerate(varnams):
@@ -89,8 +88,7 @@ def read_from_buffer(source_list=None, sink_list=None,
                 if histQ.empty():
                     histQ.put(histdata)
                     histdata = [ [] for i in range(nHist)]
-
-            # - count events        
+         # - count events        
             count = count+1      # ---- end processing data
         else:            
             break
@@ -106,10 +104,13 @@ def read_from_buffer(source_list=None, sink_list=None,
           "+/- {:1g}".format(
               np.sqrt(decay_time_sq - decay_time**2/max(1,count))/max(1,count)) )
 
-    # stop background histogrammer
+    # if histogrammer active, wait for shutdown to keep graphics window open
+    #    (ending-state while paused_event is still set)
     if hist_dict is not None:
+        while paused_event.is_set():
+            time.sleep(0.3)
         histP.terminate()
-    
+
 if __name__ == "__main__":
     print("Script: " + os.path.basename(sys.argv[0]))
     print("Python: ", sys.version, "\n".ljust(22, '-'))
