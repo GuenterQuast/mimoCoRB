@@ -14,24 +14,27 @@ matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt, matplotlib.animation as anim
 
 class animHists(object):
-  ''' display histogram, as normalised frequency distibutions
-
-      frequency distribution of a scalar quantity
-  '''
+  """
+  display histograms, as normalised frequency distibutions
+  """
 
   def __init__(self, Hdescr, name='Histograms', fig=None):
-    ''' 
-      Args:
-        list of histogram descriptors, 
-        where each descriptor is a list itself: [min, max, nbins, ymax, name, type]
-        min: minimum value
-        max: maximum value
-        nbins: nubmer of bins
-        ymax:  scale factor for bin with highest number of entries
-        name: name of the quantity being histogrammed
-        type: 0 linear, 1 for logarithmic y scale
-        name forfigure window
-    '''
+    """ 
+    Args:
+
+      - list of histogram descriptors:
+
+         - min:   minimum value
+         - max:   maximum value
+         - nbins: nubmer of bins
+         -   ymax:  scale factor for highest bin (1. = 1/Nbins)
+         - name:  name of the quantity being histogrammed
+         - type:  0 linear, 1 for logarithmic y scale
+
+      - name for figure window
+      - fig:  optional external figure object; if not specified, a new
+        internal one is generated
+    """
   
     self.nHist = len(Hdescr)
     self.entries = np.zeros(self.nHist)
@@ -147,18 +150,25 @@ class animHists(object):
         + tuple(itertools.chain.from_iterable(self.rects) ) 
 
 def plot_Histograms(Q, Hdescripts, interval, name = 'Histograms'):
-  ''' show animated histogram(s)
-    Args:
-      Q:    multiprocessing.Queue() 
-      Hdescripts:  list of histogram descriptors, where each 
-        descriptor is itself a list: [min, max, nbins, ymax, name, type]
-          min: minimum value
-          max: maximum value
-          nbins: nubmer of bins
-          ymax:  scale factor for bin with highest number of entries
-          name: name of the quantity being histogrammed
-          type: 0 linear, 1 for logarithmic y scale
-  '''
+  """ 
+  show animated histogram(s)
+
+  Args:
+
+  -  Q:    multiprocessing.Queue() 
+  -  Hdescripts:  list of histogram descriptors, where each 
+     descriptor is a list: 
+
+       -   min:   minimum value
+       -   max:   maximum value
+       -   nbins: nubmer of bins
+       -   ymax:  scale factor for highest bin (1. = 1/Nbins)
+       -   name:  name of the quantity being histogrammed
+       -   type:  0 linear, 1 for logarithmic y scale
+
+  -  interval: time (in s) between updates
+  -  name: name of histogram window
+  """
 
   # Generator to provide data to animation
   def yieldData_fromQ():
@@ -182,12 +192,14 @@ def plot_Histograms(Q, Hdescripts, interval, name = 'Histograms'):
 # ------- executable part -------- 
 #  print(' -> plot_Histograms starting')
 
+  interval_ms = interval*1000.
+
 #  try:
   H = animHists(Hdescripts, name)
   figH = H.fig
 # set up matplotlib animation
   Hanim = anim.FuncAnimation(figH, H, yieldData_fromQ, 
-                      init_func=H.init, interval=interval, blit=True,
+                      init_func=H.init, interval=interval_ms, blit=True,
                       fargs=None, repeat=True, save_count=None)
                            # save_count=None is a (temporary) work-around 
                            #     to fix memory leak in animate

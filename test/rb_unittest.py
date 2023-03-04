@@ -59,7 +59,7 @@ def analyzer(source_dict, sink_dict):
 
 
 def check_result(source_dict, res):
-    """reads RB_2 and sum up the integer content (value should be sum(1 -35) = 630);
+    """reads RB_2 and sum up the integer content 
 
        sum is returned as shared memory Value-object
     """

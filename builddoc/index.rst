@@ -10,23 +10,25 @@ mimoCoRB -  multiple-in multile-out Configurable Ring Buffer: Overview
 
 The package **mimoCoRB** provides a central component of each data acquisition
 system needed to record and pre-analyze data from randomly occurring processes.
-Typical examples are waveform data as provided by single-photon
-counters or typical detectors common in quantum mechanical measurements
-or in nuclear, particle physics and astro particle physics, e. g.
-photo tubes, Geiger counters, avalanche photo-diodes or modern SiPMs.
+Typical examples are waveform data as provided by detectors common in quantum
+mechanical measurements, or in nuclear, particle physics and astro particle
+physics, e. g. photo tubes, Geiger counters, avalanche photo-diodes or modern
+SiPMs.
 
 The random nature of such processes and the need to keep read-out dead
-times low requires an input buffer and a buffer manager running as
-a background process. While a data source feeds data into the
-buffer, consumer processes are fed with an almost constant stream of 
-data to filter, reduce, analyze or simply visualize data and
-on-line analysis results. Such consumers may be obligatory ones,
-i. e. data acquisition pauses if all input buffers are full and an 
-obligatory consumer is still busy processing. A second type of
-random consumers or "observers" receives an event copy from the buffer
-manager upon request, without pausing the data acquisition process.
-Typical examples of random consumers are displays of a subset of the
-wave forms or of intermediate analysis results.
+times low requires an input buffer for fast collection of data
+and an efficient buffer manager delivering a constant data stream to
+the subseqent processing steps. While a data source feeds data into the
+buffer, consumer processes recieve the data to filter, reduce, analyze
+or simply visualize data. In order to optimally use the available
+resources, multi-core and multi-processing techniques must be applied.
+Data consumers may be obligatory ones, i. e. data acquisition pauses if
+all input buffers are full and an obligatory consumer is still busy
+processing. A second type of random consumers ("observers") receives
+an event copy from the buffer manager upon request, without pausing the
+data acquisition process. Typical examples of random consumers are
+displays of a subset of the wave forms or of intermediate analysis
+results.
 
 This project originated from an effort to structure and generalize
 data acquistion for several experiments in advanced physics laboratory
@@ -37,13 +39,13 @@ be recorded by a detector for cosmic muons with three detection layers.
 Occasionally, such muons stop in an absorber between the 2nd and 3rd layer,
 where they decay at rest and emit a high-energetic electron recorded as a
 2nd pulse in one or two of the detection layers. After data acquisition, a
-search for typical pulses is performed, data with detected double pulses are
-selected and fed into a second buffer. A third buffer receives data in a
-reduced format which only contains the parameters of found pulses.
+search for typical puls shapes is performed and data with detected double
+pulses are selected and copied into a second buffer. A third buffer receives
+data in a reduced format which only contains the parameters of accepted pulses.
 These data and the wave forms of all double-pulses are finally stored
-on disk. This application is a very typical example of the general
+on disk. Such an application is a very typical example of the general
 process of on-line data processing in modern physics experiments and may
-serve as a starting point for own applications.
+serve as a starting point for own projects.
 
 
 .. toctree::
@@ -58,29 +60,31 @@ Description of components
 
 In order to decouple the random occurrence of "events" one needs a
 buffer capable of rapidly storing new incoming data and delivering
-a constant data stream to subsequent consumer processes of the data. 
+a constant data stream to subsequent consumer processes. 
 This is typically implemented as a first-in, first out ringbuffer 
 providing storage space in memory for incoming data, which is 
 released and overwritten by new data when all consuming processes 
 have finished.
+
 As digital filtering of incoming data may be very CPU intensive,
 multi-processing and multi-core capable components are needed to
 ensure sufficient processing power to process and analyze data.
 `mimoCoRB.mimo_buffer` implements such a buffer allowing multiple 
 processes to read ("multiple out") or write ("multiple in") to the 
 buffer space. 
+
 Because processing of the data, i.e. digital filtering, selection, 
 compression and storage or real-time visualization of the data may 
 be a complex workflow, buffers may be arranged in chains where one 
-or several reader processes of a buffer write to one or to several 
+or several reader processes of a buffer write to one or several 
 output buffer(s). 
 
-Memory management and access control is provided by the class 
-**newBuffer**. To control the data flow in such a data acquisition
-suite, three types of access are needed, implemented as 
-**Writer**, **Reader** and **Observer** classes. Readers of
-the same type are grouped together for multi-processing
-of compute-intense tasks and form a Reader-group. 
+The central component takes care of memory management and access
+control provided by the class **newBuffer**. To control the data
+flow in a full data acquisition suite, three types of access are
+needed, implemented as  **Writer**, **Reader** and **Observer**
+classes. Readers of the same type are grouped together for
+multi-processing of compute-intense tasks and form a Reader-group. 
 Observers receive only a sub-set of the data and are mainly 
 intended to be used for visual inspection or graphical representation
 of samples of the recorded or processed data. 
@@ -90,27 +94,37 @@ from other sources, like disk files, web streams or simulation,
 rely on these basic classes. Any Writer-process blocks if no
 free buffer slot is available. Reader processes block if no
 slot is left that has not yet been processed by any process
-belonging to the same group of readers. Note that the buffer
+belonging to the same Reader-group. Note that the buffer
 manager ensures that every slot assigned to a Reader (or a group 
-of Readers) is actually processed; therefore, the whole chain blocks
-if no Reader or member of a Reader-group processes the data
-in the buffer it is assigned to.
+of Readers) is actually processed; therefore, input to a buffer
+blocks if the buffer is filled up completely; data input resumes
+as soon as a Reader or member of a Reader-group has finished
+processing and thus freed a slot in the buffer.
 
-The data format is based on structured *numpy* arrays with field names.
+Multiprocessing is enabled by use of the *shared_memory* module
+of the *multiprocessing* package available since Python 3.8 for
+direct access to shared memory across processes. Other modules
+of the package (*Process*, *Lock*, *Event*, and *SimpleQueue*
+or *Queue*) are used to create and control sub-processes and for
+message or data exchange and signalling across processes. 
+
+The format of data stored in the buffers is based on structured
+*numpy* arrays with (configurable) field names and *numpy* *dtypes*.  
 Each buffer entry is also associated with a unique number and a time 
 stamp in microseconds (*time.time_ns()//1000*) of type *longlong* 
-(64 bit integer) and a deadtime fraction provided by the initial
+(64 bit integer) and a deadtime fraction to be provided by the initial
 data producer. The deadtime accounts for inefficiencies of the
-data acquisition due to processing in mimoCoRB. These metadata are 
+data acquisition due to processing in *mimoCoRB*. These metadata are 
 set by the initial producer and must not be changed at a later stage 
 in the processing chain. 
 
 
-Simple application example (also provided as a unit test)
-.........................................................
+Simple application example 
+...........................
 
-An application example of *mimo_buffer* is shown below.  
-This code may serve as a starting point for own projects.
+
+An application example of *mimo_buffer* is shown below;
+it is also provided as a unit test.
 The set-up is as follows:
 
   2 ring buffers are defined:
@@ -158,7 +172,6 @@ The example including comment lines for explanation is shown here:
     # process last data item
     sink.process_buffer()
 
-
   def analyzer(source_dict, sink_dict):
     """read from source and write first element and a time difference to sink
     """
@@ -178,9 +191,8 @@ The example including comment lines for explanation is shown here:
         # 
         sink.process_buffer()
 
-
   def check_result(source_dict, res):
-    """reads RB_2 and sum up the integer content (value should be sum(1 -35) = 630);
+    """reads RB_2 and sum up the integer content
 
        sum is returned as shared memory Value-object
     """
@@ -230,7 +242,6 @@ The example including comment lines for explanation is shown here:
     while run_active:
        run_active = False if process_list[-1].exitcode==0 else True
        time.sleep(0.1)  # wait
-        
     time.sleep(0.1)  # some grace-time for readers to finish
 
     generator_buffer.shutdown()
@@ -242,15 +253,14 @@ The example including comment lines for explanation is shown here:
 
     return result.value
 
-
   class RPTest(unittest.TestCase):
 
     def test_process(self):
         # start python test module and check result
         a = run_control()
         expected_result = N_requested*(N_requested+1)//2
-        self.assertEqual(a, expected_result)  # expected result: sum(i); i = 1, N_requested
-
+               # expected result: sum(i); i = 1, N_requested	
+        self.assertEqual(a, expected_result)
 
   if __name__ == "__main__":
     unittest.main(verbosity=2)
@@ -323,7 +333,7 @@ The access classes expect as input lists of dictionaries with the parameters
 of buffers to read from (**source_list**), to write to (**sink_list**) or to
 observe (**observe_list**). An additional dictionary (**config_dict**) provides
 the additional parameters needed for the specific functionality, for example names of
-functions to read data, filter or manipulate data or the names of target files.
+functions to read, filter or manipulate data or the names of target files.
 The interface for passing data between the user-defined functions and ringbuffers
 relies on Python generators (i.e. the *yield* instruction).
 
@@ -348,9 +358,9 @@ a quick overview of the status of all buffers and to monitor long-term stability
 Therefore, a graphical display with the processing rate of all buffers is
 provided by the class **bufferinfoGUI**. A text window receives frequent 
 updates of the number of events processed by each buffer and of the buffer 
-fill-levels. Klick-buttons send information via a dedicated command queue 
-to the calling process *run_mimoDAQ* and allow pausing, resuming and ending 
-the data acquisition.
+fill-levels. Klickable control buttons send information via a dedicated
+command queue to the calling process *run_mimoDAQ* and enable pausing,
+resuming and controlled ending of the data-acquisition processes.
 
 The suggested structure of the project work-space for mimiCoRB applications 
 is as follows:
@@ -374,7 +384,7 @@ The subdirectory *examples/* contains a rather complete application use case.
 It runs stand-alone and uses as input simulated waveform data of short pulses
 in a scintillator detector. The simulated physics process corresponds to 
 signatures produced by cosmic muons. Of particular interest in this case are 
-(rare) signatures with a double-pulse structure, where the first pule originates
+(rare) signatures with a double-pulse structure, where the first pulse originates
 from a detected muon and the second one from a decay electron of a muon that
 is stopped in or near a detection layer. 
 
@@ -406,10 +416,6 @@ The *python* files `simulation_source.py`, `liftime_filter.py` and
 and filtering and extraction of the final data to disk files. The
 `.yaml` files `simulation_config.yaml` and `save_lifetimes.yaml` contain 
 configurable parameters provided to these functions.
-
-An observer process receives a sub-set of the data in the second
-buffer and shows them as an oscilloscope display on screen while
-data are generated and propagated through the buffers.
 
 This example is executed form the directory `examples/` by entering:
 
@@ -573,6 +579,9 @@ Module Documentation
       :members:
 
 .. automodule:: mimocorb.plot_buffer
+     :members:
+
+.. automodule:: mimocorb.histogram_buffer
      :members:
        
 .. automodule:: rb_unittest

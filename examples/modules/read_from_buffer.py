@@ -47,7 +47,7 @@ def read_from_buffer(source_list=None, sink_list=None,
         histQ = Queue(1)
       # start background process  
         histP = Process(name='Histograms', target = plot_Histograms, 
-                    args=(histQ, hist_dict, 1000.*interval, title)) 
+                    args=(histQ, hist_dict, interval, title)) 
 #                         data Queue, Hist.Desrc  interval    
         histP.start()
 
