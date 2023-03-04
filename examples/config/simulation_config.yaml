@@ -6,12 +6,14 @@ general:
   number_of_samples: &number_of_samples 4250
   analogue_offset: &analogue_offset -0.48  # in V and not adc!
   sample_time_ns: &sample_time_ns 4
+  trigger_level: &trigger_level 0.035 # triger level in V
   pre_trigger_samples: &pre_trigger_samples 500
 
 # Dict for simulation_source.py
 simulation_source:
   sample_time_ns: *sample_time_ns
   number_of_samples: *number_of_samples
+  trigger_level: *trigger_level
   pre_trigger_samples: *pre_trigger_samples
   analogue_offset: *analogue_offset
   eventcount: *number_of_events
@@ -53,6 +55,7 @@ plot_graph:
   min_sleeptime: 0.5                # time to wait between graphics updates
   sample_time_ns: *sample_time_ns   # sampling interval 
   channel_range: 500                # channel range in mV
+  trigger_level: *trigger_level     # trigger level mV
   analogue_offset: *analogue_offset # analogue offset in V
   number_of_samples: *number_of_samples
   pre_trigger_samples: *pre_trigger_samples

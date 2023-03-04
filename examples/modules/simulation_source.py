@@ -33,6 +33,8 @@ def simulation_source(source_list=None, sink_list=None, observe_list=None, confi
     random = False if "random" not in config_dict \
         else config_dict["random"]
     number_of_samples = config_dict["number_of_samples"]
+    trigger_level = 0. if "trigger_level" not in config_dict \
+        else config_dict["trigger_level"]
     sample_time_ns = config_dict["sample_time_ns"]
     pre_trigger_samples = config_dict["pre_trigger_samples"]
     analogue_offset_mv = config_dict["analogue_offset"]*1000.
@@ -55,11 +57,17 @@ def simulation_source(source_list=None, sink_list=None, observe_list=None, confi
         pulse = np.float64(noise * (0.5-np.random.rand(nchan, number_of_samples)) ) 
 
         # one pulse at trigger position in layers one and two
-        for ip in range(min(2,nchan)):
+        for i_layer in range(min(2,nchan)):
             # random pulse height for trigger pulse
-            pheight = np.random.rand()*maxheight
+            pheight = 0
+            if i_layer == 0 :
+              #  respect trigger condition in layer 1
+                while pheight < trigger_level:
+                    pheight = np.random.rand()*maxheight
+            else:    
+                pheight = np.random.rand()*maxheight
             if np.random.rand() < detector_efficiency:
-              pulse[ip, mn_position:mn_position+plen] += pheight*pulse_template
+              pulse[i_layer, mn_position:mn_position+plen] += pheight*pulse_template
 
         # return if muon was not stopped      
         if np.random.rand() < stopping_probability:              
@@ -67,17 +75,17 @@ def simulation_source(source_list=None, sink_list=None, observe_list=None, confi
             t_mu = -tau_mu * np.log(np.random.rand()) # muon life time
             pos2 = int(t_mu/sample_time_ns) + pre_trigger_samples
             if np.random.rand() > 0.5:  # upward decay electron
-              for ip in range(0,min(nchan,2)):
+              for i_layer in range(0, min(nchan,2)):
                  # random pulse height and position for 2nd pulse
                  pheight2 = np.random.rand()*maxheight        
                  if np.random.rand() < detector_efficiency and pos2 < mx_position:
-                   pulse[ip, pos2:pos2+plen] += pheight2 * pulse_template
+                   pulse[i_layer, pos2:pos2+plen] += pheight2 * pulse_template
             else:
-              for ip in range(min(nchan,2), min(nchan,4)):
+              for i_layer in range(min(nchan,2), min(nchan,4)):
                 # random pulse height and position for 2nd pulse
                 pheight2 = np.random.rand()*maxheight        
                 if np.random.rand() < detector_efficiency and pos2 < mx_position:
-                  pulse[ip, pos2:pos2+plen] += pheight2 * pulse_template
+                  pulse[i_layer, pos2:pos2+plen] += pheight2 * pulse_template
 
         pulse += analogue_offset_mv  # apply analogue offset
         return(pulse)

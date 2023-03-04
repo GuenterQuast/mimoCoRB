@@ -51,10 +51,10 @@ class WaveformPlotter(object):
         channel_range = 500 if 'channel_range' not in self.conf_dict else \
             self.conf_dict['channel_range']
         trigger_level = None if 'trigger_level' not in self.conf_dict else \
-            self.conf_dict['trigger_level']            
+            1000.*self.conf_dict['trigger_level']            
         self.analogue_offset = 0. if 'analogue_offset' not in self.conf_dict else \
             1000.*self.conf_dict['analogue_offset']
-        pre_trigger_samples = 0. if 'pre_trigger_samples' not in self.conf_dict else \
+        pre_trigger_samples = 0 if 'pre_trigger_samples' not in self.conf_dict else \
             self.conf_dict['pre_trigger_samples']
         pre_trigger_ns = pre_trigger_samples * sample_time_ns
         plot_length = self.conf_dict['number_of_samples']
@@ -83,7 +83,10 @@ class WaveformPlotter(object):
         plt.style.context("seaborn")
         color_cycler = cycler(color=['blue', 'green', 'red', 'tab:orange'])
         self.ax.set_prop_cycle(color_cycler)
-        self.ax.axvline(0., linestyle = ':', color='darkblue') # trigger time
+        if pre_trigger_samples > 0:
+            self.ax.axvline(0., linestyle = ':', color='darkblue') # trigger time
+        if trigger_level is not None:
+            self.ax.axhline(trigger_level, linestyle = '--', color='darkred') # trigger level
 
         self.bg = self.fig.canvas.copy_from_bbox(self.ax.bbox)
         

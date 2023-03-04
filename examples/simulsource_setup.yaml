@@ -24,7 +24,7 @@
 RingBuffer:
   # define ring buffers
   - RB_1:
-      # raw input data buffer (waveforms from PicoScope, filele_source or simulation_source)
+      # raw input data buffer (waveforms from PicoScope, file_source or simulation_source)
       number_of_slots: 128
       channel_per_slot: 4250
       data_type:
