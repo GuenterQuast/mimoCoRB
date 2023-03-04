@@ -44,7 +44,7 @@ def read_from_buffer(source_list=None, sink_list=None,
       # create an empty list of lists for data to be histogrammed
         histdata = [ [] for i in range(nHist)]
       # create a multiprocesssing Queue to tranfer information to plotting routine
-        histQ = Queue(1)
+        histQ = Queue()
       # start background process  
         histP = Process(name='Histograms', target = plot_Histograms, 
                     args=(histQ, hist_dict, interval, title)) 
@@ -84,7 +84,7 @@ def read_from_buffer(source_list=None, sink_list=None,
             if hist_dict is not None and histP.is_alive():
               # retrieve histogram variables
                 for i, vnam in enumerate(varnams):
-                    histdata[i].append(data[0][vnam])
+                    histdata[i] += (data[0][vnam],)  # appending tuple to list is faster than append()
                 if histQ.empty():
                     histQ.put(histdata)
                     histdata = [ [] for i in range(nHist)]
