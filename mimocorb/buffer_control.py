@@ -1117,11 +1117,12 @@ class run_mimoDAQ():
                         animstep = (animstep + 1)%4
                 # print line to log every 60 s
                 if self.GUIcontrol:
-                    if tact_p1s%600 == 0: 
-                        self.logQ.put(buffer_status)  
-                    if self.RBinfoQ.empty() and not self.bc.status =="Stopped":
+                    if self.bc.status != "Stopped": 
+                        if tact_p1s%600 == 0: 
+                            self.logQ.put(buffer_status)  
+                        if self.RBinfoQ.empty():
                         # update rate display
-                        self.RBinfoQ.put( (self.bc.status, time_active, N_processed, av_deadtime, RBinfo ) )
+                            self.RBinfoQ.put( (self.bc.status, time_active, N_processed, av_deadtime, RBinfo ) )
 
                 # check if done
                 # - end command from keyboad or GUI ? 
