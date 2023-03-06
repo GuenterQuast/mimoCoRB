@@ -50,7 +50,7 @@ calculate_decay_time:
 save_parquet:
   filename: "simulated_data"
 
-plot_graph:
+plot_waveform:
   title: "Waveform Double Pulses"
   min_sleeptime: 0.5                # time to wait between graphics updates
   sample_time_ns: *sample_time_ns   # sampling interval 
@@ -60,7 +60,7 @@ plot_graph:
   number_of_samples: *number_of_samples
   pre_trigger_samples: *pre_trigger_samples
 
-read_from_buffer:
+plot_histograms:
   dummy: none   # need at least one entry
   # define a histogram 
   histograms:

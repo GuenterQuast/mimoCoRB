@@ -1,7 +1,12 @@
 """
 **histogram_buffer** collection of classes to produce histograms
 
-Show animated histogram display of scalar buffer variables
+Show animated histogram(s) of scalar buffer variable(s)
+
+Because this process runs as a 'Reader' process, the ploting function
+is executed as a background task in order to avoid blockingn of the main task.
+
+
 
 code adapted from https://github.com/GuenterQuast/picoDAQ
 """
@@ -12,6 +17,10 @@ import itertools
 import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt, matplotlib.animation as anim
+
+from multiprocessing import Queue, Process
+# module to read data from buffer 
+from .buffer_control import rbExport
 
 class animHists(object):
   """
@@ -208,3 +217,87 @@ def plot_Histograms(Q, Hdescripts, interval, name = 'Histograms'):
 #  except:
 #    print('*==* plot_Histgrams: termination signal recieved')
   raise SystemExit
+
+class histogram_buffer(object):
+    """
+    Read data from mimiCoRB buffer using the interface class mimo_control.rbExport
+    and show histograms of variables selected in the configuration dictionary
+    """
+
+    def __init__(self, source_list=None, sink_list=None, observe_list=None, config_dict=None, **rb_info):
+        """
+        Produce Histograms of (scalar) variables in buffer.
+    
+        Plotting is done by means of the class plot_Histograms() running as background process
+
+        :param input: configuration dictionaries 
+        """
+       # evaluate configuration dictionary
+        if "histograms" not in config_dict:
+            self.hist_dict = None
+        else:
+         # set-up background process for plotting histograms  
+            self.hist_dict = config_dict['histograms']
+            self.varnams = config_dict['variables']
+            self.title = "Histograms" if 'title' not in config_dict else config_dict['title'] 
+            self.interval = 2. if 'interval' not in config_dict else config_dict['interval']
+            self.nHist = len(self.hist_dict)    
+            if self.nHist != len(self.varnams):
+                raise SystemExit(" ERROR: lists of variables and histograms must have same length")
+           # create a multiprocesssing Queue to tranfer information to plotting routine
+            self. histQ = Queue()
+           # start background process  
+            self.histP = Process(name='Histograms', target = plot_Histograms, 
+                                 args=(self.histQ, self.hist_dict, self.interval, self.title)) 
+#                                       data Queue, Hist.Desrc  interval    
+            self.histP.start()
+
+
+      # initialze access to mimo_buffer    
+        self.readData = rbExport(source_list=source_list, config_dict=config_dict, **rb_info)
+        self.active_event = self.readData.source._active
+        self.paused_event = self.readData.source._paused
+
+        self.count = 0
+        self.deadtime_f = 0.
+        self.last_event_number = 0
+
+    def __call__(self):
+       # create an empty list of lists for data to be histogrammed
+        histdata = [ [] for i in range(self.nHist)]
+
+      #    while self.active_event.is_set():
+        while True:
+            d = next( self.readData(), None )   # this blocks until new data provided !
+            if d is not None:  # new data received ------
+                metadata = d[1]
+                self.last_event_number = metadata[0]
+                self.deadtime_f += metadata[2]
+              # 
+                data = d[0]   
+              # - store and possibly transfer data to be histogrammed
+                if self.hist_dict is not None and self.histP.is_alive():
+              # retrieve histogram variables
+                    for i, vnam in enumerate(self.varnams):
+                        histdata[i] += (data[0][vnam],)  # appending tuple to list is faster than append()
+                    if self.histQ.empty():
+                        self.histQ.put(histdata)
+                        histdata = [ [] for i in range(self.nHist)]
+              # - count events        
+                self.count += 1      # ---- end processing data
+            else:            
+                break
+
+        # end-of-run action(s)
+        # print summary when Reader becomes inactive    
+        print("\n ->> process 'plot_buffer': SUMMARY")
+        print("  received # of events: {:d}".format(self.count),
+              "  last event seen: {:d}".format(int(self.last_event_number)),
+              "  average deadtime: {:.1f}%".format(100*self.deadtime_f/max(1,self.count)) ) 
+
+        # if histogrammer active, wait for shutdown to keep graphics window open
+        #    (ending-state while paused_event is still set)
+        if self.hist_dict is not None:
+            while self.paused_event.is_set():
+                time.sleep(0.3)
+            self.histP.terminate()

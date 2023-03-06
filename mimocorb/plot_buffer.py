@@ -1,5 +1,9 @@
 """
 **plot_buffer** Collection of classes with graphics functions to plot buffer data
+
+The class animWaveFormPlotter is used by the class plotBuffer().
+The _call__() method of this latter class is the entry point to the package.
+
 """
 
 import numpy as np
@@ -12,7 +16,7 @@ import time
 from .buffer_control import rbObserver
 
 
-class WaveformPlotter(object):
+class animWaveformPlotter(object):
     """
     Oscilloscope-like display of wave from buffer data
 
@@ -123,9 +127,9 @@ class WaveformPlotter(object):
             self.fig.canvas.blit(self.ax.bbox)    
         plt.pause(min(0.05, self.min_sleeptime))
 
-# <<- end class WaveformPlotter
+# <<- end class animWaveformPlotter
 
-class plotWaveformBuffer():
+class plot_buffer():
     """
     Plot data using a mimiCoRB Observer 
     """    
@@ -147,14 +151,19 @@ class plotWaveformBuffer():
         # get update interval from dictionary
         self.min_sleeptime = 1.0 if "min_sleeptime" not in config_dict else \
             config_dict["min_sleeptime"] 
+        #  expect  data, metadata) or None if end
+        #while not readData.source.data_available(): # wait for data to avoid blocking
+        #    time.sleep(0.05)
 
         # access to buffer data
-        self.data_reader = rbObserver(observe_list=observe_list, config_dict=config_dict, **rb_info)
+        self.data_reader = rbObserver(observe_list=observe_list,
+                                      config_dict=config_dict, **rb_info)
         self.active_event = self.data_reader.source._active
 
         self.source_dict = observe_list[0]
         # initialize oscilloscope-like display
-        self.osciplot = WaveformPlotter(conf_dict=config_dict, dtypes=self.source_dict['dtype'])
+        self.osciplot = animWaveformPlotter(conf_dict=config_dict,
+                                            dtypes=self.source_dict['dtype'])
 
         # initialize graphics        
         plt.ion()

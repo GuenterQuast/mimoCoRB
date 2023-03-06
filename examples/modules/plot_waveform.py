@@ -1,13 +1,13 @@
 """
 **plot**: plotting waveforms from buffer using mimoCoRB.buffer_control.OberserverData 
 """
-from mimocorb.plot_buffer import plotWaveformBuffer
+from mimocorb.plot_buffer import plot_buffer
 import matplotlib
 
 # select matplotlib frontend if needed
 matplotlib.use("TkAgg")
 
-def plot_graph(source_list=None, sink_list=None, observe_list=None, config_dict=None, **rb_info):
+def plot_waveform(source_list=None, sink_list=None, observe_list=None, config_dict=None, **rb_info):
     """
     Plot waveform data from mimiCoRB buffer
 
@@ -19,8 +19,8 @@ def plot_graph(source_list=None, sink_list=None, observe_list=None, config_dict=
         describe the waveform data as for oscilloscope setup
     """
 
-    pw = plotWaveformBuffer(source_list, sink_list, observe_list, config_dict, **rb_info)
-    pw()
+    pltbuf = plot_buffer(source_list, sink_list, observe_list, config_dict, **rb_info)
+    pltbuf()
 
 if __name__ == "__main__":
     print("Script: " + os.path.basename(sys.argv[0]))
