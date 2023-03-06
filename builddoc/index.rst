@@ -538,13 +538,13 @@ configuration looks as follows:
 		
    - Fkt_5:
         file_name: "modules/plot_waveform"
-        fkt_name: "plot_graph"
+        fkt_name: "plot_waveform"
         num_process: 1
         RB_assign:
              RB_2: "observe"  # double pulse waveform
     - Fkt_6:
-        file_name: "modules/read_from_buffer"
-        fkt_name: "read_from_buffer"
+        file_name: "modules/plot_histograms"
+        fkt_name: "plot_histograms"
         num_process: 1
         RB_assign:
            RB_3: "read"  # pulse parameters
