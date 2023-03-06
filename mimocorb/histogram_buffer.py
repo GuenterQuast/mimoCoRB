@@ -168,8 +168,7 @@ def plot_Histograms(Q, Hdescripts, interval, name = 'Histograms'):
   Args:
 
   -  Q:    multiprocessing.Queue() 
-  -  Hdescripts:  list of histogram descriptors, where each 
-     descriptor is a list: 
+  -  Hdescripts:  list of histogram descriptors, where each descriptor is a list: 
 
        -   min:   minimum value
        -   max:   maximum value
@@ -223,36 +222,43 @@ def plot_Histograms(Q, Hdescripts, interval, name = 'Histograms'):
 
 class histogram_buffer(object):
     """
+    Produce Histograms of (scalar) variables in buffer.
+    
     Read data from mimiCoRB buffer using the interface class mimo_control.rbExport
-    and show histograms of variables selected in the configuration dictionary
+    and show histograms of scalar variables selected in the configuration dictionary
+
+    
+    Plotting is done by means of the class plot_Histograms() running as background process
+
+    :param input: configuration dictionaries
+    :param config_dict: must contain a block with name 'histograms', formatted as 
+
+        <name>:  [<min>, <max>, <nbins>, <ymax>, <label>,   <0/1 for lin/log>]
+  
     """
 
     def __init__(self, source_list=None, sink_list=None, observe_list=None, config_dict=None, **rb_info):
         """
-        Produce Histograms of (scalar) variables in buffer.
-    
-        Plotting is done by means of the class plot_Histograms() running as background process
-
-        :param input: configuration dictionaries 
-        """
+         :param input: configuration dictionaries
+         """
        # evaluate configuration dictionary
         if "histograms" not in config_dict:
-            self.hist_dict = None
+            self.hist_descr = None
             self.nHist = 0
         else:
          # set-up background process for plotting histograms  
-            self.hist_dict = config_dict['histograms']
-            self.varnams = config_dict['variables']
+            self.varnams = list(config_dict['histograms'].keys())
+            self.hist_descr = list(config_dict['histograms'].values())
             self.title = "Histograms" if 'title' not in config_dict else config_dict['title'] 
             self.interval = 2. if 'interval' not in config_dict else config_dict['interval']
-            self.nHist = len(self.hist_dict)    
+            self.nHist = len(self.hist_descr)    
             if self.nHist != len(self.varnams):
                 raise SystemExit(" ERROR: lists of variables and histograms must have same length")
            # create a multiprocesssing Queue to tranfer information to plotting routine
             self. histQ = Queue()
            # start background process  
             self.histP = Process(name='Histograms', target = plot_Histograms, 
-                                 args=(self.histQ, self.hist_dict, self.interval, self.title)) 
+                                 args=(self.histQ, self.hist_descr, self.interval, self.title)) 
            #                           data Queue,    Hist.Desrc     interval    
             self.histP.start()
 
@@ -279,7 +285,7 @@ class histogram_buffer(object):
               # 
                 data = d[0]   
               # - store and possibly transfer data to be histogrammed
-                if self.hist_dict is not None and self.histP.is_alive():
+                if self.hist_descr is not None and self.histP.is_alive():
               # retrieve histogram variables
                     for i, vnam in enumerate(self.varnams):
                         histdata[i] += (data[0][vnam],)  # appending tuple to list is faster than append()
@@ -300,7 +306,7 @@ class histogram_buffer(object):
 
         # if histogrammer active, wait for shutdown to keep graphics window open
         #    (ending-state while paused_event is still set)
-        if self.hist_dict is not None:
+        if self.hist_descr is not None:
             while self.paused_event.is_set():
                 time.sleep(0.3)
             self.histP.terminate()
