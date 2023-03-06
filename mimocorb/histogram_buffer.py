@@ -3,10 +3,13 @@
 
 Show animated histogram(s) of scalar buffer variable(s)
 
-Because this process runs as a 'Reader' process, the ploting function
+Because this process runs as a 'Reader' process, the plotting function
 is executed as a background task in order to avoid blockingn of the main task.
 
-
+The entry point is either the __call__() function of class histogram_buffer,
+which connects to a mimocorb buffer via the rbExport class, or directly the 
+function plot_Histograms(), which receives data to be histogrammed via a 
+multiprocessing Queue().
 
 code adapted from https://github.com/GuenterQuast/picoDAQ
 """
@@ -235,6 +238,7 @@ class histogram_buffer(object):
        # evaluate configuration dictionary
         if "histograms" not in config_dict:
             self.hist_dict = None
+            self.nHist = 0
         else:
          # set-up background process for plotting histograms  
             self.hist_dict = config_dict['histograms']
@@ -249,9 +253,8 @@ class histogram_buffer(object):
            # start background process  
             self.histP = Process(name='Histograms', target = plot_Histograms, 
                                  args=(self.histQ, self.hist_dict, self.interval, self.title)) 
-#                                       data Queue, Hist.Desrc  interval    
+           #                           data Queue,    Hist.Desrc     interval    
             self.histP.start()
-
 
       # initialze access to mimo_buffer    
         self.readData = rbExport(source_list=source_list, config_dict=config_dict, **rb_info)
