@@ -238,6 +238,8 @@ class buffer_control():
       """
       for nam, buf in self.ringbuffers.items():
           buf.set_ending()
+      if self.status == "Paused": 
+          self.cumulative_pause_time += time.time() - self.pause_time
       self.status = "Stopped"
 
   def shutdown(self):
@@ -283,7 +285,6 @@ class buffer_control():
           self.status="Running"
       else:
           print(" !!! Resume only possible from state 'Paused'")
-
       self.cumulative_pause_time += time.time() - self.pause_time
           
   #helper functions
@@ -1093,7 +1094,8 @@ class run_mimoDAQ():
         try:
             while self.run:
                 stat = r+self.bc.status+E+' '
-                time_active = time.time() - self.start_time - self.bc.cumulative_pause_time
+                if self.bc.status != "Stopped":
+                    time_active = time.time() - self.start_time - self.bc.cumulative_pause_time
                 tact_p1s = int(10*(time.time() - self.start_time)) # int in 1s/10 
                 t_act = p+str(int(time_active))+'s '+E
                 buffer_status_color = stat + t_act
@@ -1155,13 +1157,15 @@ class run_mimoDAQ():
                     self.run = False
                 # - is writer source to 1st buffer exhausted ?   
                 if self.process_list[-1].exitcode == 0:
-                    self.run = False
+                    self.logQ.put(time.asctime() + ' Run stopped')  
+                    print("\n Input source exhausted - setting 'Stopped' state")
+                    self.bc.stop()
                     
                 time.sleep(0.1)  # <-- end while run:
 
         except KeyboardInterrupt:
             print('\n'+sys.argv[0]+': keyboard interrupt - closing down cleanly ...')
-
+      
         finally:          
 
           # print End-of-Run statistics
