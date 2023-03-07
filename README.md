@@ -3,7 +3,7 @@
 ## Summary:
 
 Provided here is a central component of each data acquisition system
-needed to record and pre-analyze data from randomly occurrig proceses.
+needed to record and pre-analyse data from randomly occurring processes.
 Typical examples are wave-forms data as provided by single-photon
 counters or typical detectors common in quantum mechanical measurements
 or in nuclear, particle physics and astro particle physics, e. g.
@@ -21,12 +21,12 @@ manager upon request, without pausing the data acquisition process.
 Typical examples of random consumers are displays of a subset of the
 wave forms or of intermediate analysis results.
 
-This project originated from an attempt to structure and generalize
-data acquision for several experimenta in an advanced physics laboratory
-courses at Karlruhe Institute of Technology.
+This project originated from an effort to structure and generalize
+data acquisition for several experiments in an advanced physics laboratory
+courses at Karlsruhe Institute of Technology.
 
-As a simple demonstration, we provide signals recored by a detector
-for comsmic myons with three layers. Occasionally, such muons stop
+As a simple demonstration, we provide signals recorded by a detector
+for cosmic muons with three layers. Occasionally, such muons stop
 in an absorber between the 2nd and 3rd layer, where they decay at rest
 and emit a high-energetic electron recorded as a 2nd pulse in one or
 two of the detection layers. 
