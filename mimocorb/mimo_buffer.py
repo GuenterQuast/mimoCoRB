@@ -27,12 +27,14 @@ import numpy as np
 from multiprocessing import shared_memory, Lock, SimpleQueue, Queue, Event
 import threading
 import heapq
-import websockets as ws
-import asyncio
 import time
 import os
 
-    
+# obsolet ->
+import websockets as ws
+import asyncio
+# <-
+
 class NewBuffer:
     """Class to create a new ringbuffer object according to the 'FIFO' principle (first-in first-out).
 
@@ -298,13 +300,13 @@ class NewBuffer:
         """Put latest data in Queue for observer if empty 
         """
         while self.observers_active.is_set():
+            time.sleep(0.05)  # limit rate to 20Hz
             if self.observerQ.empty():
                 with self.write_pointer_lock:
-                    idx = self.write_pointer%self.number_of_slots
-                    mdata = np.array(self._metadata[idx], copy=True)
-                    data = np.array(self._buffer[idx, :], copy=True)
+                  #  idx = self.write_pointer%self.number_of_slots
+                    mdata = self._metadata[self.write_pointer].copy() 
+                    data = self._buffer[self.write_pointer, :].copy()
                 self.observerQ.put( (data, mdata) )
-            time.sleep(0.03)
         # reached end:
         #   send None to signal end-of-run to client, give some grace time before timing-out   
         self.observerQ.put( None, block=True, timeout=3.)
@@ -312,11 +314,12 @@ class NewBuffer:
     def new_observer(self):
         """Method to create a new (Queue based) observer.
 
-        Method: a copy of the most recent data is transferred via a Queue whenever the Queue 
-        (of size 1) becomes empty. Sending data to the Queue is handled in a sparate thread
+        Method: a copy of the most recent data (latest write_pointer) is transferred via a 
+        Queue whenever the Queue (of size 1) is empty. Sending data through the Queue is handled 
+        in a sparate thread
         
         :return: The ``setup_dict`` object passed to an ``Observer``-instance to give access to
-           the dataQueue defined for this ringbuffer.
+           the data Queue defined for this ringbuffer.
         :rtype: dict
         """
 
@@ -897,7 +900,7 @@ class Observer:
         if self._debug:
             print(" > DEBUG: QObserver destructor called (PID: {:d})".format(os.getpid()))
 
-# <<-- end class QObserver
+# <<-- end class Observer
 
 class WSObserver:
     """
@@ -1052,4 +1055,4 @@ class WSObserver:
             self._last_get_index = -1
         return self._copy_buffer
 
-# <<-- end class Observer
+# <<-- end class wsObserver
