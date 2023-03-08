@@ -186,7 +186,7 @@ class plot_buffer():
                        break 
            else:
                # print("plotWaveformBuffer: 'None' recieved - ending")
-               # end if empty end-of-run event received, of if data generator is exhausted or deleted
+               # end if empty end-of-run event received, or if data generator is exhausted or deleted
                break
               
         # finished
