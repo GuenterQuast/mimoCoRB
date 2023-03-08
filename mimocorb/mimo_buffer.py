@@ -19,18 +19,15 @@ classes:
   - Writer:   write elements into a ringbuffer
   - Reader:   read all elements from a ringbuffer
   - Observer: read selected elements from a ringbuffer.
-
-
 """
 
+import os, time
 import numpy as np
 from multiprocessing import shared_memory, Lock, SimpleQueue, Queue, Event
 import threading
 import heapq
-import time
-import os
 
-# obsolet ->
+# obsolete ->
 import websockets as ws
 import asyncio
 # <-
@@ -297,16 +294,29 @@ class NewBuffer:
         return setup_dict
 
     def _observerQ_listener(self):
-        """Put latest data in Queue for observer if empty 
+        """Put latest data and metadata in Queue for observer if empty 
+
+           maximum event rate is limited to 20Hz
         """
+        
+      # pre-allocate memory for local copy of data
+        data = np.empty(shape=(self.values_per_slot,), dtype=self.dtype)
+        mdata = np.empty(shape=(1,), dtype=self.metadata_dtype)
+
+        last_ev = 0
+      # wait for first data
+        while self.cumulative_event_count == 0:
+            time.sleep(0.05) 
+      # put data in oberver Queue if empty       
         while self.observers_active.is_set():
-            time.sleep(0.05)  # limit rate to 20Hz
-            if self.observerQ.empty():
+            if self.observerQ.empty() and self.cumulative_event_count != last_ev:
                 with self.write_pointer_lock:
-                  #  idx = self.write_pointer%self.number_of_slots
-                    mdata = self._metadata[self.write_pointer].copy() 
-                    data = self._buffer[self.write_pointer, :].copy()
+                  # local copy of the data
+                    mdata[:] = self._metadata[self.write_pointer].copy() 
+                    data[:] = self._buffer[self.write_pointer].copy()
                 self.observerQ.put( (data, mdata) )
+                last_ev = self.cumulative_event_count
+            time.sleep(0.05)  # limit rate to 20Hz
         # reached end:
         #   send None to signal end-of-run to client, give some grace time before timing-out   
         self.observerQ.put( None, block=True, timeout=3.)

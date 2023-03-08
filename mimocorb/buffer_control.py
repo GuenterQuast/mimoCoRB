@@ -891,8 +891,7 @@ class rbWSObserver:
                 self.wait_data_thread.join()
                 yield(None)
                 break
-  
-# <-- end class rbObserver
+# <-- end class rbWSObserver
 
 class run_mimoDAQ():
     """

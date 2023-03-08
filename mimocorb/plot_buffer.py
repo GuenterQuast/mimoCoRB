@@ -175,14 +175,15 @@ class plot_buffer():
         while True:
            data = next(self.data_reader())
            if data is not None:
-              channel_lines = self.osciplot(data[0]) # update graphics with data
+              # expect tuple (data, metadata)
+               channel_lines = self.osciplot(data[0]) # update graphics with data
               # interrupted sleep so that end-event (=None) is not missed
-              dt = 0
-              while self.active_event.is_set():
-                  time.sleep(0.025)
-                  dt +=0.025
-                  if dt >= self.min_sleeptime:
-                      break 
+               dt = 0
+               while self.active_event.is_set():
+                   time.sleep(0.025)
+                   dt +=0.025
+                   if dt >= self.min_sleeptime:
+                       break 
            else:
                # print("plotWaveformBuffer: 'None' recieved - ending")
                # end if empty end-of-run event received, of if data generator is exhausted or deleted
