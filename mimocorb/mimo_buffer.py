@@ -27,11 +27,6 @@ from multiprocessing import shared_memory, Lock, SimpleQueue, Queue, Event
 import threading
 import heapq
 
-# obsolete ->
-import websockets as ws
-import asyncio
-# <-
-
 class NewBuffer:
     """Class to create a new ringbuffer object according to the 'FIFO' principle (first-in first-out).
 
@@ -132,8 +127,6 @@ class NewBuffer:
         self._writer_queue_thread.start()
         self.writer_created = False
         self.reader_queue_listener_thread_list = []
-
-        self._observer_websocket_initialized = False
 
         # variables for buffer statitiscs (evaluated in buffer_status() )
         self.Tstart = time.time()
@@ -347,114 +340,7 @@ class NewBuffer:
         self.observerQ_listener_thread.start()
 
         return setup_dict
-
     
-    def _init_websocket(self) -> bool:
-        """
-        Setup web socket connection for observer (running in background thread)
-        """            
-
-        #  --- web socket functions 
-        def _event_loop_executor(loop: asyncio.AbstractEventLoop) -> None:
-            """Internal method continuously run in a background thread.
-            It runs the asynchronous event loop needed for the websocket based IPC of ``Observer``-instances.
-            """
-            if self._debug:
-                print("\ > DEBUG: Started event loop in main thread!")
-            asyncio.set_event_loop(loop)
-            try:
-                loop.run_forever()
-            finally:
-                loop.run_until_complete(loop.shutdown_asyncgens())
-                loop.close()
-                if self._debug:
-                    print(" > DEBUG: Observer event loop in main thread closed!")
-                del loop            
-
-        async def _observer_server(websocket, path) -> None:
-            """
-            Internal asynchronous method implementing the ``Observer`` IPC.
-            
-            As of now: for every message, the current ``write_pointer`` is sent (index in the shared
-            memory array containing the latest added element to the ringbuffer).
-            **CAUTION!** The ringbuffer element *IS NOT LOCKED*, so it has to be copied as soon as possible
-            in the ``Observer``-process. For conventional signal analysis chains and PC setups, this
-            should not be a constraint. But it might be possible that data seen by the ``Observer``
-            instance are corrupted (especially with a not ideal ringbuffer configuration and/or a heavily 
-            loaded PC system).
-
-            **``Observer``-instances MUST NOT rely on data integrity!!**
-            """
-            async for message in websocket:
-                with self.write_pointer_lock:
-                    # await websocket.send("{}".format(self.write_pointer))
-                    await websocket.send("{}".format(self.write_pointer%self.number_of_slots))
-
-        async def _observer_check_active_state() -> None:
-            """
-            Internal asynchronous function to check if ``NewBuffer.shutdown()`` was called
-            """
-            while self.observers_active.is_set():
-                await asyncio.sleep(0.5)
-            if self._debug:
-                print(" > DEBUG: Observer received closed signal in main thread!")
-            self._my_ws.close()
-            await self._my_ws.wait_closed()
-            self.observer_event_loop.stop()
-
-        async def _observer_main() -> None:
-            """Internal asynchronous method run in the background to handle websocket connections.
-            A websocket server is started on the loopback device, providing IPC between the main process
-            and an ``Observer``-instance running in another process.
-            """
-            self._my_ws = await ws.serve(_observer_server, "localhost")
-            self.observer_port = (self._my_ws.sockets[0]).getsockname()[1]
-            self._observer_server_ready.set()
-            if self._debug:
-                print("> WS port: {}\n".format(self.observer_port))
-
-        #  --- end websocket functions        
-
-        self.observer_event_loop = asyncio.new_event_loop()
-        self.event_loop_thread = threading.Thread(target=_event_loop_executor,
-                                                  args=(self.observer_event_loop,),
-                                                  name="Main observer event loop")
-        self.observer_port = -1
-        self.event_loop_thread.start()
-        self._observer_server_ready = threading.Event()
-        self._observer_server_ready.clear()
-        asyncio.run_coroutine_threadsafe(_observer_main(), self.observer_event_loop)
-        self._observer_server_ready.wait()
-        asyncio.run_coroutine_threadsafe(_observer_check_active_state(), self.observer_event_loop)
-        return True
-         
-    def new_WSobserver(self):
-        """Method to create a new (web-socket based) observer.
-        It's possible to create multiple observers and simply share the setup dictionary between different
-        ``Observer``-instances (analogues to the behavior of the ``new_reader_group``).
-        It might be possible that data seen by an ``Observer`` instance are corrupted (especially
-        with a not ideal ringbuffer configuration and/or a heavily loaded PC system).
-
-        **``Observer``-instances MUST NOT rely on data integrity!!**
-
-        :return: The ``setup_dict`` object passed to an ``Observer``-instance to grant access to this ringbuffer.
-        :rtype: dict
-        """
-
-        # set-up websocket connection and all needed background threads if not yet existing
-        if not self._observer_websocket_initialized:
-            self._observer_websocket_initialized = self._init_websocket()
-        
-        # Observer class just maps the memory share and asks the ringbuffer manager via websocket
-        # for the newest entry (so the main programm doesn't block, even if the observer process hangs/dies).
-        # Data might be corrupted/incoherent, so the observer HAS to handle that gracefully
-        setup_dict = {"number_of_slots": self.number_of_slots, "values_per_slot": self.values_per_slot,
-                      "dtype": self.dtype, "mshare_name": self.m_share.name,
-                      "metadata_share_name": self.m_metadata_share.name,
-                      "ws_port": self.observer_port, "active": self.observers_active, 
-                      "debug": self._debug}
-        return setup_dict
-
     def _init_buffer_status(self):
         self.Tlast = self.Tstart
         self.Nlast = 0
@@ -529,8 +415,7 @@ class NewBuffer:
         # In case no new data is written to the buffer, send something to the
         # writer_filled_queue to unblock _writer_queue_listener(...) and allow the thread to terminate
         self.writer_filled_queue.put(None)
-        # Observers may be terminated at any point, but active websocket connections while 
-        # shutting down may raise unexpected errors. Prevent this by clearing observer activity.
+        # indicate  end-of-run to observers 
         self.observers_active.clear()
 
         # Get the slot with the latest valid data
@@ -570,11 +455,6 @@ class NewBuffer:
         self._writer_queue_thread.join()
         for t in self.reader_queue_listener_thread_list:
             t.join()
-        # for web-socket observer    
-        try:
-            self.event_loop_thread.join()
-        except:
-            pass
         self.m_share.close()
         self.m_share.unlink()
         self.m_metadata_share.close()
@@ -911,158 +791,3 @@ class Observer:
             print(" > DEBUG: QObserver destructor called (PID: {:d})".format(os.getpid()))
 
 # <<-- end class Observer
-
-class WSObserver:
-    """
-    Class for reading selected elements from a ringbuffer via websocket
-
-    Ringbuffer elements are structured NumPy arrays. The returned array will not change
-    until the next ``Observer.get()``-call, the ringbuffer element is not blocked. The data transfer
-    is implemented via web socket and interfaces with the ringbuffer manager (``NewBuffer``-class).
-    """
-
-    def __init__(self, setup_dict):
-        """Constructor to create an ``Observer``-object that grants access to the ringbuffer
-        specified in the ``setup_dict`` object.
-
-        :param setup_dict: The setup dictionary for the *observer* this instance is a part of.
-            The setup dictionary can be obtained by calling ``NewBuffer.new_observer()`` in
-            this instances' parent process. Sharing the same setup dictionary between multiple
-            observer processes is possible, calling ``NewBuffer.new_observer()`` multiple times is
-            allowed as well.
-        """
-        # Get buffer configuration from setup dictionary
-        self.number_of_slots = setup_dict["number_of_slots"]
-        self.values_per_slot = setup_dict["values_per_slot"]
-        self.dtype = setup_dict["dtype"]
-        # Connect the shared memory for data and metadata and map it into a NumPy array
-        self._m_share = shared_memory.SharedMemory(name=setup_dict["mshare_name"])
-        array_shape = (self.number_of_slots, self.values_per_slot)
-        self._buffer = np.ndarray(shape=array_shape, dtype=self.dtype, buffer=self._m_share.buf)
-        self._copy_buffer = np.array(self.values_per_slot, dtype=self.dtype)
-
-        # Setup class status variables
-        self._last_get_index = -1
-        self._active = setup_dict["active"]
-        self._debug = setup_dict["debug"]
-
-        # Setup websocket uri and prepare an asycio event loop in a different thread
-        # to allow a blocking main thread (as often encountered with typical window 
-        # render framworks)
-        self.uri = "ws://localhost:{:d}".format(setup_dict["ws_port"])
-        self.event_loop = asyncio.new_event_loop()
-
-        # Setup internal thread structures
-        self._copy_lock = threading.Lock()
-        self._new_element = threading.Event()
-        self._new_element.clear()
-        self._event_loop_thread = threading.Thread(target=self._event_loop_executor, args=(self.event_loop,),
-                                                   name="Event loop thread")
-        self._event_loop_thread.start()
-        self.connection_established = threading.Event()
-        self.connection_established.clear()
-        # self.connection_future = 
-        asyncio.run_coroutine_threadsafe(self.establish_connection(), self.event_loop)
-        # self.check_active_future = 
-        asyncio.run_coroutine_threadsafe(self.check_active_state(), self.event_loop)
-        self.connection_established.wait()
-        if self._debug:        
-            print(" > DEBUG: Observer created (PID: {:d})".format(os.getpid()))
-
-    def __del__(self):
-        """
-        Destructor of the ``Observer`` class
-        """
-        if self._debug:
-            print(" > DEBUG: Observer destructor called (PID: {:d})".format(os.getpid()))
-        # The event loop should be stopped by now
-        try: 
-            self._event_loop_thread.join()
-        except:
-            pass
-        # Clean up Get()-event in case it got stuck
-        self._last_get_index = -1
-        self._new_element.set()
-        # Clean up memory share
-        del self._buffer
-        del self._copy_buffer
-        self._m_share.close()
-
-    def _event_loop_executor(self, loop: asyncio.AbstractEventLoop) -> None:
-        """Internal function executing the event loop for the websocket connection 
-            in a different thread.
-        """
-        asyncio.set_event_loop(loop)
-        try:
-            loop.run_forever()
-        finally:
-            loop.run_until_complete(loop.shutdown_asyncgens())
-            loop.close()
-            if self._debug:
-                print(" > DEBUG: Observer._event_loop_executor() ended")
-            del loop
-
-    async def establish_connection(self) -> None:
-        """Internal asynchronous function establishing the websocket connection with
-            the ringbuffer manager in the main process (used for IPC)
-        """
-        # async with ws.connect(self.uri) as my_ws:
-        #     print("  >>> successfull ws connction ", my_ws)
-        #     self._my_ws = my_ws
-        #     await self._my_ws.send("get")
-        #     print("  >>> test call: ", await my_ws.recv())
-        #     self.connection_established.set()
-        #     await asyncio.Future
-        self._my_ws = await ws.connect(self.uri)
-        await self._my_ws.send("get")
-        self.connection_established.set()
-
-    async def get_new_index(self) -> None:
-        """Internal asynchronous function to query the index of the latest ringbuffer element
-            from the ringbuffer manager
-        """
-        await self._my_ws.send("get")
-        recv = await self._my_ws.recv()
-        idx = int(recv)
-        self._last_get_index = idx
-        self._new_element.set()
-
-    async def check_active_state(self) -> None:
-        """Internal asynchronous function to check if ``NewBuffer.shutdown()`` was called
-            in the main process
-        """
-        while self._active.is_set():
-##            await asyncio.sleep(0.5)
-            await asyncio.sleep(1.0)
-        if self._debug:
-            print(" > DEBUG: Observer received shutdown signal (PID: {:d})".format(os.getpid()))
-        await self._my_ws.close()
-        await self._my_ws.wait_closed()
-        self.event_loop.stop()
-
-    def get(self):
-        """Get a copy of the latest element added to the ringbuffer by a ``Writer`` process.
-
-        :return: One element (structured numpy.ndarray) from the ringbuffer as specified in
-            the ``NewBuffer()-dtype``-object, or None if run ended
-        :rtype: numpy.ndarray
-        """
-        # if not self._active.is_set():
-        # raise SystemExit
-        self._new_element.clear()
-        asyncio.run_coroutine_threadsafe(self.get_new_index(), self.event_loop)
-###        self._new_element.wait()   #! avoid blocking
-        while not self._new_element.is_set():
-            time.sleep(0.1)
-            if not self._active.is_set():  # run ended
-                return None
-        if self._last_get_index == -1:
-            # This should only happen while shutting down ..
-            return None
-        else:
-            with self._copy_lock:
-                self._copy_buffer = np.array(self._buffer[self._last_get_index, :], copy=True)
-            self._last_get_index = -1
-        return self._copy_buffer
-
-# <<-- end class wsObserver
