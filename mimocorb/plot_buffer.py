@@ -101,31 +101,39 @@ class animWaveformPlotter(object):
                                   np.zeros_like(self.x_linspace)[::self.iStep],
                                   marker='', linestyle='-', lw=1.5, alpha=0.5,
                                   label=dtype_name)
-            self.channel_lines.append(line)            
+            self.channel_lines.append(line)
+        self. animtxts = []
+        self.animtxts.append(self.ax.text(0.65, 0.94 , ' ',
+              transform=self.ax.transAxes,
+              size='small', color='darkblue') )
+
         self.ax.legend(loc="upper right")
+
+      #show static part without blocking
+        plt.show(block=False)
 
     def init(self):
         """plot initial line objects to be animated
         """ 
         return self.channel_lines
 
-    def __call__(self, data):
+    def __call__(self, data, mdata=None):
         """
-        Update graphics
+        Update variable element of graphics
         """
-        # update variable graphics elements
+      # update variable graphics elements
+        # - draw variable graphics elements using  blitting to speed things up
+        self.fig.canvas.restore_region(self.bg)
         for i, line in enumerate(self.channel_lines):
             line.set_ydata(data[::self.iStep][self.dtypes[i][0]]
                            - self.analogue_offset)
-
-        # draw variable graphics elements using  blitting to speed things up
-        #        (just redraw lines)
-        self.fig.canvas.restore_region(self.bg)
-        for line in self.channel_lines:
             self.ax.draw_artist(line)
-            # finish the blitting process
-            self.fig.canvas.blit(self.ax.bbox)    
-        plt.pause(min(0.05, self.min_sleeptime))
+        if mdata is not None:
+            self.animtxts[0].set_text('# '+str(mdata[0][0]))
+            self.ax.draw_artist(self.animtxts[0])
+        # - finish the blitting process
+        self.fig.canvas.blit(self.ax.bbox)    
+        plt.pause(min(0.1, self.min_sleeptime))
 
 # <<- end class animWaveformPlotter
 
@@ -148,35 +156,27 @@ class plot_buffer():
             describe the waveform data as for oscilloscope setup
         """
 
-        # get update interval from dictionary
+      # get update interval from dictionary
         self.min_sleeptime = 1.0 if "min_sleeptime" not in config_dict else \
             config_dict["min_sleeptime"] 
-        #  expect  data, metadata) or None if end
-        #while not readData.source.data_available(): # wait for data to avoid blocking
-        #    time.sleep(0.05)
-
-        # access to buffer data
+      # access to buffer data
         self.data_reader = rbObserver(observe_list=observe_list,
                                       config_dict=config_dict, **rb_info)
         self.active_event = self.data_reader.source._active
-
         self.source_dict = observe_list[0]
-        # initialize oscilloscope-like display
+      # initialize oscilloscope-like display
         self.osciplot = animWaveformPlotter(conf_dict=config_dict,
                                             dtypes=self.source_dict['dtype'])
 
-        # initialize graphics        
-        plt.ion()
-        plt.show()
-
     def __call__(self):
-        
-        # animate graphics
+        """
+        Procude animated waveform display from data read by observer process
+        """
         while True:
            data = next(self.data_reader())
            if data is not None:
               # expect tuple (data, metadata)
-               channel_lines = self.osciplot(data[0]) # update graphics with data
+               channel_lines = self.osciplot(data[0], data[1]) # update graphics with data
               # interrupted sleep so that end-event (=None) is not missed
                dt = 0
                while self.active_event.is_set():
