@@ -399,7 +399,7 @@ class rbImport:
             except:
                 break
               
-            timestamp = time.time_ns()/1000.  # type float64
+            timestamp = time.time_ns()*1e-9  # in s as type float64
             T_data_ready = time.time()
             buffer = self.sink.get_new_buffer()
             # - fill data and metadata 
