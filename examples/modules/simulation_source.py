@@ -73,15 +73,11 @@ def simulation_source(source_list=None, sink_list=None, observe_list=None, confi
         # one pulse at trigger position in layers one and two
         for i_layer in range(n1st):
             # random pulse height for trigger pulse
-            pheight = 0
+            pheight = get_pulse_height()
             if i_layer == 0 :
               #  respect trigger condition in layer 1
                 while pheight < trigger_level:
-                  ##  pheight = np.random.rand()*maxheight
                     pheight = get_pulse_height()
-            else:    
-                ## pheight = np.random.rand()*maxheight
-                pheight = get_pulse_height()
             if np.random.rand() < detector_efficiency:
               pulse[i_layer, mn_position:mn_position+plen] += pheight*pulse_template
 
