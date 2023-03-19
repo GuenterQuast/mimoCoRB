@@ -55,7 +55,9 @@ def simulation_source(source_list=None, sink_list=None, observe_list=None, confi
 
     def simulate(nchan):
 
-        def get_pulse():
+        def get_pulse_height():
+            """Function to generate random pulse height
+            """
             return pulse_height + pulse_width*np.random.normal() - pulse_width*np.log(np.random.rand()) 
         
         # initialize with noise signal
@@ -63,23 +65,23 @@ def simulation_source(source_list=None, sink_list=None, observe_list=None, confi
 
         if np.random.rand() < stopping_probability:   # stopped muon ?     
            stopped_mu = True
-           n1st = 2             # only 2 layers for 1st pulse 
+           n1st = min(2, nchan)             # only 2 layers for 1st pulse 
         else: 
-           stopped_mu = False   # 4 layers for passing muonx
-           n1st = 4
+           stopped_mu = False   # 4 layers for passing muon
+           n1st = nchan
         
         # one pulse at trigger position in layers one and two
-        for i_layer in range(min(2, n1st)):
+        for i_layer in range(n1st):
             # random pulse height for trigger pulse
             pheight = 0
             if i_layer == 0 :
               #  respect trigger condition in layer 1
                 while pheight < trigger_level:
                   ##  pheight = np.random.rand()*maxheight
-                    pheight = get_pulse()
+                    pheight = get_pulse_height()
             else:    
                 ## pheight = np.random.rand()*maxheight
-                pheight = get_pulse()
+                pheight = get_pulse_height()
             if np.random.rand() < detector_efficiency:
               pulse[i_layer, mn_position:mn_position+plen] += pheight*pulse_template
 
@@ -92,20 +94,19 @@ def simulation_source(source_list=None, sink_list=None, observe_list=None, confi
               for i_layer in range(0, min(nchan,2)):
                  # random pulse height and position for 2nd pulse
                  ## pheight2 = np.random.rand()*maxheight
-                 pheight2 = get_pulse()
+                 pheight2 = get_pulse_height()
                  if np.random.rand() < detector_efficiency and pos2 < mx_position:
                    pulse[i_layer, pos2:pos2+plen] += pheight2 * pulse_template
             else:
               for i_layer in range(min(nchan, 2), min(nchan, 4)):
                 # random pulse height and position for 2nd pulse
                 ## pheight2 = np.random.rand()*maxheight        
-                pheight2 = get_pulse()
+                pheight2 = get_pulse_height()
                 if np.random.rand() < detector_efficiency and pos2 < mx_position:
                   pulse[i_layer, pos2:pos2+plen] += pheight2 * pulse_template
 
         pulse += analogue_offset_mv  # apply analogue offset
         return(pulse)
-
     
     def yield_simpulses():
         """generate simulated data, called by instance of class mimoCoRB.rbImport
@@ -131,7 +132,7 @@ def simulation_source(source_list=None, sink_list=None, observe_list=None, confi
             event_count += 1
         
         
-    simulsource = rbImport(config_dict = config_dict, sink_list= sink_list, 
+    simulsource = rbImport(config_dict=config_dict, sink_list=sink_list, 
                             ufunc=yield_simpulses, **rb_info)
     number_of_channels = len(simulsource.sink.dtype)
     # possibly check consistency of provided dtype with simulation !
