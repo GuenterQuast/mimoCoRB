@@ -44,46 +44,62 @@ def simulation_source(source_list=None, sink_list=None, observe_list=None, confi
     tau = plen/4. # decay time of exponential pulse
     mn_position = pre_trigger_samples
     mx_position = number_of_samples - plen
-    maxheight= 750.        
-    noise=maxheight/50.
+    pulse_width = 100.
+    pulse_height = 250.
     pulse_template = \
         np.exp(-np.float64(np.linspace(0., plen, plen, endpoint=False))/tau)
+    noise = pulse_height/30.
     tau_mu = 2200 # muyon life time in ns
     detector_efficiency = 0.95
     stopping_probability = 0.10
 
     def simulate(nchan):
+
+        def get_pulse():
+            return pulse_height + pulse_width*np.random.normal() - pulse_width*np.log(np.random.rand()) 
+        
         # initialize with noise signal
         pulse = np.float64(noise * (0.5-np.random.rand(nchan, number_of_samples)) ) 
 
+        if np.random.rand() < stopping_probability:   # stopped muon ?     
+           stopped_mu = True
+           n1st = 2             # only 2 layers for 1st pulse 
+        else: 
+           stopped_mu = False   # 4 layers for passing muonx
+           n1st = 4
+        
         # one pulse at trigger position in layers one and two
-        for i_layer in range(min(2,nchan)):
+        for i_layer in range(min(2, n1st)):
             # random pulse height for trigger pulse
             pheight = 0
             if i_layer == 0 :
               #  respect trigger condition in layer 1
                 while pheight < trigger_level:
-                    pheight = np.random.rand()*maxheight
+                  ##  pheight = np.random.rand()*maxheight
+                    pheight = get_pulse()
             else:    
-                pheight = np.random.rand()*maxheight
+                ## pheight = np.random.rand()*maxheight
+                pheight = get_pulse()
             if np.random.rand() < detector_efficiency:
               pulse[i_layer, mn_position:mn_position+plen] += pheight*pulse_template
 
         # return if muon was not stopped      
-        if np.random.rand() < stopping_probability:              
+        if stopped_mu:              
             # add delayed pulse(s)
             t_mu = -tau_mu * np.log(np.random.rand()) # muon life time
             pos2 = int(t_mu/sample_time_ns) + pre_trigger_samples
             if np.random.rand() > 0.5:  # upward decay electron
               for i_layer in range(0, min(nchan,2)):
                  # random pulse height and position for 2nd pulse
-                 pheight2 = np.random.rand()*maxheight        
+                 ## pheight2 = np.random.rand()*maxheight
+                 pheight2 = get_pulse()
                  if np.random.rand() < detector_efficiency and pos2 < mx_position:
                    pulse[i_layer, pos2:pos2+plen] += pheight2 * pulse_template
             else:
-              for i_layer in range(min(nchan,2), min(nchan,4)):
+              for i_layer in range(min(nchan, 2), min(nchan, 4)):
                 # random pulse height and position for 2nd pulse
-                pheight2 = np.random.rand()*maxheight        
+                ## pheight2 = np.random.rand()*maxheight        
+                pheight2 = get_pulse()
                 if np.random.rand() < detector_efficiency and pos2 < mx_position:
                   pulse[i_layer, pos2:pos2+plen] += pheight2 * pulse_template
 
