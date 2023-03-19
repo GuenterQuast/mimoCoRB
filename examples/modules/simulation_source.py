@@ -47,7 +47,7 @@ def simulation_source(source_list=None, sink_list=None, observe_list=None, confi
     pulse_width = 100.
     pulse_height = 250.
     pulse_template = \
-        np.exp(-np.float64(np.linspace(0., plen, plen, endpoint=False))/tau)
+        np.exp(-np.float32(np.linspace(0., plen, plen, endpoint=False))/tau)
     noise = pulse_height/30.
     tau_mu = 2200 # muyon life time in ns
     detector_efficiency = 0.95
@@ -61,7 +61,7 @@ def simulation_source(source_list=None, sink_list=None, observe_list=None, confi
             return pulse_height + pulse_width*np.random.normal() - pulse_width*np.log(np.random.rand()) 
         
         # initialize with noise signal
-        pulse = np.float64(noise * (0.5-np.random.rand(nchan, number_of_samples)) ) 
+        pulse = np.float32(noise * (0.5-np.random.rand(nchan, number_of_samples)) ) 
 
         if np.random.rand() < stopping_probability:   # stopped muon ?     
            stopped_mu = True
