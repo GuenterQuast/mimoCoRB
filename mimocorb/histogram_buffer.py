@@ -241,6 +241,13 @@ class histogram_buffer(object):
         """
          :param input: configuration dictionaries
          """
+       # initialze access to mimo_buffer    
+        self.readData = rbExport(source_list=source_list, config_dict=config_dict, **rb_info)
+        self.active_event = self.readData.source._active
+        self.paused_event = self.readData.source._paused
+        dtypes = source_list[0]['dtype']   
+        nam_dtypes = [dtypes[i][0] for i in range(len(dtypes))]
+        
        # evaluate configuration dictionary
         if "histograms" not in config_dict:
             self.hist_descr = None
@@ -251,21 +258,24 @@ class histogram_buffer(object):
             self.hist_descr = list(config_dict['histograms'].values())
             self.title = "Histograms" if 'title' not in config_dict else config_dict['title'] 
             self.interval = 2. if 'interval' not in config_dict else config_dict['interval']
+             # check if names are valid, i.e. in dtypes
             self.nHist = len(self.hist_descr)    
             if self.nHist != len(self.varnams):
-                raise SystemExit(" ERROR: lists of variables and histograms must have same length")
-           # create a multiprocesssing Queue to tranfer information to plotting routine
-            self. histQ = Queue()
-           # start background process  
-            self.histP = Process(name='Histograms', target = plot_Histograms, 
-                                 args=(self.histQ, self.hist_descr, self.interval, self.title)) 
-           #                           data Queue,    Hist.Desrc     interval    
-            self.histP.start()
+                raise SystemExit(" ERROR: lists of variables and histograms must have same length")        
+            for i, vnam in enumerate(self.varnams):
+              if vnam not in nam_dtypes:
+                 print("!!ERROR in histogram_buffer: unknown variable ", vnam,
+                       "\n      no histograms will be produced!")
+                 self.nHist = 0
 
-      # initialze access to mimo_buffer    
-        self.readData = rbExport(source_list=source_list, config_dict=config_dict, **rb_info)
-        self.active_event = self.readData.source._active
-        self.paused_event = self.readData.source._paused
+        if self.nHist > 0:       
+           # create a multiprocesssing Queue to tranfer information to plotting routine
+           self. histQ = Queue()
+          # start background process  
+           self.histP = Process(name='Histograms', target = plot_Histograms, 
+                                args=(self.histQ, self.hist_descr, self.interval, self.title)) 
+          #                           data Queue,    Hist.Desrc     interval    
+           self.histP.start()
 
         self.count = 0
         self.deadtime_f = 0.
@@ -285,17 +295,13 @@ class histogram_buffer(object):
               # 
                 data = d[0]
               # - store and possibly transfer data to be histogrammed
-                if self.hist_descr is not None and self.histP.is_alive():
+                if self.nHist > 0 and self.histP.is_alive():
               # retrieve histogram variables
                     for i, vnam in enumerate(self.varnams):
-                      try:
-                        histdata[i] += (data[0][vnam],)  # appending tuple to list is faster than append()
-                        if self.histQ.empty():
-                          self.histQ.put(histdata)
-                          histdata = [ [] for i in range(self.nHist)]
-                      except:
-                        if self.count == 0:
-                          print("!!ERROR histogram_buffer: unknown variable ", vnam, '\n')
+                      histdata[i] += (data[0][vnam],)  # appending tuple to list is faster than append()
+                      if self.histQ.empty():
+                        self.histQ.put(histdata)
+                        histdata = [ [] for i in range(self.nHist)]
               # - count events        
                 self.count += 1      # ---- end processing data
             else:            
@@ -310,7 +316,7 @@ class histogram_buffer(object):
 
         # if histogrammer active, wait for shutdown to keep graphics window open
         #    (ending-state while paused_event is still set)
-        if self.hist_descr is not None:
+        if self.nHist > 0:
             while self.paused_event.is_set():
                 time.sleep(0.3)
             self.histP.terminate()
