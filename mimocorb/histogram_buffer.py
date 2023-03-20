@@ -283,15 +283,19 @@ class histogram_buffer(object):
                 self.last_event_number = metadata[0]
                 self.deadtime_f += metadata[2]
               # 
-                data = d[0]   
+                data = d[0]
               # - store and possibly transfer data to be histogrammed
                 if self.hist_descr is not None and self.histP.is_alive():
               # retrieve histogram variables
                     for i, vnam in enumerate(self.varnams):
+                      try:
                         histdata[i] += (data[0][vnam],)  # appending tuple to list is faster than append()
-                    if self.histQ.empty():
-                        self.histQ.put(histdata)
-                        histdata = [ [] for i in range(self.nHist)]
+                        if self.histQ.empty():
+                          self.histQ.put(histdata)
+                          histdata = [ [] for i in range(self.nHist)]
+                      except:
+                        if self.count == 0:
+                          print("!!ERROR histogram_buffer: unknown variable ", vnam, '\n')
               # - count events        
                 self.count += 1      # ---- end processing data
             else:            
