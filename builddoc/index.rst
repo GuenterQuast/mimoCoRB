@@ -17,7 +17,7 @@ SiPMs.
 
 The random nature of such processes and the need to keep read-out dead
 times low requires an input buffer for fast collection of data
-and an efficient buffer manager delivering a constant data stream to
+1) 1) 1) and an efficient buffer manager delivering a constant data stre
 the subsequent processing steps. While a data source feeds data into the
 buffer, consumer processes receive the data to filter, reduce, analyze
 or simply visualize data. In order to optimally use the available
@@ -555,6 +555,49 @@ run with input from simulated data is shown in the figure below.
   :width: 1024
   :alt: Screenshot of a simulation run
 
+
+The functions are started as sub-processes and have a unique interface. Lists of dictionaries
+provide the necessary information to connect to the buffer manager via the *Writer*, *Reader*
+or *Observer* calsses of the package. This information comprises the pointer to the shared
+buffer manager as well as pointers to instances of the functions *Event()* or *Queue()*
+from the multiprocessing package to enable communication and data transfers across processes.
+An additional dictionary provides function-specific parameters. The keword dictionary
+*rb_info* specifies wether writer, reader or oberver functionality is reqeuired.
+The function interface looks as follows:
+
+.. code-block:: python
+
+  def <function_name>(
+    source_list=None, sink_list=None, observe_list=None, config_dict=None, **rb_info):
+
+This interface must be respected by any user function. The argument list must also be
+passed to instances of the access classes *rbImort*, *rbExport*, *rbTransfer* or
+*rbObserve*. An example of a user fuction in the directory *modules/* to write bufer
+data to a text file is shown below:
+
+.. code-block:: python
+
+  """Module save_files to handle file I/O for data in txt and parquet format
+
+     This module relies on classes in mimocorb.buffer_control
+  """
+  from mimocorb.buffer_control import rb_toTxtfile, rb_toParquetfile
+  def save_to_txt(source_list=None, sink_list=None, observe_list=None, config_dict=None, **rb_info):
+      sv = rb_toTxtfile(source_list=source_list, config_dict=config_dict, **rb_info)
+      sv()
+
+The *yaml* snippet in the configuration file in the subdirectory *config/*
+to write buffer data to a file named *spectrum.txt* in the subdirectory *target/*
+simply looks as follows:
+
+.. code-block:: yaml
+
+  save_to_txt:
+    filename: "spectrum"
+
+The simple template above serves as an example to implement user-supplied functions
+to interact with *mimiCoRB*. A full example is provided in the subdirectory *examples/*
+of the *mimiCoRB* package.
 
 ====================
 Module Documentation 
