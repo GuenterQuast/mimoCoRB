@@ -24,7 +24,6 @@ class animWaveformPlotter(object):
     updates and redraws only the new elements of the figure
     created in __init__
     """
-
     def __init__(self, conf_dict=None, dtypes=None, fig = None):
         """
         Oscilloscope-like display of wave from buffer data
@@ -103,14 +102,17 @@ class animWaveformPlotter(object):
                                   label=dtype_name)
             self.channel_lines.append(line)
         self. animtxts = []
-        self.animtxts.append(self.ax.text(0.65, 0.94 , ' ',
+        self.animtxts.append(self.ax.text(0.45, 0.94 , ' ',
               transform=self.ax.transAxes,
               size='small', color='darkblue') )
-
         self.ax.legend(loc="upper right")
-
-      #show static part without blocking
+        #show static part without blocking
         plt.show(block=False)
+
+        # init frequency measurement        
+        self.last_evNr = 0
+        self.last_evT = time.time()
+
 
     def init(self):
         """plot initial line objects to be animated
@@ -128,8 +130,13 @@ class animWaveformPlotter(object):
             line.set_ydata(data[::self.iStep][self.dtypes[i][0]]
                            - self.analogue_offset)
             self.ax.draw_artist(line)
-        if mdata is not None:
-            self.animtxts[0].set_text('# '+str(mdata[0][0]))
+        if mdata is not None:  # add event number
+            evNr = mdata[0][0]
+            evT = mdata[0][1]
+            frq = (evNr - self.last_evNr) / (evT - self.last_evT)
+            self.last_evNr = evNr
+            self.last_evT = evT
+            self.animtxts[0].set_text('# '+str(evNr) +'  - {:.3g}'.format(frq) + ' Hz')
             self.ax.draw_artist(self.animtxts[0])
         # - finish the blitting process
         self.fig.canvas.blit(self.ax.bbox)    
