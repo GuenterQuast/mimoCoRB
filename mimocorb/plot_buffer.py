@@ -12,6 +12,9 @@ import matplotlib.style as mplstyle
 from cycler import cycler
 import time
 
+plt.style.use('dark_background')
+plt.style.context("seaborn")
+
 # access to mimiCoRB Observer class
 from .buffer_control import rbObserver
 
@@ -82,12 +85,10 @@ class animWaveformPlotter(object):
         self.ax.set_ylabel('Signal (mV)')
         self.ax.grid(color='grey', linestyle='--', linewidth=0.5)
         
-        mplstyle.use('fast')
-        plt.style.context("seaborn")
-        color_cycler = cycler(color=['blue', 'green', 'red', 'tab:orange'])
-        self.ax.set_prop_cycle(color_cycler)
+        #color_cycler = cycler(color=['lightblue','lightgreen','red','tab:orange'])
+        #self.ax.set_prop_cycle(color_cycler)
         if pre_trigger_samples > 0:
-            self.ax.axvline(0., linestyle = ':', color='darkblue') # trigger time
+            self.ax.axvline(0., linestyle = ':', color='blue') # trigger time
         if trigger_level is not None:
             self.ax.axhline(trigger_level, linestyle = '--', color='darkred') # trigger level
 

@@ -17,9 +17,12 @@ code adapted from https://github.com/GuenterQuast/picoDAQ
 import time, numpy as np
 import itertools
 
-import matplotlib
-matplotlib.use('TkAgg')
+import matplotlib as mpl
+mpl.use('TkAgg')
 import matplotlib.pyplot as plt, matplotlib.animation as anim
+
+plt.style.use('dark_background')
+plt.style.context("seaborn")
 
 from multiprocessing import Queue, Process
 # module to read data from buffer 
@@ -76,8 +79,9 @@ class animHists(object):
 
   # create figure
     # - properties
-    self.textcolor = 'darkgreen'
-    self.barcolor = 'midnightblue'
+    self.textcolor = 'lightgreen'
+#    self.barcolor = 'midnightblue'
+    self.barcolor = 'goldenrod'
     self.ylabel = r'$p_i$'
     
     ncols = int(np.sqrt(self.nHist))

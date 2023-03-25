@@ -16,6 +16,9 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt, matplotlib.animation as anim
 from cycler import cycle
 
+plt.style.use('dark_background')
+plt.style.context("seaborn")
+
 class plot_bufferinfo(object):
   """display statistics from Buffer Manager
 
@@ -46,12 +49,12 @@ class plot_bufferinfo(object):
                wspace=None, hspace=.25)
     self.axtext=plt.subplot2grid((7,1),(0,0), rowspan=2) 
     self.axrate=plt.subplot2grid((7,1),(2,0), rowspan=5) 
-    self.fig.suptitle('mimoCoRB Ring Buffer Information')
+    self.fig.suptitle('mimoCoRB Ring Buffer Information', size='xx-large' )
     self.axtext.set_frame_on(False)
     self.axtext.get_xaxis().set_visible(False)
     self.axtext.get_yaxis().set_visible(False)
     self.axrate.yaxis.tick_right()
-    self.axrate.set_ylabel('DAQ rate (HZ)')
+    self.axrate.set_ylabel('DAQ rate (Hz)')
     self.axrate.set_xlabel('rate history (s)')
     self.xmin = -self.interval * self.Npoints
     self.xmax = 0. 
@@ -71,9 +74,9 @@ class plot_bufferinfo(object):
         self.animlines += line,
     # plot initial text objects
     self.animtxts = ()
-    self.animtxts += ( self.axtext.text(0.015, 0.65 , ' ',
-                         transform=self.axtext.transAxes, color='darkblue') ,)
-    self.animtxts += ( self.axtext.text(0.2, 0.2 , ' ',
+    self.animtxts += ( self.axtext.text(0.015, 0.65 , ' ', size='x-large',
+                         transform=self.axtext.transAxes, color='orange') ,)
+    self.animtxts += ( self.axtext.text(0.2, 0.2 , ' ', size='x-large',
                          transform=self.axtext.transAxes, color='grey') ,)
     self.axrate.legend(loc="lower left")
 
@@ -109,9 +112,9 @@ class plot_bufferinfo(object):
         self.animlines[i].set_ydata(np.concatenate( (R[k+1:], R[:k+1]) ))
 
     self.animtxts[0].set_text( \
-       "Time active: {:.1f}s     Number of Events: {:d}     deadtime: {:.1f}%".format(
+       "Time active: {:.1f}s    Number of Events: {:d}    Deadtime: {:.1f}%".format(
            active_time, Nevents, 100*deadtime) + 
-        10*' ' + "Status: {:s}  ".format(status) )
+        8*' ' + "Status: {:s}  ".format(status) )
     self.animtxts[1].set_text( \
      'current rate: {:.3g}Hz    in buffer: {:d}'.format(
           RBinfo[self.RBnames[0]][2], RBinfo[self.RBnames[0]][1]) )
