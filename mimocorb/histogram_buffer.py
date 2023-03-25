@@ -75,6 +75,11 @@ class animHists(object):
       self.widths.append( 0.5*(be[1]-be[0]) )                            # bar width
 
   # create figure
+    # - properties
+    self.textcolor = 'darkgreen'
+    self.barcolor = 'midnightblue'
+    self.ylabel = r'$p_i$'
+    
     ncols = int(np.sqrt(self.nHist))
     nrows = ncols
     if ncols * nrows < self.nHist: nrows +=1
@@ -107,7 +112,7 @@ class animHists(object):
             axarray[ir,ic].axis('off')
 
     for ih in range(self.nHist):
-      self.axes[ih].set_ylabel('frequency')
+      self.axes[ih].set_ylabel(self.ylabel)
       self.axes[ih].set_xlabel(self.names[ih])
 # guess an appropriate y-range for normalized histogram
       if self.types[ih]:            # log plot
@@ -125,11 +130,11 @@ class animHists(object):
     for ih in range(self.nHist):
     # plot an empty histogram
       self.rects.append(self.axes[ih].bar( self.bcents[ih], self.frqs[ih], 
-           align='center', width=self.widths[ih], facecolor='midnightblue', alpha=0.7) )       
+           align='center', width=self.widths[ih], facecolor=self.barcolor, alpha=0.7) )       
     # emty text
-      self.animtxts.append(self.axes[ih].text(0.55, 0.75, ' ',
+      self.animtxts.append(self.axes[ih].text(0.6, 0.75, ' ',
               transform=self.axes[ih].transAxes,
-              fontsize=8, color='darkred') )
+              fontsize=8, color=self.textcolor) )
 
     graf_objects = tuple(self.animtxts) \
               + tuple(itertools.chain.from_iterable(self.rects) )  
@@ -158,7 +163,7 @@ class animHists(object):
     # update text: entries, mean, std. dev.
         mean = np.sum(self.frqs[ih] * self.bcents[ih])/norm 
         std = np.sqrt( np.sum(self.frqs[ih]*self.bcents[ih]**2)/norm - mean**2)
-        self.animtxts[ih].set_text('Entries: {:d}\n  <> : {:.3g}\n    σ  : {:.3g}'.format(
+        self.animtxts[ih].set_text('  Σ  {:d}\n<> {:.3g}\n  σ  {:.3g}'.format(
           int(self.entries[ih]), mean , std) )
 
     return tuple(self.animtxts)  \
