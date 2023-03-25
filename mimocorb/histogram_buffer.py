@@ -145,11 +145,11 @@ class animHists(object):
     # add recent values to frequency array, input is a list of arrays
     for ih in range(self.nHist):
       vs = vals[ih]
-      self.entries[ih] += len(vs)
       for v in vs:
         iv = int(self.nbins[ih] * (v-self.mins[ih]) / (self.maxs[ih]-self.mins[ih]))
         if iv >=0 and iv < self.nbins[ih]:
-          self.frqs[ih][iv]+=1
+          self.frqs[ih][iv] += 1
+          self.entries[ih] += 1
       if(len(vs)):
         norm = np.sum(self.frqs[ih]) # normalisation to one
     # set new heights for histogram bars
