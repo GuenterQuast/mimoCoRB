@@ -89,8 +89,9 @@ class animHists(object):
       sf = 1. if ncols *nrows != 1 else 2.
       self.fig = plt.figure(name, figsize=(sf*3.*ncols, sf*2.*nrows) )
       axarray = self.fig.subplots(nrows=nrows, ncols=ncols)
-      self.fig.subplots_adjust(left=0.25/ncols, bottom=0.25/nrows, right=0.975, top=0.95,
-                             wspace=0.35, hspace=0.35)
+      self.fig.subplots_adjust(left=0.25/ncols, bottom=0.25/nrows,
+                               right=0.975, top=0.95,
+                               wspace=0.35, hspace=0.35)
     else:
         self.fig = fig
 
@@ -132,9 +133,11 @@ class animHists(object):
       self.rects.append(self.axes[ih].bar( self.bcents[ih], self.frqs[ih], 
            align='center', width=self.widths[ih], facecolor=self.barcolor, alpha=0.7) )       
     # emty text
-      self.animtxts.append(self.axes[ih].text(0.6, 0.75, ' ',
-              transform=self.axes[ih].transAxes,
-              fontsize=8, color=self.textcolor) )
+      bbprops = dict(boxstyle='round',facecolor='wheat', alpha=0.1)
+      self.animtxts.append(self.axes[ih].text(0.975, 0.95, ' ',
+                           verticalalignment='top', horizontalalignment='right',
+                           bbox=bbprops, transform=self.axes[ih].transAxes,
+                           fontsize=8, color=self.textcolor) )
 
     graf_objects = tuple(self.animtxts) \
               + tuple(itertools.chain.from_iterable(self.rects) )  
