@@ -72,7 +72,7 @@ class animHists(object):
       be = np.linspace(self.mins[ih], self.maxs[ih], self.nbins[ih] +1 ) # bin edges
       self.bedges.append(be)
       self.bcents.append( 0.5*(be[:-1] + be[1:]) )                       # bin centers
-      self.widths.append( 0.5*(be[1]-be[0]) )                           # bar width
+      self.widths.append( 0.5*(be[1]-be[0]) )                            # bar width
 
   # create figure
     ncols = int(np.sqrt(self.nHist))
@@ -127,9 +127,9 @@ class animHists(object):
       self.rects.append(self.axes[ih].bar( self.bcents[ih], self.frqs[ih], 
            align='center', width=self.widths[ih], facecolor='midnightblue', alpha=0.7) )       
     # emty text
-      self.animtxts.append(self.axes[ih].text(0.5, 0.925 , ' ',
+      self.animtxts.append(self.axes[ih].text(0.55, 0.75, ' ',
               transform=self.axes[ih].transAxes,
-              size='small', color='darkred') )
+              fontsize=8, color='darkred') )
 
     graf_objects = tuple(self.animtxts) \
               + tuple(itertools.chain.from_iterable(self.rects) )  
@@ -155,8 +155,11 @@ class animHists(object):
     # set new heights for histogram bars
         for rect, frq in zip(self.rects[ih], self.frqs[ih]):
           rect.set_height(frq/norm)
-    # update text
-        self.animtxts[ih].set_text('Entries: %i'%(self.entries[ih]) )
+    # update text: entries, mean, std. dev.
+        mean = np.sum(self.frqs[ih] * self.bcents[ih])/norm 
+        std = np.sqrt( np.sum(self.frqs[ih]*self.bcents[ih]**2)/norm - mean**2)
+        self.animtxts[ih].set_text('Entries: {:d}\n  <> : {:.3g}\n    σ  : {:.3g}'.format(
+          int(self.entries[ih]), mean , std) )
 
     return tuple(self.animtxts)  \
         + tuple(itertools.chain.from_iterable(self.rects) ) 
