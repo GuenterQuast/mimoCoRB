@@ -19,10 +19,12 @@ import itertools
 
 import matplotlib as mpl
 mpl.use('TkAgg')
-import matplotlib.pyplot as plt, matplotlib.animation as anim
 
-plt.style.use('dark_background')
-plt.style.context("seaborn")
+import matplotlib.pyplot as plt, matplotlib.animation as anim
+# define global graphics style
+pref_style = 'dark_background'
+_style = pref_style if pref_style in plt.style.available else 'default'
+plt.style.use(_style)
 
 from multiprocessing import Queue, Process
 # module to read data from buffer 
@@ -91,13 +93,14 @@ class animHists(object):
 
     if fig is None:
       sf = 1. if ncols *nrows != 1 else 2.
-      self.fig = plt.figure(name, figsize=(sf*3.*ncols, sf*2.*nrows) )
-      axarray = self.fig.subplots(nrows=nrows, ncols=ncols)
-      self.fig.subplots_adjust(left=0.25/ncols, bottom=0.25/nrows,
-                               right=0.975, top=0.95,
-                               wspace=0.35, hspace=0.35)
+      self.fig = plt.figure(name, figsize=(sf*3.*ncols, sf*2.*nrows),
+                            layout="compressed")
     else:
         self.fig = fig
+    axarray = self.fig.subplots(nrows=nrows, ncols=ncols)
+    #self.fig.subplots_adjust(left=0.25/ncols, bottom=0.25/nrows,
+    #                         right=0.975, top=0.95,
+    #                         wspace=0.35, hspace=0.35)
 
   # sort axes in linear array
     self.axes = []
@@ -116,10 +119,14 @@ class animHists(object):
           else:
             axarray[ir,ic].axis('off')
 
+    # switch on grid lines        
+    for ax in self.axes:
+      ax.grid(axis='y', linestyle='--', linewidth=1, color='grey')
+            
     for ih in range(self.nHist):
       self.axes[ih].set_ylabel(self.ylabel)
       self.axes[ih].set_xlabel(self.names[ih])
-# guess an appropriate y-range for normalized histogram
+     # guess an appropriate y-range for normalized histogram
       if self.types[ih]:            # log plot
         self.axes[ih].set_yscale('log')
         ymx=self.ymxs[ih]/self.nbins[ih] 
@@ -128,21 +135,21 @@ class animHists(object):
       else:                         # linear y scale
         self.axes[ih].set_ylim(0., self.ymxs[ih]/self.nbins[ih])
         self.frqs.append(np.zeros(self.nbins[ih]))
-    
+
   def init(self):
     self.rects = []
     self.animtxts = []
     for ih in range(self.nHist):
     # plot an empty histogram
       self.rects.append(self.axes[ih].bar( self.bcents[ih], self.frqs[ih], 
-           align='center', width=self.widths[ih], facecolor=self.barcolor, alpha=0.7) )       
+           align='center', width=self.widths[ih], facecolor=self.barcolor,
+                                           alpha=0.7) )       
     # emty text
       bbprops = dict(boxstyle='round',facecolor='wheat', alpha=0.1)
       self.animtxts.append(self.axes[ih].text(0.975, 0.95, ' ',
                            verticalalignment='top', horizontalalignment='right',
                            bbox=bbprops, transform=self.axes[ih].transAxes,
                            fontsize=8, color=self.textcolor) )
-
     graf_objects = tuple(self.animtxts) \
               + tuple(itertools.chain.from_iterable(self.rects) )  
     return graf_objects # return tuple of graphics objects

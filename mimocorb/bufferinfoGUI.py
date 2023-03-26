@@ -16,8 +16,11 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt, matplotlib.animation as anim
 from cycler import cycle
 
-plt.style.use('dark_background')
-plt.style.context("seaborn")
+# define global graphics style
+pref_style = 'dark_background'
+_style = pref_style if pref_style in plt.style.available else 'default'
+plt.style.use(_style)
+
 
 class plot_bufferinfo(object):
   """display statistics from Buffer Manager

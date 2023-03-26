@@ -7,13 +7,14 @@ The _call__() method of this latter class is the entry point to the package.
 """
 
 import numpy as np
-import matplotlib.pyplot as plt, matplotlib.animation as anim
-import matplotlib.style as mplstyle
 from cycler import cycler
 import time
 
-plt.style.use('dark_background')
-plt.style.context("seaborn")
+import matplotlib.pyplot as plt, matplotlib.animation as anim
+# define global graphics style
+pref_style = 'dark_background'
+_style = pref_style if pref_style in plt.style.available else 'default'
+plt.style.use(_style)
 
 # access to mimiCoRB Observer class
 from .buffer_control import rbObserver
