@@ -102,7 +102,7 @@ class plot_bufferinfo(object):
 
     # retrieve data (non-blocking to keep event loop active)
     try: 
-        status, active_time, Nevents, deadtime, RBinfo = \
+        status, active_time, Nevents, deadtime, RBinfo, all_workers_active = \
             self.Q.get(block=True, timeout=0.5)
     except:
         return self.animlines + self.animtxts 
@@ -118,9 +118,11 @@ class plot_bufferinfo(object):
        "Time active: {:.1f}s    Number of Events: {:d}    Deadtime: {:.1f}%".format(
            active_time, Nevents, 100*deadtime) + 
         8*' ' + "Status: {:s}  ".format(status) )
+
+    worker_status = '√' if all_workers_active else '!!!'
     self.animtxts[1].set_text( \
-     'current rate: {:.3g}Hz    in buffer: {:d}'.format(
-          RBinfo[self.RBnames[0]][2], RBinfo[self.RBnames[0]][1]) )
+     'current rate: {:.3g}Hz    in buffer: {:d}    workers {:s}'.format(
+          RBinfo[self.RBnames[0]][2], RBinfo[self.RBnames[0]][1], worker_status) )
 
     return self.animlines + self.animtxts
   

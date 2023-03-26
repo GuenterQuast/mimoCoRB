@@ -945,12 +945,6 @@ class run_mimoDAQ():
         """
         self.verbose = verbose
 
-        # general options 
-        # - allow keyboard control
-        self.kbdcontrol = True
-        # - enable GUI
-        self.GUIcontrol = True
-
         # check for / read command line arguments and load DAQ configuration file
         if len(sys.argv)==2:
             self.setup_filename = sys.argv[1]
@@ -966,10 +960,10 @@ class run_mimoDAQ():
         else: 
             raise FileNotFoundError("No setup YAML file provided")
 
-        # > Get start time
+       # > Get start time
         start_time = time.localtime()
     
-        # > Create a 'target' sub-directory for output of this run
+       # > Create a 'target' sub-directory for output of this run
         template_name = Path(self.setup_filename).stem
         template_name = template_name[:template_name.find("setup")]
         self.directory_prefix = "target/" + template_name + \
@@ -977,14 +971,20 @@ class run_mimoDAQ():
             start_time.tm_year, start_time.tm_mon, start_time.tm_mday,
             start_time.tm_hour, start_time.tm_min)
         os.makedirs(self.directory_prefix, mode=0o0770, exist_ok=True)
-        # > Copy the setup.yaml into the target directory
+       # > Copy the setup.yaml into the target directory
         shutil.copyfile(os.path.abspath(self.setup_filename),
                     os.path.dirname(self.directory_prefix) + "/" + self.setup_filename)
                     
-        # > Separate setup_yaml into ring buffers and functions:
+       # > Separate setup_yaml into ring buffers and functions:
         self.ringbuffers_dict = setup_yaml['RingBuffer']
         self.parallel_functions_dict = setup_yaml['Functions']
 
+       # set general options from input dictionary
+        # - allow keyboard control ? 
+        self.kbdcontrol = True if 'KBD_control' not in setup_yaml else setup_yaml['KBD_control']
+        # - enable GUI ?
+        self.GUIcontrol=True if 'GUI_control' not in setup_yaml else setup_yaml['GUI_control']      
+        
     def __del__(self):
        # print("run_mimoDAQ: destructor called")
        pass        
@@ -1031,13 +1031,13 @@ class run_mimoDAQ():
         animation = ['|', '/', '-', '\\']
         animstep = 0
         # terminal colors 
-        k = '\033[1;30;48m'   # grey
-        r = '\033[1;31;48m'   # red
-        g = '\033[1;32;48m'   # green
-        y = '\033[1;33;48m'   # yellow color
-        b = '\033[1;34;48m'   # blue
-        p = '\033[1;35;48m'   # pink
-        c = '\033[1;36;48m'   # cyan
+        col_k = '\033[1;30;48m'   # grey
+        col_r = '\033[1;31;48m'   # red
+        col_g = '\033[1;32;48m'   # green
+        col_y = '\033[1;33;48m'   # yellow color
+        col_b = '\033[1;34;48m'   # blue
+        col_p = '\033[1;35;48m'   # pink
+        col_c = '\033[1;36;48m'   # cyan
         B = '\033[1;37;48m'   # bold
         U = '\033[4;37;48m'   # underline
         E = '\033[1;37;0m'    # end
@@ -1049,14 +1049,14 @@ class run_mimoDAQ():
         # set-up keyboard control
         if self.kbdcontrol or self.GUIcontrol:
             self.cmdQ = Queue()  # Queue for command input from keyboard
+        if self.kbdcontrol:     
             self.kbdthread = threading.Thread(name='kbdInput',
                           target=self.keyboard_input, args=(self.cmdQ,)).start()
-            print(c+"Keyboard control active"+E+"   type:")
-            print("  " + b + "P<ret>" + E + " to pause")
-            print("  " + b + "R<ret>" + E + " to resume")
-            print("  " + b + "S<ret>" + E + " to stop")
-            print("  " + b + "E<ret>" + E + " to end")
-
+            print(col_c+"Keyboard control active"+E+"   type:")
+            print("  " + col_b + "P<ret>" + E + " to pause")
+            print("  " + col_b + "R<ret>" + E + " to resume")
+            print("  " + col_b + "S<ret>" + E + " to stop")
+            print("  " + col_b + "E<ret>" + E + " to end")
         if self.GUIcontrol:
             self.logQ = Queue()  # Queue for logging to buffer manager info display
             self.RBinfoQ = Queue(1)  # Queue Buffer manager info display
@@ -1067,17 +1067,18 @@ class run_mimoDAQ():
 #                                              cmdQ     BM_logQue    BM_InfoQue      
                                             self.RBnames, self.maxrate, self.interval) )
             self.RBinfo_proc.start()
-            print(c+"Graphical User Interface active " + E)
+            print(col_c+"Graphical User Interface active " + E)
 
         if self.bc.runtime > 0:    
-            print(c+"Run ends after"+E, self.bc.runtime,"s")
+            print(col_c+"Run ends after"+E, self.bc.runtime,"s")
         if self.bc.runevents > 0:    
-            print(c+"Run ends after"+E, self.bc.runevents, "events")
+            print(col_c+"Run ends after"+E, self.bc.runevents, "events")
           
         # > start all workers     
         self.process_list = self.bc.start_workers()
         self.start_time = self.bc.start_time
-        print("\n"+8*' '+"{:d} workers started - ".format(len(self.process_list)),
+        n_workers = len(self.process_list)
+        print("\n"+8*' '+"{:d} workers started - ".format(n_workers),
               time.asctime())
 
         # > activate data taking (in case it was started in paused mode)
@@ -1092,11 +1093,11 @@ class run_mimoDAQ():
         RBinfo = {}
         try:
             while self.run:
-                stat = r+self.bc.status+E+' '
+                stat = col_r+self.bc.status+E+' '
                 if self.bc.status != "Stopped":
                     time_active = time.time() - self.start_time - self.bc.cumulative_pause_time
                 tact_p1s = int(10*(time.time() - self.start_time)) # int in 1s/10 
-                t_act = p+str(int(time_active))+'s '+E
+                t_act = col_p+str(int(time_active))+'s '+E
                 buffer_status_color = stat + t_act
                 buffer_status = time.asctime()+' '+self.bc.status+' '+str(int(time_active))+'s  '
                 # status update once per second
@@ -1107,8 +1108,8 @@ class run_mimoDAQ():
                             N_processed = Nevents
                             deadtime = av_deadtime
                         RBinfo[RB_name]= [Nevents, n_filled, rate]
-                        buffer_status_color += k+RB_name+E+": "+\
-                          p+"{:d}".format(Nevents)+E+"({:d}) {:.3g}Hz ".format(n_filled, rate)
+                        buffer_status_color += col_k+RB_name+E+": "+\
+                          col_p+"{:d}".format(Nevents)+E+"({:d}) {:.3g}Hz ".format(n_filled, rate)
                         buffer_status += RB_name+": "+\
                           "{:d}".format(Nevents) + "({:d}) {:.3g}Hz ".format(n_filled, rate)
                     if self.verbose > 1:
@@ -1118,12 +1119,14 @@ class run_mimoDAQ():
                 if self.GUIcontrol:
                     if self.bc.status != "Stopped": 
                         if tact_p1s%600 == 0: 
-                            self.logQ.put(buffer_status)  
-                        if self.RBinfoQ.empty():
-                        # update rate display
-                            self.RBinfoQ.put( (self.bc.status, time_active, N_processed, av_deadtime, RBinfo ) )
-
-                # check if done
+                            if not self.logQ.full():
+                              self.logQ.put(buffer_status)  
+                        # check if all workers are alive    
+                        all_active = (sum([p.is_alive() for p in self.process_list]) == n_workers)
+                        if self.RBinfoQ.empty(): # update graphical info display
+                            self.RBinfoQ.put( (self.bc.status,
+                                               time_active, N_processed, av_deadtime, RBinfo, all_active,) )
+                # check if done --------------------------------------------------
                 # - end command from keyboad or GUI ? 
                 if (self.kbdcontrol or self.GUIcontrol) and not self.cmdQ.empty():
                     cmd = self.cmdQ.get()

@@ -9,7 +9,7 @@
 #  data from RB_2 and RB_3 are saved to files in tarred parquet format
 #  or in text format.
 #
-#  data from RB_2 are passed to an obsever process driving a real-time display
+#  data from RB_2 are passed to an observer process driving a real-time display
 #
 # Notes:
 # 
@@ -20,6 +20,10 @@
 #
 # ----------------------------------------------------------------------------
 #
+
+# general control options
+GUI_control: true   # control daq via Grapical User Interface
+KBD_control: true   # control daq via KeyBoarD
 
 RingBuffer:
   # define ring buffers
