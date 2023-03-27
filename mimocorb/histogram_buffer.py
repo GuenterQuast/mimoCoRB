@@ -333,7 +333,7 @@ class histogram_buffer(object):
         # print summary when Reader becomes inactive    
         print("\n ->> process 'plot_buffer': SUMMARY")
         print("  received # of events: {:d}".format(self.count),
-              "  last event seen: {:d}".format(int(self.last_event_number)),
+              "  last event id seen: {:d}".format(int(self.last_event_number)),
               "  average deadtime: {:.1f}%".format(100*self.deadtime_f/max(1,self.count)) ) 
 
         # if histogrammer active, wait for shutdown to keep graphics window open
