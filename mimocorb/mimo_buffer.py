@@ -305,8 +305,9 @@ class NewBuffer:
             if self.observerQ.empty() and self.cumulative_event_count != last_ev:
                 with self.write_pointer_lock:
                   # local copy of the data
-                    mdata[:] = self._metadata[self.write_pointer].copy() 
-                    data[:] = self._buffer[self.write_pointer].copy()
+                    idx=self.write_pointer % self.number_of_slots
+                    mdata[:] = self._metadata[idx].copy()
+                    data[:] = self._buffer[idx].copy()
                 self.observerQ.put( (data, mdata) )
                 last_ev = self.cumulative_event_count
             time.sleep(0.05)  # limit rate to 20Hz
