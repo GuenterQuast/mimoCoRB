@@ -5,4 +5,3 @@ pyarrow         10.0.1
 scipy           1.10.0
 tk              0.1.0
 typing          3.7.4.3
-websockets      10.4
