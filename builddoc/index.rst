@@ -16,17 +16,16 @@ physics, e. g. photo tubes, Geiger counters, avalanche photo-diodes or modern
 SiPMs.
 
 The random nature of such processes and the need to keep read-out dead
-times low requires an input buffer for fast collection of data
-1) 1) 1) and an efficient buffer manager delivering a constant data stre
-the subsequent processing steps. While a data source feeds data into the
-buffer, consumer processes receive the data to filter, reduce, analyze
-or simply visualize data. In order to optimally use the available
-resources, multi-core and multi-processing techniques must be applied.
+times low requires an input buffer for fast collection of data and an efficient buffer 
+manager delivering a constant data strem to the subsequent processing steps. 
+While a data source feeds data into the buffer, consumer processes receive the data
+to filter, reduce, analyze or simply visualize data. In order to optimally use the 
+available resources, multi-core and multi-processing techniques must be applied.
 Data consumers may be obligatory ones, i. e. data acquisition pauses if
 all input buffers are full and an obligatory consumer is still busy
-processing. A second type of random consumers ("observers") receives
-an event copy from the buffer manager upon request, without pausing the
-data acquisition process. Typical examples of random consumers are
+processing. A second type of consumer (random consumers or "observers") 
+receives an event copy from the buffer manager upon request, without pausing 
+the data acquisition process. Typical examples of random consumers are
 displays of a subset of the wave forms or of intermediate analysis
 results.
 
@@ -35,7 +34,7 @@ data acquisition for several experiments in advanced physics laboratory
 courses at Karlsruhe Institute of Technology (KIT).
 
 As a simple demonstration, we provide data from simulated signals as would
-be recorded by a detector for cosmic muons with three detection layers.
+be recorded by a detector for cosmic muons with four detection layers.
 Occasionally, such muons stop in an absorber between the 2nd and 3rd layer,
 where they decay at rest and emit a high-energetic electron recorded as a
 2nd pulse in one or two of the detection layers. After data acquisition, a
@@ -547,23 +546,25 @@ configuration looks as follows:
 These additional functions rely on the modules `mimocorb.plot_buffer` and
 `mimocorb.histogram_buffer`, which provide animated displays of waveforms
 similar to an oscilloscope and a histogram package for life-updates of
-frequency distributions of scalar variables. A screenshot of a data-acquisition
-run with input from simulated data is shown in the figure below.
-
-
-.. image:: mimoCoRB_screenshot.png
-  :width: 1024
-  :alt: Screenshot of a simulation run
-
+frequency distributions of scalar variables. Configuration parameters needed 
+for the functions associated to the ringbuffers can either be specified
+as a *yaml* block under a keyword in the general configuration file that
+is assigned to the function *Fkt_main* in the example above. 
+Alternatively, a dedicated configuration file can be specified in a separate
+*yaml* file, as is done for function *Fkt_3* in the example. This latter
+feature is particularly useful if the same function code is used to 
+handle data from different buffers, e.g. writing buffer contents to a 
+file in *csv* format. 
 
 The functions are started as sub-processes and have a unique interface. Lists of dictionaries
 provide the necessary information to connect to the buffer manager via the *Writer*, *Reader*
-or *Observer* calsses of the package. This information comprises the pointer to the shared
+or *Observer* classes of the package. This information comprises the pointer to the shared
 buffer manager as well as pointers to instances of the functions *Event()* or *Queue()*
 from the multiprocessing package to enable communication and data transfers across processes.
-An additional dictionary provides function-specific parameters. The keword dictionary
-*rb_info* specifies wether writer, reader or oberver functionality is reqeuired.
-The function interface looks as follows:
+A further dictionary (*config_dict*) provides the function-specific parameters
+discussed previously. 
+The keyword dictionary *rb_info* specifies whether writer, reader or observer functionality 
+is required. The function interface looks as follows:
 
 .. code-block:: python
 
@@ -586,18 +587,18 @@ data to a text file is shown below:
       sv = rb_toTxtfile(source_list=source_list, config_dict=config_dict, **rb_info)
       sv()
 
-The *yaml* snippet in the configuration file in the subdirectory *config/*
-to write buffer data to a file named *spectrum.txt* in the subdirectory *target/*
-simply looks as follows:
 
-.. code-block:: yaml
+A full example showing how to implement user-supplied functions to interact with
+*mimiCoRB* is provided in the subdirectory *examples/* of the *mimiCoRB* package.
 
-  save_to_txt:
-    filename: "spectrum"
+A screenshot of a data-acquisition run with input from simulated data is shown
+in the figure below.
 
-The simple template above serves as an example to implement user-supplied functions
-to interact with *mimiCoRB*. A full example is provided in the subdirectory *examples/*
-of the *mimiCoRB* package.
+.. image:: mimoCoRB_screenshot.png
+  :width: 1024
+  :alt: Screenshot of a simulation run
+
+
 
 ====================
 Module Documentation 
