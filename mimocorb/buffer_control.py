@@ -100,6 +100,7 @@ class buffer_control():
 
     self.process_list = list()
     self.parallel_functions = {}
+    config_dict_common = None
     
     # get configuration file and time or events per run
     self.runtime = 0 if 'runtime' not in self.functions_dict[0]['Fkt_main'] else \
