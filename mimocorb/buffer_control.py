@@ -415,7 +415,7 @@ class rbImport:
             if metadata is None:
                 self.sink.set_metadata(self.event_count, timestamp, deadtime_fraction)
             else:
-                self.sink.set_metadata(metadata)
+                self.sink.set_metadata(*metadata) # tuple to parameter list
                 
             self.T_last = T_buffer_ready
         # make sure last data entry is also processed        
