@@ -1155,10 +1155,14 @@ class run_mimoDAQ():
 
                 # - time limit reached ?
                 if runtime > 0 and time_active >= runtime:
-                    self.run = False
-                # - number of requested events accumulated ?   
+                    self.logQ.put(time.asctime() + ' requested run time reached: run stopped')  
+                    print("\n Requested run time reached - setting 'Stopped' state ")
+                    self.bc.stop()
+                # - number of requested events collected ?   
                 if runevents > 0 and N_processed >= runevents:
-                    self.run = False
+                    self.logQ.put(time.asctime() + ' requested number of events collected: run stopped')  
+                    print("\n Requested number of events reached - setting 'Stopped' state")
+                    self.bc.stop()
                 # - is writer source to 1st buffer exhausted ?   
                 if self.process_list[-1].exitcode == 0:
                     self.logQ.put(time.asctime() + ' Run stopped')  
