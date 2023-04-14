@@ -32,19 +32,19 @@ RingBuffer:
       number_of_slots: 128
       channel_per_slot: 4250
       data_type:
-          1: ['chA', "float64"]
-          2: ['chB', "float64"]
-          3: ['chC', "float64"]
-          4: ['chD', "float64"]          
+          1: ['chA', "float32"]
+          2: ['chB', "float32"]
+          3: ['chC', "float32"]
+          4: ['chD', "float32"]          
   - RB_2:
       # buffer with accepted signatures (here double-pulses)
       number_of_slots: 128
       channel_per_slot: 4250
       data_type:
-          1: ['chA', "float64"]
-          2: ['chB', "float64"]
-          3: ['chC', "float64"]
-          4: ['chD', "float64"]          
+          1: ['chA', "float32"]
+          2: ['chB', "float32"]
+          3: ['chC', "float32"]
+          4: ['chD', "float32"]          
   - RB_3:
       # buffer with pulse parameters (derived from waveforms)
       number_of_slots: 32
