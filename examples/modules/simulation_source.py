@@ -110,11 +110,7 @@ def simulation_source(source_list=None, sink_list=None, observe_list=None, confi
 
         event_count = 0
 
-       # event_count +=1 
-       # if events_required != 0 and event_count > events_required:
-       #     sys.exit()
-
-        while events_required != 0 and event_count < events_required:
+        while events_required == 0 or event_count < events_required:
 
         # repect wait time (rate adjustment)
             if random: # random ...
