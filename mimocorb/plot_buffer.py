@@ -57,10 +57,10 @@ class animWaveformPlotter(object):
         sample_time_ns = self.conf_dict['sample_time_ns']
         channel_range = 500 if 'channel_range' not in self.conf_dict else \
             self.conf_dict['channel_range']
-        trigger_level = None if 'trigger_level' not in self.conf_dict else \
-            1000.*self.conf_dict['trigger_level']            
         self.analogue_offset = 0. if 'analogue_offset' not in self.conf_dict else \
             1000.*self.conf_dict['analogue_offset']
+        trigger_level = None if 'trigger_level' not in self.conf_dict else \
+            1000.*self.conf_dict['trigger_level'] - self.analogue_offset           
         pre_trigger_samples = 0 if 'pre_trigger_samples' not in self.conf_dict else \
             self.conf_dict['pre_trigger_samples']
         pre_trigger_ns = pre_trigger_samples * sample_time_ns

@@ -33,11 +33,11 @@ def simulation_source(source_list=None, sink_list=None, observe_list=None, confi
     random = False if "random" not in config_dict \
         else config_dict["random"]
     number_of_samples = config_dict["number_of_samples"]
-    trigger_level = 0. if "trigger_level" not in config_dict \
-        else config_dict["trigger_level"]
+    analogue_offset_mv = config_dict["analogue_offset"]*1000.
+    trigger_level_mv = 0. if "trigger_level" not in config_dict \
+        else config_dict["trigger_level"]*1000. - analogue_offset_mv 
     sample_time_ns = config_dict["sample_time_ns"]
     pre_trigger_samples = config_dict["pre_trigger_samples"]
-    analogue_offset_mv = config_dict["analogue_offset"]*1000.
 
     # parameters for simulation
     plen = 400//sample_time_ns # 400 ns pulse window
@@ -76,7 +76,7 @@ def simulation_source(source_list=None, sink_list=None, observe_list=None, confi
             pheight = get_pulse_height()
             if i_layer == 0 :
               #  respect trigger condition in layer 1
-                while pheight < trigger_level:
+                while pheight < trigger_level_mv:
                     pheight = get_pulse_height()
             if np.random.rand() < detector_efficiency:
               pulse[i_layer, mn_position:mn_position+plen] += pheight*pulse_template
