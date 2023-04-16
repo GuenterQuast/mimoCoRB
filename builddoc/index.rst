@@ -16,15 +16,17 @@ physics, e. g. photo tubes, Geiger counters, avalanche photo-diodes or modern
 SiPMs.
 
 The random nature of such processes and the need to keep read-out dead
-times low requires an input buffer for fast collection of data and an efficient buffer 
-manager delivering a constant data strem to the subsequent processing steps. 
-While a data source feeds data into the buffer, consumer processes receive the data
-to filter, reduce, analyze or simply visualize data. In order to optimally use the 
-available resources, multi-core and multi-processing techniques must be applied.
+times low requires an input buffer for fast collection of data and an
+efficient buffer manager delivering a constant data stream to the subsequent
+processing steps. 
+While a data source feeds data into the buffer, consumer processes receive the
+data to filter, reduce, analyze or simply visualize the recorded data. In
+order to optimally use the available resources, multi-core and multi-processing
+techniques must be applied.
 Data consumers may be obligatory ones, i. e. data acquisition pauses if
 all input buffers are full and an obligatory consumer is still busy
 processing. A second type of consumer (random consumers or "observers") 
-receives an event copy from the buffer manager upon request, without pausing 
+receives an event copy from the buffer manager upon request, without interrupting 
 the data acquisition process. Typical examples of random consumers are
 displays of a subset of the wave forms or of intermediate analysis
 results.
@@ -67,7 +69,7 @@ have finished.
 
 As digital filtering of incoming data may be very CPU intensive,
 multi-processing and multi-core capable components are needed to
-ensure sufficient power to process and analyze data.
+ensure sufficient compute power to process and analyze data.
 `mimoCoRB.mimo_buffer` implements such a buffer allowing multiple 
 processes to read ("multiple out") or write ("multiple in") to a
 shared buffer space. 
@@ -109,9 +111,8 @@ signalling and message or data exchange across processes.
 
 The format of data stored in the buffers is based on structured
 *numpy* arrays with (configurable) field names and *numpy* *dtypes*.  
-Each buffer entry is also associated with a unique number and a time 
-stamp in microseconds (*time.time_ns()//1000*) of type *longlong* 
-(64 bit integer) and a deadtime fraction to be provided by the initial
+Each buffer entry is also associated with a unique number, a time 
+stamp and a deadtime fraction to be provided by the initial
 data producer. The deadtime accounts for inefficiencies of the
 data acquisition due to processing in *mimoCoRB*. These metadata are 
 set by the initial producer and must not be changed at a later stage 
@@ -318,7 +319,7 @@ The classes are:
 
   -  class `bufferinfoGUI`:
       A graphical interface showing buffer rates and status information 
-      and providing some control buttons interacting with the runDAQ
+      and providing some control buttons interacting with the run_mimoDAQ
       class. 
     
 These classes shield much of the complexity from the user, who can thus concentrate
