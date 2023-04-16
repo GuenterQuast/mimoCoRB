@@ -7,6 +7,9 @@ general:
   analogue_offset: &analogue_offset -0.48  # in V and not adc!
   sample_time_ns: &sample_time_ns 4
   trigger_level: &trigger_level -0.44 # triger level in V incl. offset
+  trigger_channel: &trigger_channel 'A'
+  trigger_direction: &trigger_direction 'rising'
+  
   pre_trigger_samples: &pre_trigger_samples 500
 
 # Dict for simulation_source.py
@@ -58,6 +61,9 @@ plot_waveform:
   trigger_level: *trigger_level     # trigger level mV
   analogue_offset: *analogue_offset # analogue offset in V
   number_of_samples: *number_of_samples
+  trigger_channel: *trigger_channel
+  trigger_level: *trigger_level
+  trigger_direction: *trigger_direction
   pre_trigger_samples: *pre_trigger_samples
 
 plot_histograms:

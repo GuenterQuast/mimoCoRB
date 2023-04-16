@@ -59,8 +59,12 @@ class animWaveformPlotter(object):
             self.conf_dict['channel_range']
         self.analogue_offset = 0. if 'analogue_offset' not in self.conf_dict else \
             1000.*self.conf_dict['analogue_offset']
-        trigger_level = None if 'trigger_level' not in self.conf_dict else \
+        self.trigger_level = None if 'trigger_level' not in self.conf_dict else \
             1000.*self.conf_dict['trigger_level'] - self.analogue_offset           
+        trigger_channel = '' if 'trigger_channel' not in self.conf_dict else \
+            self.conf_dict['trigger_channel']           
+        trigger_direction = '' if 'trigger_direction' not in self.conf_dict else \
+            self.conf_dict['trigger_direction']           
         pre_trigger_samples = 0 if 'pre_trigger_samples' not in self.conf_dict else \
             self.conf_dict['pre_trigger_samples']
         pre_trigger_ns = pre_trigger_samples * sample_time_ns
@@ -89,10 +93,13 @@ class animWaveformPlotter(object):
         #color_cycler = cycler(color=['lightblue','lightgreen','red','tab:orange'])
         #self.ax.set_prop_cycle(color_cycler)
         if pre_trigger_samples > 0:
-            self.ax.axvline(0., linestyle = ':', color='blue') # trigger time
-        if trigger_level is not None:
-            self.ax.axhline(trigger_level, linestyle = '--', color='darkred') # trigger level
-
+            self.ax.axvline(0., linestyle = ':', color='skyblue') # trigger time
+        if self.trigger_level is not None:
+            self.ax.axhline(self.trigger_level, linestyle = '--', color='red') # trigger level
+            self.ax.text(0.03, 0.94, 
+              'Trg '+trigger_channel+' '+str(self.trigger_level)+'mV '+trigger_direction, 
+              transform=self.ax.transAxes, size='small', color='red' )
+            
         self.bg = self.fig.canvas.copy_from_bbox(self.ax.bbox)
         
         # line objects to be animated, i.e. updated in __call__()
@@ -103,10 +110,10 @@ class animWaveformPlotter(object):
                                   marker='', linestyle='-', lw=1.5, alpha=0.5,
                                   label=dtype_name)
             self.channel_lines.append(line)
-        self. animtxts = []
+        self. animtxts = []        
         self.animtxts.append(self.ax.text(0.45, 0.94 , ' ',
               transform=self.ax.transAxes,
-              size='small', color='darkblue') )
+              size='small', color='goldenrod') )
         self.ax.legend(loc="upper right")
         #show static part without blocking
         plt.show(block=False)
