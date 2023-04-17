@@ -4,9 +4,9 @@ general:
   runtime: 5000
   runevents: &number_of_events 10000000
   number_of_samples: &number_of_samples 4250
-  analogue_offset: &analogue_offset -0.48  # in V and not adc!
+  analogue_offset: &analogue_offset -0.48  # in V (not ADC or V !)
   sample_time_ns: &sample_time_ns 4
-  trigger_level: &trigger_level -0.44 # triger level in V incl. offset
+  trigger_level: &trigger_level -440 # triger level in mV incl. offset
   trigger_channel: &trigger_channel 'A'
   trigger_direction: &trigger_direction 'rising'
   

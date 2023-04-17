@@ -60,7 +60,7 @@ class animWaveformPlotter(object):
         self.analogue_offset = 0. if 'analogue_offset' not in self.conf_dict else \
             1000.*self.conf_dict['analogue_offset']
         self.trigger_level = None if 'trigger_level' not in self.conf_dict else \
-            1000.*self.conf_dict['trigger_level'] - self.analogue_offset           
+            self.conf_dict['trigger_level'] - self.analogue_offset           
         trigger_channel = '' if 'trigger_channel' not in self.conf_dict else \
             self.conf_dict['trigger_channel']           
         trigger_direction = '' if 'trigger_direction' not in self.conf_dict else \
