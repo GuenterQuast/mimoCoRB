@@ -233,9 +233,8 @@ def plot_Histograms(Q, Hdescripts, interval, name = 'Histograms'):
 # set up matplotlib animation
   Hanim = anim.FuncAnimation(figH, H, yieldData_fromQ, 
                       init_func=H.init, interval=interval_ms, blit=True,
-                      fargs=None, repeat=True, save_count=None)
-                           # save_count=None is a (temporary) work-around 
-                           #     to fix memory leak in animate
+                      cache_frame_data=False, 
+                      fargs=None, repeat=True)
   plt.show()
   
 #  except:

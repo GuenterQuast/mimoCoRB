@@ -254,9 +254,7 @@ def bufferinfoGUI(Qcmd, Qlog, Qinfo,
 # set up matplotlib animation for rate history
     RBiAnim = anim.FuncAnimation(figRBi, RBi, sequence_gen,
                      interval=0.1*interval, init_func=RBi.init,
-                     blit=True, fargs=None, repeat=True, save_count=None) 
-                         # save_count=None is a (temporary) work-around 
-                         #     to fix memory leak in animate
+                     blit=True, fargs=None, repeat=True, cache_frame_data=False) 
     Tk.mainloop()
 #  except:
 #    print('*==* bufferinfoGUI: termination signal received')
