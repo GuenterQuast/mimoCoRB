@@ -41,7 +41,7 @@ class NewBuffer:
        - new_writer()        create new writer
        - new_reader_group()  create reader group
        - new_observer()      create observer
-       - buffer_status()     display status: event count, processing rate, occupied slots
+       - buffer_status()     display status: event count, processing rate, occupied slots, average dead time fraction
        - pause()             disable writer(s) to ringbuffer
        - resume()            (re-)enable writers
        - set_ending()        stop data-taking (gives processes time to finish before shutdown)
@@ -354,8 +354,8 @@ class NewBuffer:
         This method is meant for user information purposes only, as the result may
         not be completely accurate due to race conditions.
 
-        :return: Number of free slots in this ringbuffer
-        :rtype: int
+        :return: cumulative event count, number of free slots, processing rate, average deadtime
+        :rtype: tuple
         """
         # estimate number of filled slots in buffer
         with self.read_pointer_lock:
@@ -606,7 +606,7 @@ class Writer:
         """
         if self._current_buffer_index is not None:
             if self._metadata[self._current_buffer_index]['timestamp'] == -1:
-                self._metadata[self._current_buffer_index]['timestamp'] = time.time_ns()/1000.
+                self._metadata[self._current_buffer_index]['timestamp'] = time.time_ns()*1e-9  # in s as type float64
             self._filled_queue.put(self._current_buffer_index)
             self._current_buffer_index = None
 
