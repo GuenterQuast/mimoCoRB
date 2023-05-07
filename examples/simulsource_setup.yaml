@@ -22,8 +22,9 @@
 #
 
 # general control options
-GUI_control: true   # control daq via Grapical User Interface
-KBD_control: true   # control daq via KeyBoarD
+output_directory: target     # directory to store output data
+GUI_control: true            # control daq via Grapical User Interface
+KBD_control: true            # control daq via KeyBoarD
 
 RingBuffer:
   # define ring buffers

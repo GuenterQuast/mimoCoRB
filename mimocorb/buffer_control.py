@@ -961,13 +961,24 @@ class run_mimoDAQ():
         else: 
             raise FileNotFoundError("No setup YAML file provided")
 
+        # set general options from input dictionary
+        # - output directory prefix
+        self.output_directory = 'target' if 'output_directory' not in setup_yaml \
+          else setup_yaml['output_directory']
+        # - allow keyboard control ? 
+        self.kbdcontrol = True if 'KBD_control' not in setup_yaml else setup_yaml['KBD_control']
+        # - enable GUI ?
+        self.GUIcontrol=True if 'GUI_control' not in setup_yaml else setup_yaml['GUI_control']      
+        
+
+          
        # > Get start time
         start_time = time.localtime()
     
        # > Create a 'target' sub-directory for output of this run
         template_name = Path(self.setup_filename).stem
         template_name = template_name[:template_name.find("setup")]
-        self.directory_prefix = "target/" + template_name + \
+        self.directory_prefix = self.output_directory + "/" + template_name + \
             "{:04d}-{:02d}-{:02d}_{:02d}{:02d}/".format(
             start_time.tm_year, start_time.tm_mon, start_time.tm_mday,
             start_time.tm_hour, start_time.tm_min)
@@ -980,12 +991,6 @@ class run_mimoDAQ():
         self.ringbuffers_dict = setup_yaml['RingBuffer']
         self.parallel_functions_dict = setup_yaml['Functions']
 
-       # set general options from input dictionary
-        # - allow keyboard control ? 
-        self.kbdcontrol = True if 'KBD_control' not in setup_yaml else setup_yaml['KBD_control']
-        # - enable GUI ?
-        self.GUIcontrol=True if 'GUI_control' not in setup_yaml else setup_yaml['GUI_control']      
-        
     def __del__(self):
        # print("run_mimoDAQ: destructor called")
        pass        
