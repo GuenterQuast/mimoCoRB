@@ -30,3 +30,11 @@ for cosmic muons with three layers. Occasionally, such muons stop
 in an absorber between the 2nd and 3rd layer, where they decay at rest
 and emit a high-energetic electron recorded as a 2nd pulse in one or
 two of the detection layers. 
+
+To see an example with simulated data, change to the directory `examples/`
+of this package and execute
+
+```bash
+../run_daq.py simulsource_setup.yaml
+```
+
