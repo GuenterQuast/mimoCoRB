@@ -110,6 +110,7 @@ class NewBuffer:
         # Setup pointers
         self.read_pointer = 0  # Pointer referencing the oldest element that is currently worked on by any reader
         self.write_pointer = 0  # Pointer referencing the newest element added to the buffer (might be wrong at startup)
+        self.obs_pointer = 0  # early copy of the write_pointer to handle the observer index
 
         # Setup events for a graceful shutdown
         self.writers_active = Event()
@@ -260,6 +261,8 @@ class NewBuffer:
                         self.write_pointer = max(new_data_index+self.number_of_slots, self.write_pointer)
                     else:
                         self.write_pointer = max(new_data_index, self.write_pointer)
+                # define observer index
+                self.obs_pointer = self.write_pointer
                 # spy on metadata
                 self.sum_deadtimes += self._metadata[new_data_index]['deadtime']
                 # counter = self._metadata[new_data_index]['counter']
@@ -305,9 +308,8 @@ class NewBuffer:
             if self.observerQ.empty() and self.cumulative_event_count != last_ev:
                 with self.write_pointer_lock:
                   # local copy of the data
-                    idx=self.write_pointer % self.number_of_slots
-                    mdata[:] = self._metadata[idx].copy()
-                    data[:] = self._buffer[idx].copy()
+                    mdata[:] = self._metadata[self.obs_pointer].copy()
+                    data[:] = self._buffer[self.obs_pointer].copy()
                 self.observerQ.put( (data, mdata) )
                 last_ev = self.cumulative_event_count
             time.sleep(0.05)  # limit rate to 20Hz
