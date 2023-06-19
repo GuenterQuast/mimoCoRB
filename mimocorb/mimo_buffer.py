@@ -307,7 +307,7 @@ class NewBuffer:
         while self.observers_active.is_set():
             if self.observerQ.empty() and self.cumulative_event_count != last_ev:
                 with self.write_pointer_lock:
-                  # local copy of the data
+                  # local copy of the data using a write_pointer copy (observe pointer)
                     mdata[:] = self._metadata[self.obs_pointer].copy()
                     data[:] = self._buffer[self.obs_pointer].copy()
                 self.observerQ.put( (data, mdata) )
