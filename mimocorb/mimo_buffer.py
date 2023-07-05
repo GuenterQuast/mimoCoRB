@@ -35,7 +35,44 @@ class NewBuffer:
     (necessary parameter objects) for the ``Reader``, ``Writer`` or ``Observer`` instances, respectively.
     Further, methods are provided to allow an index processing (e.g. listeners) and to pause data processing.
 
-    important methods: 
+    Index processing overview: to achieve a proper handling for writing and reading data into a
+    ringbuffer slot regarding the possible definition of more than one reader for a ringbuffer
+    (multiprocessing mode on function level) the determination of the correct slot index is essential.
+    For a ``Writer`` or ``Reader`` two SimpleQueues are defined, respectively. In principle one queue
+    contains the index to be used next and the other the index just processed. An ``Observer`` is
+    treated in a simpler way by using an own global index variable for each instance.
+
+    The queues are passed via the setup dictionary to the corresponding Reader or Writer instance,
+    respectively, and processed there. In addition, the buffer manager provides methods to control
+    the index determination (_writer/_reader/_observer_queue_listener()), started in own threads.
+
+    Writer index:
+
+        - writer_empty_queue: contains the slot numbers (initially filled); defines the next free ringbuffer slot.
+
+            - fetched (removed) in the class Writer -> get_new_buffer()
+            - last processed slot number is refilled in _increment_reader_pointer()
+
+        - writer_filled_queue: empty; contains the last processed slot number (distributed to all defined readers).
+
+            - set in process_buffer()
+
+    Reader index:
+
+        - done_queue: empty; already processed slot number
+        - todo_queue: empty; slot number to be processed next
+
+            - manually incremented in _increment_reader_pointer()
+            - fetched/refilled in the class Reader -> get() via the global variable _last_get_index
+ 
+    Observer index:
+
+        - the global variable obs_pointer is used; it is an early copy of the write_pointer variable
+
+            - defined in _writer_queue_listener()
+            - directly used as index in _observeQ_listener()
+
+    Important methods: 
 
        - __init__()          constructor to create a new 'FIFO' ringbuffer
        - new_writer()        create new writer
