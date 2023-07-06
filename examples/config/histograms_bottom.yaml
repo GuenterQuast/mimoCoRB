@@ -1,0 +1,9 @@
+# histograms for downward decay
+title: "histograms downwad decay"
+# define histograms 
+histograms:  
+  #  name      min  max   nbins ymax  name     lin/log
+  decay_time:  [0., 15000.,  75, 9.9, "Tau (ns)", 1]
+  1st_chA_h:   [0., 1000.,   75, 5.9, "ph 1A", 0]
+  1st_chB_h:   [0., 1000.,   75, 5.9, "ph 1B", 0]
+  2nd_chC_h:   [0., 1000.,   75, 5.9, "ph 2C", 0]

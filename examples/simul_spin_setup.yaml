@@ -151,6 +151,14 @@ Functions:
   - Fkt_7:
       file_name: "modules/plot_histograms"
       fkt_name: "plot_histograms"
+      config_file: "config/histograms_top.yaml"
       num_process: 1
       RB_assign:
            RB_3: "read"  # pulse parameters
+  - Fkt_8:
+      file_name: "modules/plot_histograms"
+      fkt_name: "plot_histograms"
+      config_file: "config/histograms_bottom.yaml"
+      num_process: 1
+      RB_assign:
+           RB_4: "read"  # pulse parameters
