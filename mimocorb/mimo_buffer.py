@@ -299,7 +299,8 @@ class NewBuffer:
                     else:
                         self.write_pointer = max(new_data_index, self.write_pointer)
                 # define observer index
-                self.obs_pointer = self.write_pointer
+                self.obs_pointer = self.write_pointer if self.write_pointer < self.number_of_slots \
+                                                      else self.write_pointer % self.number_of_slots
                 # spy on metadata
                 self.sum_deadtimes += self._metadata[new_data_index]['deadtime']
                 # counter = self._metadata[new_data_index]['counter']
