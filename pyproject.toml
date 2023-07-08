@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.distutils.bdist_wheel]
+universal = true
+
+[project]
+name = "mimocorb"
+description = "multi-in multi-out Configurable Ring Buffer for DAQ"
+authors = [
+    {name = "Günter Quast", email = "Guenter.Quast@online.de"},
+    {name = "Klaus Heitlinger", email = "HeitILNK@t-online.de"},
+    {name = "Christoph Mayer"},
+]
+license = {file = "LICENSE"}
+readme = "README.md"
+requires-python = ">=3.9"
+
+keywords = ["karlsruhe", "data", "lab", "laboratory", "practical course",
+            "education", "acquisition", "university", "students", "physics"
+]
+
+version = "1.0.0"
+# to do: set dynamic version 
+#dynamic = ["version"]
+#[tool.setuptools.dynamic]
+#version = {attr = "mimocorb.__version__"}
+
+classifiers = [
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Development Status :: 5 - stable",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "Topic :: Education",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Scientific/Engineering :: Data Acquisition",
+    "Topic :: Scientific/Engineering :: Visualization",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+
+dependencies = [
+     "NumPy",
+     "Scipy", 
+     "Pandas",
+     "pyarrow",
+     "matplotlib",
+     "pyyaml",
+     "tk",
+     ]
+     
+[tool.setuptools.packages.find]
+include = ["mimocorb*"]
+
+[project.urls]
+Homepage = "http://www.etp.kit.edu/~quast/"
+
