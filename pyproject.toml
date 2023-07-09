@@ -7,28 +7,21 @@ universal = true
 
 [project]
 name = "mimocorb"
+dynamic = ["version"]
 description = "multi-in multi-out Configurable Ring Buffer for DAQ"
 authors = [
     {name = "Günter Quast", email = "Guenter.Quast@online.de"},
     {name = "Klaus Heitlinger", email = "HeitILNK@t-online.de"},
-    {name = "Christoph Mayer"},
-]
+    {name = "Christoph Mayer"} ]
 license = {file = "LICENSE"}
 readme = "README.md"
 requires-python = ">=3.9"
 
 keywords = ["karlsruhe", "data", "lab", "laboratory", "practical course",
-            "education", "acquisition", "university", "students", "physics"
-]
-
-version = "1.0.0"
-# to do: set dynamic version 
-#dynamic = ["version"]
-#[tool.setuptools.dynamic]
-#version = {attr = "mimocorb.__version__"}
+            "education", "acquisition", "university", "students", "physics"]
 
 classifiers = [
-    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "License :: OSI Approved :: MIT BSD 2-Clause License",
     "Development Status :: 5 - stable",
     "Intended Audience :: Education",
     "Intended Audience :: Science/Research",
@@ -40,8 +33,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-]
+    "Programming Language :: Python :: 3.11" ]
 
 dependencies = [
      "NumPy",
@@ -50,11 +42,13 @@ dependencies = [
      "pyarrow",
      "matplotlib",
      "pyyaml",
-     "tk",
-     ]
+     "tk" ]
      
 [tool.setuptools.packages.find]
 include = ["mimocorb*"]
+
+[tool.setuptools.dynamic]
+version = {attr = "mimocorb.__version__"}
 
 [project.urls]
 Homepage = "http://www.etp.kit.edu/~quast/"
