@@ -439,7 +439,7 @@ as follows:
   RingBuffer:
     # define ring buffers
     - RB_1:
-        # raw input data buffer (waveforms from PicoScope, filele_source or simulation_source)
+        # raw input data buffer (waveforms from PicoScope, file_source or simulation_source)
         number_of_slots: 128
         channel_per_slot: 4250
         data_type:
@@ -589,8 +589,34 @@ data to a text file is shown below:
       sv()
 
 
-A full example showing how to implement user-supplied functions to interact with
-*mimiCoRB* is provided in the subdirectory *examples/* of the *mimiCoRB* package.
+Examples showing how to implement user-supplied functions to interact with
+*mimiCoRB* are provided in the subdirectory *examples/* of the *mimiCoRB* package.
+The example described above is defined in the configuration file *simul_source_setup.yam*; 
+a more complex case with two streams  going to different output buffers and files is specified
+in the file simul_spin_setup.yaml. Starting this example with 
+`>  ../run_daq.py simul_spin_setup.yaml` leads to the following terminal output:
+
+.. code-block::
+
+ *==* script ../run_daq.py running 
+
+  4 buffers created...  List of buffers
+  RB_1 128 4250
+  RB_2 128 4250
+  RB_3 32 1
+  RB_4 32 1
+  List of functions
+  FKT_1 simulation_source (1)   {'RB_1': 'write'}
+  FKT_2 calculate_decay_time (2)   {'RB_1': 'read', 'RB_2': 'write', 'RB_3': 'write', 'RB_4': 'write'}
+  FKT_3 save_to_txt (1)   {'RB_3': 'read'}
+  FKT_4 save_to_txt (1)   {'RB_4': 'read'}
+  FKT_5 save_parquet (1)   {'RB_2': 'read'}
+  FKT_6 plot_waveform (1)   {'RB_2': 'observe'}
+  FKT_7 plot_histograms (1)   {'RB_3': 'read'}
+  FKT_8 plot_histograms (1)   {'RB_4': 'read'}
+
+  Running 260s RB_1: 76409(0) 302Hz RB_2: 6118(0) 19Hz RB_3: 2952(1) 9.99Hz RB_4: 3166(1) 8.99Hz  
+
 
 A screenshot of a data-acquisition run with input from simulated data is shown
 in the figure below.
@@ -598,7 +624,6 @@ in the figure below.
 .. image:: mimoCoRB_screenshot.png
   :width: 1024
   :alt: Screenshot of a simulation run
-
 
 
 ====================
