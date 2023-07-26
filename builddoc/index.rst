@@ -348,6 +348,17 @@ are shown in the figure below.
   :width: 1024
   :alt: The structure of a mimoCoRB project
 
+	
+	
+A sequence diagram of a a typical application and the is shown below. This
+illustrates the interplay and dependencies of the main program *run_daq.py*
+with the buffer manager and the user-supplied functions.
+
+.. image:: mimoCoRB_sequence.png
+  :width: 1024
+  :alt: Sequence diagram of a general mimoCoRB application
+
+	
 For complex setups and longer data-taking periods it is important to gain 
 a quick overview of the status of all buffers and to monitor long-term stability. 
 Therefore, a graphical display with the processing rate of all buffers is

@@ -48,43 +48,47 @@ class NewBuffer:
 
     Writer index:
 
-        - writer_empty_queue: contains the slot numbers (initially filled); defines the next free ringbuffer slot.
+    - writer_empty_queue: contains the slot numbers (initially filled); defines the next free ringbuffer slot.
 
-            - fetched (removed) in the class Writer -> get_new_buffer()
-            - last processed slot number is refilled in _increment_reader_pointer()
+      - fetched (removed) in the class Writer -> get_new_buffer()
+      - last processed slot number is refilled in _increment_reader_pointer()
 
-        - writer_filled_queue: empty; contains the last processed slot number (distributed to all defined readers).
+    - writer_filled_queue: empty; contains the last processed slot number (distributed to all defined readers).
 
-            - set in process_buffer()
+      - process_buffer()
 
     Reader index:
 
-        - done_queue: empty; already processed slot number
-        - todo_queue: empty; slot number to be processed next
+    - manually incremented in _increment_reader_pointer() via global variable read_pointer
+    - done_queue: empty; already processed slot number
 
-            - manually incremented in _increment_reader_pointer()
-            - fetched/refilled in the class Reader -> get() via the global variable _last_get_index
- 
+     - fetched in _reader_queue_listener()
+     - filled in the class Reader -> get() via the global variable _last_get_index
+
+    - todo_queue: empty; slot number to be processed next
+
+     - fetched in the class Reader -> get()
+     - filled in _writer_queue-listener (within the list reader_todo_queue_list)
+
     Observer index:
 
-        - the global variable obs_pointer is used; it is an early copy of the write_pointer variable
+    - the global variable obs_pointer is used; it is an early copy of the write_pointer variable
 
-            - defined in _writer_queue_listener()
-            - directly used as index in _observeQ_listener()
+      - defined in _writer_queue_listener()
+      - directly used as index in _observeQ_listener()
 
-    Important methods: 
+    important methods:
 
-       - __init__()          constructor to create a new 'FIFO' ringbuffer
-       - new_writer()        create new writer
-       - new_reader_group()  create reader group
-       - new_observer()      create observer
-       - buffer_status()     display status: event count, processing rate, occupied slots, average dead time fraction
-       - pause()             disable writer(s) to ringbuffer
-       - resume()            (re-)enable writers
-       - set_ending()        stop data-taking (gives processes time to finish before shutdown)
-       - close()             release shared memory
-       - shutdown()          end connected processes, delete ringbuffer
-
+     - __init__() constructor to create a new 'FIFO' ringbuffer
+     - new_writer() create new writer
+     - new_reader_group() create reader group
+     - new_observer() create observer
+     - buffer_status() display status: event count, processing rate, occupied slots
+     - pause() disable writer(s) to ringbuffer
+     - resume() (re-)enable writers
+     - set_ending() stop data-taking (gives processes time to finish before shutdown)
+     - close() release shared memory
+     - shutdown() end connected processes, delete ringbuffer
     """
 
     def __init__(self, number_of_slots, values_per_slot, dtype, debug=False):
