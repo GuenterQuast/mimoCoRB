@@ -58,7 +58,6 @@ serve as a starting point for own projects.
 Description of components
 .........................
 
-
 In order to decouple the random occurrence of "events" one needs a
 buffer capable of rapidly storing new incoming data and delivering
 a constant data stream to subsequent consumer processes. 
@@ -349,10 +348,11 @@ are shown in the figure below.
   :alt: The structure of a mimoCoRB project
 
 	
-	
-A sequence diagram of a a typical application and the is shown below. This
-illustrates the interplay and dependencies of the main program *run_daq.py*
-with the buffer manager and the user-supplied functions.
+A sequence diagram of a a typical application, shown below, illustrates
+illustrates the interplay and dependencies of the classes described
+above. The script *run_daq.py* creates an instance of *run_mimoDAQ* and
+starts its *run()*-method. The interction with the user-supplied filter
+functions is handled by methods of the class *buffer_control*. 
 
 .. image:: mimoCoRB_sequence.png
   :width: 1024
