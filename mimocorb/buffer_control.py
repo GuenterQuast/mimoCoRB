@@ -364,8 +364,7 @@ class rbImport:
                 if len(sink_list) > 1:
                     print("!!! More than one sink presently not foreseen!!")
             elif value == 'observe':
-                for i in range(len(observe_list)):
-                    pass
+                raise ValueError("ERROR! obervers not foreseen!!")              
 
         if self.sink is None:
             raise ValueError("ERROR! Faulty ring buffer configuration!!")
