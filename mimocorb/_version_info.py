@@ -1,7 +1,7 @@
 """
 .. module:: _version_info
    :platform: python 3.6+
-   :synopsis: Version 0.9.0 of mimoCoRB
+   :synopsis: Version 1.0.1 of mimoCoRB (Aug. 2024)
 
 .. moduleauthor:: Guenter Quast <guenter.quast@online.de>
 """
