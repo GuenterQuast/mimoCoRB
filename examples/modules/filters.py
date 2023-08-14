@@ -12,12 +12,12 @@ def normed_pulse(ch_input, position, prominence, analogue_offset):
     # > Find pulse area
     #       rel_height is not good because of the quantized nature of the picoscope data
     #       so we have to "hack" a little bit to always cut 10mV above the analogue offset
-    width_data = signal.peak_widths(ch_data, [int(position)], rel_height=(ch_data[int(position)]-10)/prominence)
+    width_data = signal.peak_widths(ch_data, [int(position)], rel_height=(ch_data[int(position)] - 10) / prominence)
     left_ips, right_ips = width_data[2], width_data[3]
     # Crop pulse area and normalize
-    pulse_data = ch_data[int(np.floor(left_ips)):int(np.ceil(right_ips))]
+    pulse_data = ch_data[int(np.floor(left_ips)) : int(np.ceil(right_ips))]
     pulse_int = sum(pulse_data)
-    pulse_data *= 1/pulse_int
+    pulse_data *= 1 / pulse_int
     return pulse_data, int(np.floor(left_ips)), pulse_int
 
 
@@ -32,7 +32,9 @@ def tag_peaks(input_data, prominence, distance, width):
     peaks = {}
     peaks_prop = {}
     for key in input_data.dtype.names:
-        peaks[key], peaks_prop[key] = signal.find_peaks(input_data[key], prominence=prominence, distance=distance, width=width)
+        peaks[key], peaks_prop[key] = signal.find_peaks(
+            input_data[key], prominence=prominence, distance=distance, width=width
+        )
     return peaks, peaks_prop
 
 
@@ -53,8 +55,8 @@ def correlate_peaks(peaks, tolerance):
                 if abs(next_peak[key] - minimum) < tolerance:
                     idx = data.tolist().index(next_peak[key])
                     line.append(idx)
-                    if len(data) > idx+1:
-                        next_peak[key] = data[idx+1]
+                    if len(data) > idx + 1:
+                        next_peak[key] = data[idx + 1]
                     else:
                         del next_peak[key]
                 else:
@@ -86,8 +88,7 @@ def match_signature(peak_matrix, signature):
     return match
 
 
-
 if __name__ == "__main__":
     print("Script: " + os.path.basename(sys.argv[0]))
-    print("Python: ", sys.version, "\n".ljust(22, '-'))
+    print("Python: ", sys.version, "\n".ljust(22, "-"))
     print("THIS IS A MODULE AND NOT MEANT FOR STANDALONE EXECUTION")

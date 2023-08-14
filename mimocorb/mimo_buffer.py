@@ -27,6 +27,7 @@ from multiprocessing import shared_memory, Lock, SimpleQueue, Queue, Event
 import threading
 import heapq
 
+
 class NewBuffer:
     """Class to create a new ringbuffer object according to the 'FIFO' principle (first-in first-out).
 
@@ -101,10 +102,10 @@ class NewBuffer:
         :param dtype: The data-type of a ringbuffer element. Typically, ringbuffer elements are structured
             NumPy arrays, so the syntax is a list of tuples of the form:
             ``[ (column_name, np.dtype), (coulmn_name, np.dtype), ... ]``
-            See the NumPy "structured arrays" documentation for 
+            See the NumPy "structured arrays" documentation for
             `more detail <https://numpy.org/doc/stable/user/basics.rec.html#structured-datatype-creation>`_
         :type dtype: np.dtype
-        :param debug: Print debug symbols during execution (This should only be used during 
+        :param debug: Print debug symbols during execution (This should only be used during
             development), defaults to False
         :type debug: bool, optional
         """
@@ -117,17 +118,26 @@ class NewBuffer:
         self.dtype = dtype
         m_bytes = number_of_slots * values_per_slot * np.dtype(dtype).itemsize
         self.m_share = shared_memory.SharedMemory(create=True, size=m_bytes)
-        self.metadata_dtype = [('counter', np.longlong), ('timestamp', np.float64), ('deadtime', np.float64)]
+        self.metadata_dtype = [
+            ("counter", np.longlong),
+            ("timestamp", np.float64),
+            ("deadtime", np.float64),
+        ]
         m_bytes = number_of_slots * np.dtype(self.metadata_dtype).itemsize
         self.m_metadata_share = shared_memory.SharedMemory(create=True, size=m_bytes)
 
-        # !!! access to (meta)data in shared-memory 
-        self._buffer = np.ndarray(shape=(self.number_of_slots, self.values_per_slot),
-                                  dtype=self.dtype, buffer=self.m_share.buf)
-        self._metadata = np.ndarray(shape=self.number_of_slots, dtype=self.metadata_dtype,
-                                    buffer=self.m_metadata_share.buf)
+        # !!! access to (meta)data in shared-memory
+        self._buffer = np.ndarray(
+            shape=(self.number_of_slots, self.values_per_slot),
+            dtype=self.dtype,
+            buffer=self.m_share.buf,
+        )
+        self._metadata = np.ndarray(
+            shape=self.number_of_slots,
+            dtype=self.metadata_dtype,
+            buffer=self.m_metadata_share.buf,
+        )
 
-        
         # Setup queues
         # > Queue with all EMPTY memory slots ready to be used by a writer (implicitly kept in order)
         self.writer_empty_queue = SimpleQueue()
@@ -147,7 +157,6 @@ class NewBuffer:
         self.write_pointer_lock = Lock()  # Lock to synchronise self.write_pointer access
         self.heap_lock = Lock()  # Lock to synchronise manipulations on the reader group 'done'-heaps
 
-
         # Setup pointers
         self.read_pointer = 0  # Pointer referencing the oldest element that is currently worked on by any reader
         self.write_pointer = 0  # Pointer referencing the newest element added to the buffer (might be wrong at startup)
@@ -161,11 +170,12 @@ class NewBuffer:
         self.readers_active = Event()
         self.readers_active.set()
         self.writers_paused = Event()
-        self.writers_paused.clear()  
+        self.writers_paused.clear()
 
         # Setup filled buffer dispatcher (in background thread)
-        self._writer_queue_thread = threading.Thread(target=self._writer_queue_listener,
-                                                     name="Main writer queue listener")
+        self._writer_queue_thread = threading.Thread(
+            target=self._writer_queue_listener, name="Main writer queue listener"
+        )
         self._writer_queue_thread.start()
         self.writer_created = False
         self.reader_queue_listener_thread_list = []
@@ -197,16 +207,25 @@ class NewBuffer:
         done_heap = []
         self.reader_done_heap_list.append(done_heap)
         # Start background thread to listen on the done-queue (in lack of an event driven queue implementation)
-        queue_listener = threading.Thread(target=self._reader_queue_listener, args=(done_queue, done_heap),
-                                          name="Main reader queue listener")
+        queue_listener = threading.Thread(
+            target=self._reader_queue_listener,
+            args=(done_queue, done_heap),
+            name="Main reader queue listener",
+        )
         queue_listener.start()
         self.reader_queue_listener_thread_list.append(queue_listener)
-        setup_dict = {"number_of_slots": self.number_of_slots, "values_per_slot": self.values_per_slot,
-                      "dtype": self.dtype, "mshare_name": self.m_share.name,
-                      "metadata_share_name": self.m_metadata_share.name,
-                      "todo_queue": todo_queue, "done_queue": done_queue,
-                      "active": self.readers_active, "paused": self.writers_paused,
-                      "debug": self._debug}
+        setup_dict = {
+            "number_of_slots": self.number_of_slots,
+            "values_per_slot": self.values_per_slot,
+            "dtype": self.dtype,
+            "mshare_name": self.m_share.name,
+            "metadata_share_name": self.m_metadata_share.name,
+            "todo_queue": todo_queue,
+            "done_queue": done_queue,
+            "active": self.readers_active,
+            "paused": self.writers_paused,
+            "debug": self._debug,
+        }
         return setup_dict
 
     def _reader_queue_listener(self, done_queue, done_heap):
@@ -256,8 +275,11 @@ class NewBuffer:
                 # All reader groups are done processing the oldest buffer element...
                 if self._debug:
                     with self.write_pointer_lock:
-                        print("?> pop last element: {:d} (writer right now: {:d})".format(self.read_pointer,
-                                                                                          self.write_pointer))
+                        print(
+                            "?> pop last element: {:d} (writer right now: {:d})".format(
+                                self.read_pointer, self.write_pointer
+                            )
+                        )
                     for reader_heap in self.reader_done_heap_list:
                         print(reader_heap)
                 # ... so remove it from each heap ...
@@ -283,7 +305,7 @@ class NewBuffer:
                             self.write_pointer = 0
                         if self._debug:
                             print("?>        MOD WRITER: {:d} -> {:d}".format(self.read_pointer, self.write_pointer))
-        # If the write pointer was incremented, check if it's possible to further increment it (enabeling the writer 
+        # If the write pointer was incremented, check if it's possible to further increment it (enabeling the writer
         # pointer to 'catch up' if an element was stuck for a long time)
         if pop_last_element:
             self._increment_reader_pointer()
@@ -299,18 +321,21 @@ class NewBuffer:
                 self.cumulative_event_count += 1  # increment event count
                 with self.write_pointer_lock:
                     if new_data_index < self.read_pointer:
-                        self.write_pointer = max(new_data_index+self.number_of_slots, self.write_pointer)
+                        self.write_pointer = max(new_data_index + self.number_of_slots, self.write_pointer)
                     else:
                         self.write_pointer = max(new_data_index, self.write_pointer)
                 # define observer index
-                self.obs_pointer = self.write_pointer if self.write_pointer < self.number_of_slots \
-                                                      else self.write_pointer % self.number_of_slots
+                self.obs_pointer = (
+                    self.write_pointer
+                    if self.write_pointer < self.number_of_slots
+                    else self.write_pointer % self.number_of_slots
+                )
                 # spy on metadata
-                self.sum_deadtimes += self._metadata[new_data_index]['deadtime']
+                self.sum_deadtimes += self._metadata[new_data_index]["deadtime"]
                 # counter = self._metadata[new_data_index]['counter']
                 # timestamp = self._metadata[new_data_index]['timestamp']
                 # deadtime = self._metadata[new_data_index]['deadtime']
-           
+
             for reader_queue in self.reader_todo_queue_list:
                 reader_queue.put(new_data_index)
 
@@ -323,76 +348,89 @@ class NewBuffer:
         :rtype: dict
         """
         self.writer_created = True
-        setup_dict = {"number_of_slots": self.number_of_slots, "values_per_slot": self.values_per_slot,
-                      "dtype": self.dtype, "mshare_name": self.m_share.name,
-                      "metadata_share_name": self.m_metadata_share.name,
-                      "empty_queue": self.writer_empty_queue, "filled_queue": self.writer_filled_queue,
-                      "active": self.writers_active, "paused": self.writers_paused,
-                      "debug": self._debug}
+        setup_dict = {
+            "number_of_slots": self.number_of_slots,
+            "values_per_slot": self.values_per_slot,
+            "dtype": self.dtype,
+            "mshare_name": self.m_share.name,
+            "metadata_share_name": self.m_metadata_share.name,
+            "empty_queue": self.writer_empty_queue,
+            "filled_queue": self.writer_filled_queue,
+            "active": self.writers_active,
+            "paused": self.writers_paused,
+            "debug": self._debug,
+        }
         return setup_dict
 
     def _observerQ_listener(self):
-        """Put latest data and metadata in Queue for observer if empty 
+        """Put latest data and metadata in Queue for observer if empty
 
-           maximum event rate is limited to 20Hz
+        maximum event rate is limited to 20Hz
         """
-        
-      # pre-allocate memory for local copy of data
+
+        # pre-allocate memory for local copy of data
         data = np.empty(shape=(self.values_per_slot,), dtype=self.dtype)
         mdata = np.empty(shape=(1,), dtype=self.metadata_dtype)
 
         last_ev = 0
-      # wait for first data
+        # wait for first data
         while self.cumulative_event_count == 0:
-            time.sleep(0.05) 
-      # put data in oberver Queue if empty       
+            time.sleep(0.05)
+        # put data in oberver Queue if empty
         while self.observers_active.is_set():
             if self.observerQ.empty() and self.cumulative_event_count != last_ev:
                 with self.write_pointer_lock:
-                  # local copy of the data using a write_pointer copy (observe pointer)
+                    # local copy of the data using a write_pointer copy (observe pointer)
                     mdata[:] = self._metadata[self.obs_pointer].copy()
                     data[:] = self._buffer[self.obs_pointer].copy()
-                self.observerQ.put( (data, mdata) )
+                self.observerQ.put((data, mdata))
                 last_ev = self.cumulative_event_count
             time.sleep(0.05)  # limit rate to 20Hz
         # reached end:
-        #   send None to signal end-of-run to client, give some grace time before timing-out   
-        self.observerQ.put( None, block=True, timeout=3.)
-        
+        #   send None to signal end-of-run to client, give some grace time before timing-out
+        self.observerQ.put(None, block=True, timeout=3.0)
+
     def new_observer(self):
         """Method to create a new (Queue based) observer.
 
-        Method: a copy of the most recent data (latest write_pointer) is transferred via a 
-        Queue whenever the Queue (of size 1) is empty. Sending data through the Queue is handled 
+        Method: a copy of the most recent data (latest write_pointer) is transferred via a
+        Queue whenever the Queue (of size 1) is empty. Sending data through the Queue is handled
         in a sparate thread
-        
+
         :return: The ``setup_dict`` object passed to an ``Observer``-instance to give access to
            the data Queue defined for this ringbuffer.
         :rtype: dict
         """
 
-        # create a Queue with size of one (Queue.empty() can be used to synchronize with client) 
+        # create a Queue with size of one (Queue.empty() can be used to synchronize with client)
         self.observerQ = Queue(1)
 
-        setup_dict = {"number_of_slots": self.number_of_slots, "values_per_slot": self.values_per_slot,
-                      "dtype": self.dtype, "mshare_name": self.m_share.name,
-                      "metadata_share_name": self.m_metadata_share.name,
-                      "dataQ": self.observerQ, "active": self.observers_active, 
-                      "paused": self.writers_paused, "debug": self._debug}
-            
-        self.observerQ_listener_thread = threading.Thread(target=self._observerQ_listener,
-                                          name="observer_queue_listener")
+        setup_dict = {
+            "number_of_slots": self.number_of_slots,
+            "values_per_slot": self.values_per_slot,
+            "dtype": self.dtype,
+            "mshare_name": self.m_share.name,
+            "metadata_share_name": self.m_metadata_share.name,
+            "dataQ": self.observerQ,
+            "active": self.observers_active,
+            "paused": self.writers_paused,
+            "debug": self._debug,
+        }
+
+        self.observerQ_listener_thread = threading.Thread(
+            target=self._observerQ_listener, name="observer_queue_listener"
+        )
         self.observerQ_listener_thread.start()
 
         return setup_dict
-    
+
     def _init_buffer_status(self):
         self.Tlast = self.Tstart
         self.Nlast = 0
-        self.cumulative_event_count = 0         # cumulative number of events
-        self.sum_deadtimes = 0. 
-        self.dtlast = 0.
-        
+        self.cumulative_event_count = 0  # cumulative number of events
+        self.sum_deadtimes = 0.0
+        self.dtlast = 0.0
+
     def buffer_status(self):
         """Processing Rate and approximate number of free slots in this ringbuffer.
         This method is meant for user information purposes only, as the result may
@@ -405,9 +443,12 @@ class NewBuffer:
         with self.read_pointer_lock:
             actually_read = self.read_pointer - 1
         with self.write_pointer_lock:
-            actually_written = self.write_pointer        
-        n_filled = actually_written - actually_read if actually_written >= actually_read \
-              else self.number_of_slots - actually_read + actually_written
+            actually_written = self.write_pointer
+        n_filled = (
+            actually_written - actually_read
+            if actually_written >= actually_read
+            else self.number_of_slots - actually_read + actually_written
+        )
 
         # determine event rate handled by this buffer
         T = time.time()
@@ -415,34 +456,31 @@ class NewBuffer:
         self.Tlast = T
         dN = self.cumulative_event_count - self.Nlast
         self.Nlast = self.cumulative_event_count
-        rate = dN/dT
+        rate = dN / dT
         # determine average dead time of events this buffer
         dD = self.sum_deadtimes - self.dtlast
-        self.dtlast = self.sum_deadtimes      
-        av_deadtime = dD/(max(1, dN))
-        
+        self.dtlast = self.sum_deadtimes
+        av_deadtime = dD / (max(1, dN))
+
         return self.cumulative_event_count, n_filled, rate, av_deadtime
 
     def pause(self):
-        """Disable writing to ringbuffer (paused)
-        """
+        """Disable writing to ringbuffer (paused)"""
         # Disable writing new data to the buffer
-        self.writers_paused.set()  
+        self.writers_paused.set()
 
     def resume(self):
-        """(Re)enable  writing to ringbuffer (resume)
-        """
-        # re-enable writing new data to the buffer 
-        self.writers_paused.clear()  
+        """(Re)enable  writing to ringbuffer (resume)"""
+        # re-enable writing new data to the buffer
+        self.writers_paused.clear()
 
     def set_ending(self):
-        """ Stop data flow (before shut-down)
-        """
-        self.writers_paused.set()   # raise paused flag 
-        self.writers_active.clear() # 
+        """Stop data flow (before shut-down)"""
+        self.writers_paused.set()  # raise paused flag
+        self.writers_active.clear()  #
         time.sleep(0.5)
-        self.readers_active.set()   # keep readers still active 
-        
+        self.readers_active.set()  # keep readers still active
+
     def shutdown(self):
         """Shut down the ringbuffer(s): close background threads, terminate associated processes and
         release the shared memory definitions.
@@ -455,12 +493,12 @@ class NewBuffer:
 
         **CAUTION!** If there are loops in the signal analysis chain, this method may end in an infinite loop!
         """
-        # Disable writing new data to the buffer 
+        # Disable writing new data to the buffer
         self.writers_active.clear()
         # In case no new data is written to the buffer, send something to the
         # writer_filled_queue to unblock _writer_queue_listener(...) and allow the thread to terminate
         self.writer_filled_queue.put(None)
-        # indicate  end-of-run to observers 
+        # indicate  end-of-run to observers
         self.observers_active.clear()
 
         # Get the slot with the latest valid data
@@ -471,17 +509,19 @@ class NewBuffer:
             # while processing an element, while the following element was already done processing!
             # This could cause an infinite loop! (Only possible if the reader closes prematurely, eg.
             # due to unconventional signal chains!)
-            print("Shutdown is waiting for processing to end!\n"
-                  "  processing: {:d}, target: {:d}".format(self.read_pointer, latest_observed_index))
+            print(
+                "Shutdown is waiting for processing to end!\n"
+                "  processing: {:d}, target: {:d}".format(self.read_pointer, latest_observed_index)
+            )
             time.sleep(0.5)
-            # We have to update latest_observed_index since self.write_pointer might change 
+            # We have to update latest_observed_index since self.write_pointer might change
             # in case self.read_pointer lapped the ring buffer
             with self.write_pointer_lock:
                 latest_observed_index = self.write_pointer
 
-        # set status flags to indicate end-of-run (not paused, active cleared)        
+        # set status flags to indicate end-of-run (not paused, active cleared)
         self.readers_active.clear()
-        self.writers_paused.clear() 
+        self.writers_paused.clear()
         # Now quit all reader processes (they are currently all blocking and waiting on the reader_todo_queue)
 
         wait_shutdown = True
@@ -504,7 +544,7 @@ class NewBuffer:
         self.m_share.unlink()
         self.m_metadata_share.close()
         self.m_metadata_share.unlink()
-        
+
     def __del__(self):
         # unlink shared memory if not done yet
         try:
@@ -515,7 +555,9 @@ class NewBuffer:
         except:
             pass
 
+
 # <<-- end class NewBuffer
+
 
 class Writer:
     """
@@ -557,10 +599,18 @@ class Writer:
         array_shape = (self.number_of_slots, self.values_per_slot)
         self._buffer = np.ndarray(shape=array_shape, dtype=self.dtype, buffer=self._m_share.buf)
         self._metadata_share = shared_memory.SharedMemory(name=setup_dict["metadata_share_name"])
-        metadata_dtype = [('counter', np.longlong), ('timestamp', np.float64), ('deadtime', np.float64)]
-        self._metadata = np.ndarray(shape=self.number_of_slots, dtype=metadata_dtype, buffer=self._metadata_share.buf)
+        metadata_dtype = [
+            ("counter", np.longlong),
+            ("timestamp", np.float64),
+            ("deadtime", np.float64),
+        ]
+        self._metadata = np.ndarray(
+            shape=self.number_of_slots,
+            dtype=metadata_dtype,
+            buffer=self._metadata_share.buf,
+        )
 
-        # Get queues for IPC with the buffer manager 
+        # Get queues for IPC with the buffer manager
         self._empty_queue = setup_dict["empty_queue"]
         self._filled_queue = setup_dict["filled_queue"]
 
@@ -608,9 +658,9 @@ class Writer:
             if not self._active.is_set():
                 raise SystemExit
         # Set dummy metadata (to overwrite old metadata in this slot)
-        self._metadata[self._current_buffer_index]['timestamp'] = -1
-        self._metadata[self._current_buffer_index]['counter'] = self._write_counter
-        self._metadata[self._current_buffer_index]['deadtime'] = -1
+        self._metadata[self._current_buffer_index]["timestamp"] = -1
+        self._metadata[self._current_buffer_index]["counter"] = self._write_counter
+        self._metadata[self._current_buffer_index]["deadtime"] = -1
         self._write_counter += 1
         return self._buffer[self._current_buffer_index, :]
 
@@ -635,9 +685,9 @@ class Writer:
         :type deadtime: float (np.float64)
         """
         if self._current_buffer_index is not None:
-            self._metadata[self._current_buffer_index]['counter'] = counter
-            self._metadata[self._current_buffer_index]['timestamp'] = timestamp
-            self._metadata[self._current_buffer_index]['deadtime'] = deadtime
+            self._metadata[self._current_buffer_index]["counter"] = counter
+            self._metadata[self._current_buffer_index]["timestamp"] = timestamp
+            self._metadata[self._current_buffer_index]["deadtime"] = deadtime
 
     def process_buffer(self):
         """Mark the current ringbuffer element as "ready to be processed".
@@ -649,16 +699,17 @@ class Writer:
         minimize the ringbuffer lock time.
         """
         if self._current_buffer_index is not None:
-            if self._metadata[self._current_buffer_index]['timestamp'] == -1:
-                self._metadata[self._current_buffer_index]['timestamp'] = time.time_ns()*1e-9  # in s as type float64
+            if self._metadata[self._current_buffer_index]["timestamp"] == -1:
+                self._metadata[self._current_buffer_index]["timestamp"] = time.time_ns() * 1e-9  # in s as type float64
             self._filled_queue.put(self._current_buffer_index)
             self._current_buffer_index = None
+
 
 # <<-- end class Writer
 
 
 class Reader:
-    """    
+    """
     Class to read elements from a ringbuffer (multiple-out part).
 
     Ringbuffer elements are structured NumPy arrays and strictly **read-only**. The returned
@@ -667,7 +718,7 @@ class Reader:
     A program design processing the ringbuffer content has to call the ``Reader.get()``-method
     in a way that minimizes the ringbuffer lock time.
 
-    methods: 
+    methods:
 
       - get()
       - get_metadata():
@@ -689,7 +740,7 @@ class Reader:
             If multiple processes wait on new elements, the allocation is managed by the
             scheduler of the host OS.
         """
-        
+
         # Get buffer configuration from setup dictionary
         self.number_of_slots = setup_dict["number_of_slots"]
         self.values_per_slot = setup_dict["values_per_slot"]
@@ -700,11 +751,18 @@ class Reader:
         self._buffer = np.ndarray(shape=array_shape, dtype=self.dtype, buffer=self._m_share.buf)
         # self._buffer.flags.writeable = False  # to be tested?
         self._metadata_share = shared_memory.SharedMemory(name=setup_dict["metadata_share_name"])
-        self.metadata_dtype = [('counter', np.longlong), ('timestamp', np.float64), ('deadtime', np.float64)]
-        self._metadata = np.ndarray(shape=self.number_of_slots, dtype=self.metadata_dtype,
-                                    buffer=self._metadata_share.buf)
+        self.metadata_dtype = [
+            ("counter", np.longlong),
+            ("timestamp", np.float64),
+            ("deadtime", np.float64),
+        ]
+        self._metadata = np.ndarray(
+            shape=self.number_of_slots,
+            dtype=self.metadata_dtype,
+            buffer=self._metadata_share.buf,
+        )
 
-        # Get queues for IPC with the buffer manager 
+        # Get queues for IPC with the buffer manager
         self._todo_queue = setup_dict["todo_queue"]
         self._done_queue = setup_dict["done_queue"]
 
@@ -731,9 +789,8 @@ class Reader:
         del self._metadata
         self._metadata_share.close()
 
-    def data_available(self):    
-        """Method to check for new data and avoid blocking of consumers
-        """
+    def data_available(self):
+        """Method to check for new data and avoid blocking of consumers"""
         return not self._todo_queue.empty()
 
     def get(self):
@@ -757,7 +814,7 @@ class Reader:
         # Only return a buffer if the index is valid!
         while self._last_get_index is None:
             self._last_get_index = self._todo_queue.get()
-            # Check if the parent buffer has been 'shutdown()'. 
+            # Check if the parent buffer has been 'shutdown()'.
             # If yes, end this process
             if not self._active.is_set():
                 raise SystemExit
@@ -783,22 +840,25 @@ class Reader:
         :rtype: tuple
         """
         if self._last_get_index is not None:
-            timestamp = self._metadata[self._last_get_index]['timestamp']
-            counter = self._metadata[self._last_get_index]['counter']
-            deadtime = self._metadata[self._last_get_index]['deadtime']
+            timestamp = self._metadata[self._last_get_index]["timestamp"]
+            counter = self._metadata[self._last_get_index]["counter"]
+            deadtime = self._metadata[self._last_get_index]["deadtime"]
             return counter, timestamp, deadtime
         else:
             return 0, -1, -1
 
+
 # <<-- end class Reader
+
 
 class Observer:
     """
     Class for reading selected elements from a ringbuffer via q multiprocessing Queue
 
-    The data transfer is implemented via a multiprocessing Queue and interfaces 
+    The data transfer is implemented via a multiprocessing Queue and interfaces
     with the ringbuffer manager (``NewBuffer``-class).
     """
+
     def __init__(self, setup_dict):
         """Constructor to create an ``Observer``-object that grants access to the ringbuffer
         specified in the ``setup_dict`` object.
@@ -806,7 +866,7 @@ class Observer:
         :param setup_dict: The setup dictionary for the *observer* this instance is a part of.
             The setup dictionary can be obtained by calling ``NewBuffer.new_Qobserver()`` in
             this instances' parent process. Sharing the same setup dictionary between multiple
-            observer processes is possible, calling ``NewBuffer.new_Qobserver()`` multiple 
+            observer processes is possible, calling ``NewBuffer.new_Qobserver()`` multiple
             times is allowed as well.
         """
         self._active = setup_dict["active"]
@@ -821,8 +881,8 @@ class Observer:
         """
         Get latest element from buffer: metadata  and data
 
-        As new data is provided and transferred as soon as data is read from 
-        the Queue, the get() method must not be called too frequentls 
+        As new data is provided and transferred as soon as data is read from
+        the Queue, the get() method must not be called too frequentls
         """
         # transferred data is either None (end of data taking) or a tuple  (metadata, data)
         d = self.dataQ.get()
@@ -834,5 +894,6 @@ class Observer:
         """
         if self._debug:
             print(" > DEBUG: QObserver destructor called (PID: {:d})".format(os.getpid()))
+
 
 # <<-- end class Observer

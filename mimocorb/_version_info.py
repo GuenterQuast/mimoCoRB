@@ -10,6 +10,7 @@ major = 1
 minor = 0
 revision = 1
 
+
 def _get_version_tuple():
     """
     version as a tuple

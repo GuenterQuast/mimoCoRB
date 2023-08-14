@@ -16,21 +16,21 @@ import numpy as np
 from multiprocessing import Process, Value
 from mimocorb import mimo_buffer as bm
 
-# global variables 
+# global variables
 N_requested = 1000  # number of data injections ("events")
-Time_tick = 0.001   # time between events
-Ncpu1 = 2           # number of parallel analyzer processes
+Time_tick = 0.001  # time between events
+Ncpu1 = 2  # number of parallel analyzer processes
+
 
 def data_generator(sink_dict):
-    """writes continuously rising integers to buffer specified in sink_dict
-    """
+    """writes continuously rising integers to buffer specified in sink_dict"""
     sink = bm.Writer(sink_dict)
-    n=0
+    n = 0
     # inject data
     for x in range(N_requested):
-        buffer = sink.get_new_buffer() # get new buffer and pass last item
+        buffer = sink.get_new_buffer()  # get new buffer and pass last item
         #  random wait for next data item
-        time.sleep(-Time_tick*np.log(np.random.rand() ))
+        time.sleep(-Time_tick * np.log(np.random.rand()))
         # fill "data"
         n += 1
         buffer[:] = n
@@ -39,41 +39,38 @@ def data_generator(sink_dict):
 
 
 def analyzer(source_dict, sink_dict):
-    """read from source and write first element and a time difference to sink
-    """
+    """read from source and write first element and a time difference to sink"""
     source = bm.Reader(source_dict)
     sink = bm.Writer(sink_dict)
     start_time = time.time()
-    
+
     while True:
         input_data = source.get()
         output_data = sink.get_new_buffer()
         # process data
         output_data[0] = input_data[0]
         # mimick processing time
-        time.sleep(2*Time_tick)
+        time.sleep(2 * Time_tick)
         output_data[1] = time.time() - start_time
 
-        # 
+        #
         sink.process_buffer()
 
 
 def check_result(source_dict, res):
-    """reads RB_2 and sum up the integer content 
+    """reads RB_2 and sum up the integer content
 
-       sum is returned as shared memory Value-object
+    sum is returned as shared memory Value-object
     """
     source = bm.Reader(source_dict)
     sum_rb = 0
     while True:
         input_data = source.get()
-        res.value +=int(input_data[0])
+        res.value += int(input_data[0])
 
 
 def run_control():
-    """Setup buffers, start processes and shut_down when 1st writer done 
-    
-    """
+    """Setup buffers, start processes and shut_down when 1st writer done"""
 
     # Create ring buffers: #2: 10 channel, 2 value per channel
     #    (1: buffer content; 2: time difference as int)
@@ -88,30 +85,27 @@ def run_control():
     # Create worker processes (correct sequence: first action as last)
     process_list = []
     #  evaluation to test ring buffer behavior
-    result = Value('i', 0)   # int variable in shared meomry
-    process_list.append(Process(target=check_result,
-                                args=(source_dic_eval, result)))
+    result = Value("i", 0)  # int variable in shared meomry
+    process_list.append(Process(target=check_result, args=(source_dic_eval, result)))
     # data transfer between the 2 buffers: generator_buffer -> eval_buffer
     sink_dic_eval = eval_buffer.new_writer()
     # work with all cpu's requested
     number_of_workers = Ncpu1
     for i in range(number_of_workers):
-        process_list.append(Process(target=analyzer,
-                                    args=(source_dic_gen, sink_dic_eval)))
+        process_list.append(Process(target=analyzer, args=(source_dic_gen, sink_dic_eval)))
 
     # fill buffer (generator_buffer) with data first
     sink_dic_gen = generator_buffer.new_writer()
-    process_list.append(Process(target=data_generator,
-                                args=(sink_dic_gen,)))
+    process_list.append(Process(target=data_generator, args=(sink_dic_gen,)))
 
     for p in process_list:
         p.start()
 
     run_active = True
     while run_active:
-       run_active = False if process_list[-1].exitcode==0 else True
-       time.sleep(0.1)  # wait
-        
+        run_active = False if process_list[-1].exitcode == 0 else True
+        time.sleep(0.1)  # wait
+
     time.sleep(0.1)  # some grace-time for readers to finish
 
     generator_buffer.shutdown()
@@ -125,11 +119,10 @@ def run_control():
 
 
 class RPTest(unittest.TestCase):
-
     def test_process(self):
         # start python test module and check result
         a = run_control()
-        expected_result = N_requested*(N_requested+1)//2
+        expected_result = N_requested * (N_requested + 1) // 2
         self.assertEqual(a, expected_result)  # expected result: sum(i); i = 1, N_requested
 
 

@@ -5,6 +5,7 @@
 
 from mimocorb.buffer_control import rb_toTxtfile, rb_toParquetfile
 
+
 # def save_to_txt(source_dict):
 def save_to_txt(source_list=None, sink_list=None, observe_list=None, config_dict=None, **rb_info):
     sv = rb_toTxtfile(source_list=source_list, config_dict=config_dict, **rb_info)
@@ -19,5 +20,5 @@ def save_parquet(source_list=None, sink_list=None, observe_list=None, config_dic
 
 if __name__ == "__main__":
     print("Script: " + os.path.basename(sys.argv[0]))
-    print("Python: ", sys.version, "\n".ljust(22, '-'))
+    print("Python: ", sys.version, "\n".ljust(22, "-"))
     print("THIS IS A MODULE AND NOT MEANT FOR STANDALONE EXECUTION")
