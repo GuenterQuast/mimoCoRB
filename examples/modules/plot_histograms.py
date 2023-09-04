@@ -1,6 +1,8 @@
 """
 **plot_histograms**: histogram variable(s) from buffer using mimoCoRB.histogram_buffer 
 """
+import sys
+import os
 from mimocorb.histogram_buffer import histogram_buffer
 import matplotlib
 

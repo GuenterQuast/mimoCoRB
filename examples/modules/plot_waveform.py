@@ -1,6 +1,9 @@
 """
 **plot**: plotting waveforms from buffer using mimoCoRB.buffer_control.OberserverData 
 """
+
+import sys
+import os
 from mimocorb.plot_buffer import plot_buffer
 import matplotlib
 

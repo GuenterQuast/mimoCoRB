@@ -62,7 +62,6 @@ plot_waveform:
   analogue_offset: *analogue_offset # analogue offset in V
   number_of_samples: *number_of_samples
   trigger_channel: *trigger_channel
-  trigger_level: *trigger_level
   trigger_direction: *trigger_direction
   pre_trigger_samples: *pre_trigger_samples
 

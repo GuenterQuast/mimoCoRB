@@ -3,6 +3,8 @@
    This module relies on classes in mimocorb.buffer_control
 """
 
+import sys
+import os
 from mimocorb.buffer_control import rb_toTxtfile, rb_toParquetfile
 
 
