@@ -1,6 +1,6 @@
-===========================================================
-mimoCoRB - multiple-in multile-out Configurable Ring Buffer
-===========================================================
+===========================================================  
+mimoCoRB - multiple-in multile-out Configurable Ring Buffer 
+===========================================================  
 
 
 mimoCoRB -  multiple-in multile-out Configurable Ring Buffer: Overview
@@ -573,10 +573,11 @@ provide the necessary information to connect to the buffer manager via the *Writ
 or *Observer* classes of the package. This information comprises the pointer to the shared
 buffer manager as well as pointers to instances of the functions *Event()* or *Queue()*
 from the multiprocessing package to enable communication and data transfers across processes.
-A further dictionary (*config_dict*) provides the function-specific parameters
-discussed previously. 
-The keyword dictionary *rb_info* specifies whether writer, reader or observer functionality 
-is required. The function interface looks as follows:
+A further dictionary (*config_dict*) provides the function-specific parameters discussed previously. 
+The keyword dictionary *rb_info* specifies whether writer, reader or observer functionality is required.
+It contains a copy of the ring-buffer assignment block („RB_assign:") from the main setup file 
+on function level. Its purpose is to facilitate the ring-buffer access part within a function or class.
+The function interface looks as follows:
 
 .. code-block:: python
 
