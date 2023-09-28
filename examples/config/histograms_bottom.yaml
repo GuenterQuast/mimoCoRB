@@ -1,5 +1,5 @@
 # histograms for downward decay
-title: "histograms downwad decay"
+title: "histograms downward decay"
 # define histograms 
 histograms:  
   #  name      min  max   nbins ymax  name     lin/log
