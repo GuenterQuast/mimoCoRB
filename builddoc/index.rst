@@ -11,7 +11,7 @@ mimoCoRB -  multiple-in multile-out Configurable Ring Buffer: Overview
 The package **mimoCoRB** provides a central component of each data acquisition
 system needed to record and pre-analyse data from randomly occurring processes.
 Typical examples are waveform data as provided by detectors common in quantum
-mechanical measurements, or in nuclear, particle physics and astro particle
+mechanical measurements, or in nuclear physics, particle physics and astro particle
 physics, e. g. photo tubes, Geiger counters, avalanche photo-diodes or modern
 SiPMs.
 
@@ -25,15 +25,16 @@ order to optimally use the available resources, multi-core and multi-processing
 techniques must be applied.
 Data consumers may be obligatory ones, i. e. data acquisition pauses if
 all input buffers are full and an obligatory consumer is still busy
-processing. A second type of consumer (random consumers or "observers") 
-receives an event copy from the buffer manager upon request, without interrupting 
+processing. A second type of consumers (random consumers or "observers") 
+receive an event copy from the buffer manager upon request, without interrupting 
 the data acquisition process. Typical examples of random consumers are
 displays of a subset of the wave forms or of intermediate analysis
 results.
 
 This project originated from an effort to structure and generalize
 data acquisition for several experiments in advanced physics laboratory
-courses at Karlsruhe Institute of Technology (KIT).
+courses at Karlsruhe Institute of Technology (KIT) and has been extensively
+tested unter Ubuntu Linux.
 
 As a simple demonstration, we provide data from simulated signals as would
 be recorded by a detector for cosmic muons with four detection layers.
