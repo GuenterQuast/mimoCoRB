@@ -1,12 +1,15 @@
 """
 Collection of classes to set-up, manage and access ringbuffers
-and associated functions 
+and associated functions
 """
 
 from . import mimo_buffer as bm
 from .bufferinfoGUI import bufferinfoGUI
 
-import time, os, sys, shutil
+import time
+import os
+import sys
+import shutil
 import yaml
 from pathlib import Path
 import numpy as np
@@ -14,7 +17,8 @@ from numpy.lib import recfunctions as rfn
 from multiprocessing import Process, active_children, Queue
 import threading
 import pandas as pd
-import io, tarfile
+import io
+import tarfile
 
 
 class buffer_control:
@@ -368,12 +372,12 @@ class rbImport:
 
         # general part for each function (template)
         if sink_list is None:
-            raise ValueError("ERROR! Faulty ring buffer configuration!!")
+            raise ValueError("ERROR! Faulty ring buffer configuration passed ('sink_list' missing)!")
 
         self.sink = None
         for key, value in rb_info.items():
             if value == "read":
-                raise ValueError("ERROR! reading buffes not foreseen!!")
+                raise ValueError("ERROR! reading buffers not foreseen!!")
             elif value == "write":
                 self.sink = bm.Writer(sink_list[0])
                 if len(sink_list) > 1:
@@ -382,7 +386,7 @@ class rbImport:
                 raise ValueError("ERROR! obervers not foreseen!!")
 
         if self.sink is None:
-            raise ValueError("ERROR! Faulty ring buffer configuration!!")
+            raise ValueError("Faulty ring buffer configuration passed. No sink found!")
 
         self.number_of_channels = len(self.sink.dtype)
         self.chnams = [self.sink.dtype[i][0] for i in range(self.number_of_channels)]
@@ -459,7 +463,7 @@ class rbExport:
 
         # general part for each function (template)
         if source_list is None:
-            raise ValueError("Faulty ring buffer configuration passed ('source_list' missing!")
+            raise ValueError("Faulty ring buffer configuration passed ('source_list' missing)!")
 
         self.source = None
         for key, value in rb_info.items():

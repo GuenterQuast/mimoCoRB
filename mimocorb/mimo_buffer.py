@@ -2,15 +2,15 @@
 
 Module implementing a multiple-in multiple-out ringbuffer appropriate for multi-core multiprocessing.
 
-The ringbuffer creation and management is handled by the class ``NewBuffer``. 
+The ringbuffer creation and management is handled by the class ``NewBuffer``.
 Buffer access is managed by the``Reader``, ``Writer`` and ``Observer``  classes.
 
-classes: 
+classes:
 
   - NewBuffer: create a new ringbuffer, assign writer(s) and reader(s) or observer(s)
 
-      methods: 
-        
+      methods:
+
        - new_writer
        - new_reader_group
        - new_observer
@@ -21,7 +21,8 @@ classes:
   - Observer: read selected elements from a ringbuffer.
 """
 
-import os, time
+import os
+import time
 import numpy as np
 from multiprocessing import shared_memory, Lock, SimpleQueue, Queue, Event
 import threading
