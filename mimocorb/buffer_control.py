@@ -456,11 +456,6 @@ class rbImport:
             # set-up generator for the data
             self.userdata_generator = ufunc()
 
-    def __del__(self):
-        pass
-        # TODO: remove debug or change to logger
-        # print("?>", self.status)
-
     def __call__(self):
         # start_data_capture
 
@@ -660,11 +655,6 @@ class rbTransfer:
                         self.writers[idx_out].set_metadata(*self.reader.get_metadata())
                         self.writers[idx_out].process_buffer()
                     idx_out += 1
-
-    def __del__(self):
-        pass
-        # TODO: remove debug or change to logger
-        # print("?>", self.status)
 
 
 # <-- end class rbTransfer
