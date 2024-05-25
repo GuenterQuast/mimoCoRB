@@ -585,7 +585,11 @@ class rbTransfer:
         :param rb_info: dictionary with names and function (read, write, observe) of ring buffers
         """
 
-        self.filter = ufunc  # external function to filter data
+        if not callable(ufunc):
+            self.logger.error("User-supplied function is not callable!")
+            raise ValueError("ERROR! User-supplied function is not callable!")
+        else:
+            self.filter = ufunc  # external function to filter data
         #   get source
         if source_list is not None:
             self.reader = bm.Reader(source_list[0])
