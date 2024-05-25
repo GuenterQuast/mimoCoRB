@@ -8,7 +8,7 @@ from mimocorb.buffer_control import run_mimoDAQ
 
 print("\n*==* script " + sys.argv[0] + " running \n")
 
-daq = run_mimoDAQ()
+daq = run_mimoDAQ(debug=True)
 
 daq.setup()
 

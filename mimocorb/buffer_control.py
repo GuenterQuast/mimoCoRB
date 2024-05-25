@@ -19,6 +19,52 @@ import threading
 import pandas as pd
 import io
 import tarfile
+import logging  # TODO: Set log level
+
+
+# optionally enable the builtin debugging options form the multiprocessing module
+# import multiprocessing
+# mpl = multiprocessing.log_to_stderr()
+# mpl.setLevel(logging.INFO)
+
+# set logging format for all loggers globally
+logging.basicConfig(
+    format='%(asctime)s %(name)s:%(levelname)-8s %(message)s',  # time level message
+    datefmt="%Y-%m-%d %H:%M:%S"  # YYYY-MM-DD HH:MM:SS
+)
+
+
+class logger_config:
+    """
+    Setting the logging level globally is a bad idea because Tk starts flooding stdout with messages.
+    Therefore the run_bimodal constructor gets a debug flag to set the logging level in an instance of this class
+    Afterwards all sub-loggers are created with the same level.
+    """
+    def __init__(self):
+        self.level = logging.WARNING
+
+    def set_level(self, level):
+        """
+        Set the logging level for all loggers created by this object
+
+        :param level: logging level
+        """
+        self.level = level
+
+    def __call__(self, name: str) -> logging.Logger:
+        """
+        Generate a logger with the level set for this module
+
+        :param name: name of the logger
+        :return: logger object
+        """
+        logger = logging.getLogger(name)
+        logger.setLevel(self.level)
+        return logger
+
+
+# instantiate global logger_config object to generate configured loggers
+Gen_logger = logger_config()
 
 
 class buffer_control:
@@ -370,22 +416,31 @@ class rbImport:
         :param rb_info: dictionary with names and function (read, write, observe) of ring buffers
         """
 
+        # sub-logger for this class
+        self.logger = Gen_logger(__class__.__name__)
+
         # general part for each function (template)
         if sink_list is None:
+            self.logger.error("Faulty ring buffer configuration passed, 'sink_list' missing!")
             raise ValueError("ERROR! Faulty ring buffer configuration passed ('sink_list' missing)!")
 
         self.sink = None
         for key, value in rb_info.items():
             if value == "read":
+                self.logger.error("Reading buffers not foreseen!!")
                 raise ValueError("ERROR! reading buffers not foreseen!!")
             elif value == "write":
+                self.logger.info(f"Writing to buffer {sink_list[0]}")
                 self.sink = bm.Writer(sink_list[0])
                 if len(sink_list) > 1:
+                    self.logger.error("More than one sink presently not foreseen!")
                     print("!!! More than one sink presently not foreseen!!")
             elif value == "observe":
+                self.logger.error("Observer processes not foreseen!")
                 raise ValueError("ERROR! obervers not foreseen!!")
 
         if self.sink is None:
+            self.logger.error("Faulty ring buffer configuration passed. No sink found!")
             raise ValueError("Faulty ring buffer configuration passed. No sink found!")
 
         self.number_of_channels = len(self.sink.dtype)
@@ -394,8 +449,12 @@ class rbImport:
         self.event_count = 0
         self.T_last = time.time()
 
-        # set-up generator for the data
-        self.userdata_generator = ufunc()
+        if not callable(ufunc):
+            self.logger.error("User-supplied function is not callable!")
+            raise ValueError("ERROR! User-supplied function is not callable!")
+        else:
+            # set-up generator for the data
+            self.userdata_generator = ufunc()
 
     def __del__(self):
         pass
@@ -417,6 +476,7 @@ class rbImport:
             try:
                 data, metadata = next(self.userdata_generator)
             except:
+                logging.error("Error in user-supplied generator: cannot retrieve data and metadata")
                 break
 
             timestamp = time.time_ns() * 1e-9  # in s as type float64
@@ -967,11 +1027,16 @@ class run_mimoDAQ:
 
     # --- end helpers ------------------------
 
-    def __init__(self, verbose=2):
+    def __init__(self, verbose=2, debug=False):
         """
         Initialize ringbuffers and associated functions from main configuration file
         """
         self.verbose = verbose
+
+        # set global logging level for all sub-logger used by this module
+        Gen_logger.set_level(logging.DEBUG if debug else logging.WARNING,)
+        # create sub-logger for this class
+        self.logger = Gen_logger(__class__.__name__)
 
         # check for / read command line arguments and load DAQ configuration file
         if len(sys.argv) == 2:
