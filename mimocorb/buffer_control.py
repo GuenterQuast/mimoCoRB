@@ -29,7 +29,7 @@ import logging  # TODO: Set log level
 
 # set logging format for all loggers globally
 logging.basicConfig(
-    format='%(asctime)s %(name)s:%(levelname)-8s %(message)s',  # time level message
+    format='%(asctime)s %(name)s:%(levelname)-8s %(message)s',  # time name:level  message
     datefmt="%Y-%m-%d %H:%M:%S"  # YYYY-MM-DD HH:MM:SS
 )
 
@@ -37,7 +37,7 @@ logging.basicConfig(
 class logger_config:
     """
     Setting the logging level globally is a bad idea because Tk starts flooding stdout with messages.
-    Therefore the run_bimodal constructor gets a debug flag to set the logging level in an instance of this class
+    Therefore the run_mimoDaq constructor gets a debug flag to set the logging level in an instance of this class
     Afterwards all sub-loggers are created with the same level.
     """
     def __init__(self):
@@ -467,7 +467,7 @@ class rbImport:
 
             self.event_count += 1
 
-            # get new buffer abd store event data and meta-data
+            # get new buffer and store event data and meta-data
             try:
                 data, metadata = next(self.userdata_generator)
             except:
