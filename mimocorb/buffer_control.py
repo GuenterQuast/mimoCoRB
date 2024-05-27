@@ -385,6 +385,7 @@ class rbImport:
             raise ValueError("ERROR! Faulty ring buffer configuration!!")
 
         self.number_of_channels = len(self.sink.dtype)
+        self.chnams = [self.sink.dtype[i][0] for i in range(self.number_of_channels)]
 
         self.event_count = 0
         self.T_last = time.time()
@@ -419,8 +420,7 @@ class rbImport:
             buffer = self.sink.get_new_buffer()
             # - fill data and metadata
             for i in range(self.number_of_channels):
-                chnam = "ch" + chr(ord("A") + i)
-                buffer[:][chnam] = data[i]
+                buffer[self.chnams[i]][:] = data[i]
 
             # - account for deadtime
             T_buffer_ready = time.time()
