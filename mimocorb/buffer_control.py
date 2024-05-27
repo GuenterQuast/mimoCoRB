@@ -5,6 +5,7 @@ and associated functions
 
 from . import mimo_buffer as bm
 from .bufferinfoGUI import bufferinfoGUI
+from .activity_logger import Gen_logger
 
 import time
 import os
@@ -19,52 +20,7 @@ import threading
 import pandas as pd
 import io
 import tarfile
-import logging  # TODO: Set log level
-
-
-# optionally enable the builtin debugging options form the multiprocessing module
-# import multiprocessing
-# mpl = multiprocessing.log_to_stderr()
-# mpl.setLevel(logging.INFO)
-
-# set logging format for all loggers globally
-logging.basicConfig(
-    format='%(asctime)s %(name)s:%(levelname)-8s %(message)s',  # time name:level  message
-    datefmt="%Y-%m-%d %H:%M:%S"  # YYYY-MM-DD HH:MM:SS
-)
-
-
-class logger_config:
-    """
-    Setting the logging level globally is a bad idea because Tk starts flooding stdout with messages.
-    Therefore the run_mimoDaq constructor gets a debug flag to set the logging level in an instance of this class
-    Afterwards all sub-loggers are created with the same level.
-    """
-    def __init__(self):
-        self.level = logging.WARNING
-
-    def set_level(self, level):
-        """
-        Set the logging level for all loggers created by this object
-
-        :param level: logging level
-        """
-        self.level = level
-
-    def __call__(self, name: str) -> logging.Logger:
-        """
-        Generate a logger with the level set for this module
-
-        :param name: name of the logger
-        :return: logger object
-        """
-        logger = logging.getLogger(name)
-        logger.setLevel(self.level)
-        return logger
-
-
-# instantiate global logger_config object to generate configured loggers
-Gen_logger = logger_config()
+import logging
 
 
 class buffer_control:
