@@ -1,0 +1,62 @@
+# Dict with uid's as key and a nested dict with configuration variables
+general:
+  runtime: 600  # desired runtime in seconds
+  runevents: &number_of_events 100000
+  number_of_samples: &number_of_samples 500
+  analogue_offset: &analogue_offset -0.48  # in V and not adc!
+  sample_time_ns: &sample_time_ns 4
+
+  trigger_level: &trigger_level -440 # triger level in mV incl. offset
+  trigger_channel: &trigger_channel 'A'
+  trigger_direction: &trigger_direction 'rising'
+  pre_trigger_samples: &pre_trigger_samples 100
+
+find_peaks:
+  sample_time_ns: *sample_time_ns
+  analogue_offset: *analogue_offset
+  number_of_samples: *number_of_samples
+  pre_trigger_samples: *pre_trigger_samples
+  #TODO: Change the value below to what you found with the PicoScope Software! 
+  peak_minimal_prominence: 50  # in mV, has to be positive and higher than avg. noise peaks to not cause havoc!
+  trigger_channel: *trigger_channel
+  peak_minimal_distance: 10  # minimal distance between two peaks in number of samples (10 samples -> 40ns)
+  peak_minimal_width: 7  # in number of samples (7 samples -> 28ns)
+  trigger_channel: *trigger_channel
+  trigger_position_tolerance: 7  # in number of samples (7 samples -> 28ns)
+
+# Dict for simulation_source.py
+simulation_source:
+  sample_time_ns: *sample_time_ns
+  number_of_samples: *number_of_samples
+  pre_trigger_samples: *pre_trigger_samples
+  analogue_offset: *analogue_offset
+  eventcount: *number_of_events
+  sleeptime: 0.03
+  random: true
+
+save_to_txt:
+  filename: "spectrum"
+
+save_parquet:
+  filename: "spectrum"
+
+plot_waveform:
+  title: "Muon waveform"
+  min_sleeptime: 0.5                # time to wait between graphics updates
+  number_of_samples: *number_of_samples
+  sample_time_ns: *sample_time_ns
+  analogue_offset: *analogue_offset # analogue offset in V
+  pre_trigger_samples: *pre_trigger_samples
+  channel_range: 500                # channel range in mV
+  trigger_channel: *trigger_channel  # Channel name in the PicoScope. Valid values are 'A', 'B', 'C' or 'D'  
+  trigger_level: *trigger_level  # value in mV, take account of analogue_offset, which is added to input voltage !
+
+plot_histograms:
+  title: "on-line histograms"
+  # define histograms 
+  histograms:  
+    #  name      min  max   nbins ymax  name     lin/log
+    chA_height:   [50., 1000.,   75, 5.9, "ph 1A", 0]
+    chB_height:   [50., 1000.,   75, 5.9, "ph 1B", 0]
+#    chC_height:   [50., 1000.,   75, 5.9, "ph 1C", 0]
+#    chD_height:   [50., 1000.,   75, 5.9, "ph 1D", 0]
