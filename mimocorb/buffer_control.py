@@ -977,10 +977,12 @@ class run_mimoDAQ:
 
     # --- end helpers ------------------------
 
-    def __init__(self, verbose=2, debug=False):
+    def __init__(self, setup_filename, verbose=2, debug=False):
         """
         Initialize ringbuffers and associated functions from main configuration file
         """
+
+        self.setup_filename = setup_filename
         self.verbose = verbose
 
         # set global logging level for all sub-logger used by this module
@@ -989,17 +991,13 @@ class run_mimoDAQ:
         self.logger = Gen_logger(__class__.__name__)
 
         # check for / read command line arguments and load DAQ configuration file
-        if len(sys.argv) == 2:
-            self.setup_filename = sys.argv[1]
-            try:
-                with open(os.path.abspath(self.setup_filename), "r") as file:
-                    setup_yaml = yaml.load(file, Loader=yaml.FullLoader)  # SafeLoader
-            except FileNotFoundError:
-                raise FileNotFoundError("Setup YAML file '{}' does not exist!".format(self.setup_filename))
-            except yaml.YAMLError:
-                raise RuntimeError("Error while parsing YAML file '{}'!".format(self.setup_filename))
-        else:
-            raise FileNotFoundError("No setup YAML file provided")
+        try:
+            with open(os.path.abspath(self.setup_filename), "r") as file:
+                setup_yaml = yaml.load(file, Loader=yaml.FullLoader)  # SafeLoader
+        except FileNotFoundError:
+            raise FileNotFoundError("Setup YAML file '{}' does not exist!".format(self.setup_filename))
+        except yaml.YAMLError:
+            raise RuntimeError("Error while parsing YAML file '{}'!".format(self.setup_filename))
 
         # set general options from input dictionary
         # - output directory prefix
