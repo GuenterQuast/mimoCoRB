@@ -31,10 +31,15 @@ in an absorber between the 2nd and 3rd layer, where they decay at rest
 and emit a high-energetic electron recorded as a 2nd pulse in one or
 two of the detection layers. 
 
-To see an example with simulated data, change to the directory `examples/`
+To see a simple example showing pules shapes and the extracted pulse
+heights from simulated waveforms, change to the directory `examples/`
 of this package and execute
 
 ```bash
-../run_daq.py simulsource_setup.yaml
+../run_daq.py spectrum_setup.yaml
 ```
+The configuration files `examples/simul_source.yaml` and 
+`examples/simul_spin_setup.yaml` contain more advanced
+examples of muon lifetime measurements from double-pulses
+produced by an incoming muon and the decay electron. 
 

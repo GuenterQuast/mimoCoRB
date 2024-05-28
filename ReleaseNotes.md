@@ -11,7 +11,8 @@ All notable changes to this project will be documented in this file.
 09-Mar-23  tag1.0.0.b0
 09-Mar-23  started release candidate rc0
 09-Mar-23  removed old, websocket based observer
-
+02-Oct-23  vers. 1.0.1 for winter term 2023/24
+28-May-24  addes simple example spectrum_setup.py
 
 ### Fixed
 
