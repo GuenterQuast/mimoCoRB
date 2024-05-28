@@ -1,12 +1,16 @@
 """
 Collection of classes to set-up, manage and access ringbuffers
-and associated functions 
+and associated functions
 """
 
 from . import mimo_buffer as bm
 from .bufferinfoGUI import bufferinfoGUI
+from .activity_logger import Gen_logger
 
-import time, os, sys, shutil
+import time
+import os
+import sys
+import shutil
 import yaml
 from pathlib import Path
 import numpy as np
@@ -14,7 +18,9 @@ from numpy.lib import recfunctions as rfn
 from multiprocessing import Process, active_children, Queue
 import threading
 import pandas as pd
-import io, tarfile
+import io
+import tarfile
+import logging
 
 
 class buffer_control:
@@ -366,23 +372,32 @@ class rbImport:
         :param rb_info: dictionary with names and function (read, write, observe) of ring buffers
         """
 
+        # sub-logger for this class
+        self.logger = Gen_logger(__class__.__name__)
+
         # general part for each function (template)
         if sink_list is None:
-            raise ValueError("ERROR! Faulty ring buffer configuration!!")
+            self.logger.error("Faulty ring buffer configuration passed, 'sink_list' missing!")
+            raise ValueError("ERROR! Faulty ring buffer configuration passed ('sink_list' missing)!")
 
         self.sink = None
         for key, value in rb_info.items():
             if value == "read":
-                raise ValueError("ERROR! reading buffes not foreseen!!")
+                self.logger.error("Reading buffers not foreseen!!")
+                raise ValueError("ERROR! reading buffers not foreseen!!")
             elif value == "write":
+                self.logger.info(f"Writing to buffer {sink_list[0]}")
                 self.sink = bm.Writer(sink_list[0])
                 if len(sink_list) > 1:
+                    self.logger.error("More than one sink presently not foreseen!")
                     print("!!! More than one sink presently not foreseen!!")
             elif value == "observe":
+                self.logger.error("Observer processes not foreseen!")
                 raise ValueError("ERROR! obervers not foreseen!!")
 
         if self.sink is None:
-            raise ValueError("ERROR! Faulty ring buffer configuration!!")
+            self.logger.error("Faulty ring buffer configuration passed. No sink found!")
+            raise ValueError("Faulty ring buffer configuration passed. No sink found!")
 
         self.number_of_channels = len(self.sink.dtype)
         self.chnams = [self.sink.dtype[i][0] for i in range(self.number_of_channels)]
@@ -390,13 +405,12 @@ class rbImport:
         self.event_count = 0
         self.T_last = time.time()
 
-        # set-up generator for the data
-        self.userdata_generator = ufunc()
-
-    def __del__(self):
-        pass
-        # TODO: remove debug or change to logger
-        # print("?>", self.status)
+        if not callable(ufunc):
+            self.logger.error("User-supplied function is not callable!")
+            raise ValueError("ERROR! User-supplied function is not callable!")
+        else:
+            # set-up generator for the data
+            self.userdata_generator = ufunc()
 
     def __call__(self):
         # start_data_capture
@@ -409,10 +423,11 @@ class rbImport:
 
             self.event_count += 1
 
-            # get new buffer abd store event data and meta-data
+            # get new buffer and store event data and meta-data
             try:
                 data, metadata = next(self.userdata_generator)
             except:
+                logging.error("Error in user-supplied generator: cannot retrieve data and metadata")
                 break
 
             timestamp = time.time_ns() * 1e-9  # in s as type float64
@@ -459,7 +474,7 @@ class rbExport:
 
         # general part for each function (template)
         if source_list is None:
-            raise ValueError("Faulty ring buffer configuration passed ('source_list' missing!")
+            raise ValueError("Faulty ring buffer configuration passed ('source_list' missing)!")
 
         self.source = None
         for key, value in rb_info.items():
@@ -526,7 +541,11 @@ class rbTransfer:
         :param rb_info: dictionary with names and function (read, write, observe) of ring buffers
         """
 
-        self.filter = ufunc  # external function to filter data
+        if not callable(ufunc):
+            self.logger.error("User-supplied function is not callable!")
+            raise ValueError("ERROR! User-supplied function is not callable!")
+        else:
+            self.filter = ufunc  # external function to filter data
         #   get source
         if source_list is not None:
             self.reader = bm.Reader(source_list[0])
@@ -596,11 +615,6 @@ class rbTransfer:
                         self.writers[idx_out].set_metadata(*self.reader.get_metadata())
                         self.writers[idx_out].process_buffer()
                     idx_out += 1
-
-    def __del__(self):
-        pass
-        # TODO: remove debug or change to logger
-        # print("?>", self.status)
 
 
 # <-- end class rbTransfer
@@ -963,11 +977,16 @@ class run_mimoDAQ:
 
     # --- end helpers ------------------------
 
-    def __init__(self, verbose=2):
+    def __init__(self, verbose=2, debug=False):
         """
         Initialize ringbuffers and associated functions from main configuration file
         """
         self.verbose = verbose
+
+        # set global logging level for all sub-logger used by this module
+        Gen_logger.set_level(logging.DEBUG if debug else logging.WARNING,)
+        # create sub-logger for this class
+        self.logger = Gen_logger(__class__.__name__)
 
         # check for / read command line arguments and load DAQ configuration file
         if len(sys.argv) == 2:
