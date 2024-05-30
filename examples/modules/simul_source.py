@@ -43,7 +43,6 @@ def simul_source(source_list=None, sink_list=None, observe_list=None, config_dic
             yield (pulse, None)
             event_count += 1
 
-    print(config_dict)
     dataSource = pulseSimulator(config_dict)
     simulsource = rbImport(config_dict=config_dict, sink_list=sink_list, ufunc=yield_data, **rb_info)
     number_of_channels = len(simulsource.sink.dtype)
