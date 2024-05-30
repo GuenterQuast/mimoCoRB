@@ -424,11 +424,13 @@ class rbImport:
             self.event_count += 1
 
             # get new buffer and store event data and meta-data
-            try:
-                data, metadata = next(self.userdata_generator)
-            except:
-                logging.error("Error in user-supplied generator: cannot retrieve data and metadata")
-                break
+            # no try-block to ease debugging of user code
+            data, metadata = next(self.userdata_generator)
+#            try:
+#                data, metadata = next(self.userdata_generator)
+#            except:
+#                logging.error("Error in user-supplied generator: cannot retrieve data and metadata")
+#                break
 
             timestamp = time.time_ns() * 1e-9  # in s as type float64
             T_data_ready = time.time()
@@ -981,7 +983,7 @@ class run_mimoDAQ:
         """
         Initialize ringbuffers and associated functions from main configuration file
         """
-
+        self.debug = debug
         self.setup_filename = setup_filename
         self.verbose = verbose
 
