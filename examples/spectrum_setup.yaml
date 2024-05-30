@@ -1,8 +1,8 @@
-# Configuration for muon lifetime measurement with mimoCoRB
-#  --------------------------------------------------------
+# Configuration for recording two channels with mimoCoRB
+#  -----------------------------------------------------
 #
-# configure three buffers:
-#  - RB_1 for raw wavforms
+# configure tiw buffers:
+#  - RB_1 for raw waveforms
 #  - RB_2 for derived pulse parameters
 #  data from RB_2, the result buffer, are saved to a file in csv (text) format.
 #
@@ -23,7 +23,7 @@ RingBuffer:
   # define ring buffers
   - RB_1:
       # raw input data buffer (from picoScope, file or simulation)
-      number_of_slots: 1
+      number_of_slots: 16
       channel_per_slot: 500
       data_type:
           1: ['chA', "float32"]
@@ -40,12 +40,6 @@ RingBuffer:
           4: ['chB_height', "float32"]
           5: ['chB_position', "int32"]
           6: ['chB_integral', "float32"]
-          7: ['chC_height', "float32"]
-          8: ['chC_position', "int32"]
-          9: ['chC_integral', "float64"]
-          10: ['chD_height', "float32"]
-          11: ['chD_position', "int32"]
-          12: ['chD_integral', "float32"]
 
 Functions:
   # define functions and ringbuffer assignment

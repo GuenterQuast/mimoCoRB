@@ -56,8 +56,13 @@ serve as a starting point for own projects.
 
 
 
-Description of components
-.........................
+For Developers: Description of components
+.........................................
+
+The following paragraphs provide some insight into the inner working of the components
+of *mimoCoRB* for interested users and for developers wanting to help improving the package. 
+Application developers should use the more convenient access classes to build an application 
+based the *mimoCoRB* framework.  
 
 In order to decouple the random occurrence of "events" one needs a
 buffer capable of rapidly storing new incoming data and delivering
@@ -125,7 +130,7 @@ Simple application example
 An application example of *mimo_buffer* is shown below;
 it is also provided as a unit test. The set-up is as follows:
 
-  Two ring buffers are defined:
+Two ring buffers are defined:
 
     - input Buffer  RB_1: 10 ch x 1024 slots (int32)
 
@@ -148,7 +153,7 @@ The example including comment lines for explanation is shown here:
   import numpy as np
   from multiprocessing import Process, Value
   from mimocorb import mimo_buffer as bm
-
+  
   # global variables 
   N_requested = 1000  # number of data injections ("events")
   Time_tick = 0.001   # time between events
@@ -169,7 +174,7 @@ The example including comment lines for explanation is shown here:
         buffer[:] = n
     # process last data item
     sink.process_buffer()
-
+  
   def analyzer(source_dict, sink_dict):
     """read from source and write first element and a time difference to sink
     """
@@ -188,10 +193,10 @@ The example including comment lines for explanation is shown here:
 
         # 
         sink.process_buffer()
-
+  
   def check_result(source_dict, res):
     """reads RB_2 and sum up the integer content
-
+  
        sum is returned as shared memory Value-object
     """
     source = bm.Reader(source_dict)
@@ -199,7 +204,7 @@ The example including comment lines for explanation is shown here:
     while True:
         input_data = source.get()
         res.value +=int(input_data[0])
-
+  
   def run_control():
     """Setup buffers, start processes and shut_down when 1st writer done 
     """
@@ -250,9 +255,9 @@ The example including comment lines for explanation is shown here:
         p.join()
 
     return result.value
-
+  
   class RPTest(unittest.TestCase):
-
+  
     def test_process(self):
         # start python test module and check result
         a = run_control()
@@ -260,19 +265,18 @@ The example including comment lines for explanation is shown here:
                # expected result: sum(i); i = 1, N_requested	
         self.assertEqual(a, expected_result)
 
-  if __name__ == "__main__":
+  if __name__ == "__main__":  
     unittest.main(verbosity=2)
-  #    print(process_buffer())
 
 
-Access Classes in the module *buffer_control*
----------------------------------------------
+For application developers: Access Classes in the module *buffer_control*
+-------------------------------------------------------------------------
 
 To facilitate user interaction with the buffer manager a set of additional classes 
 is provided in the module *buffer_control* to set-up and manage cascades of 
 ringbuffers and the associated functions for filling, filtering and extracting
-data. These classes are also interesting for developers wanting to help improving
-the package. 
+data. These classes are most interesting for application developers wanting
+to build upon the *mimoCoRB* framework.
 
 The classes are: 
 
@@ -317,7 +321,7 @@ The classes are:
       executed as worker processes in separate sub-processes and therefore 
       optimal use is made of of multi-core architectures. 
 
-  -  class `bufferinfoGUI`:
+  -  `class bufferinfoGUI`:
       A graphical interface showing buffer rates and status information 
       and providing some control buttons interacting with the run_mimoDAQ
       class. 
@@ -369,7 +373,7 @@ fill-levels. Klickable control buttons send information via a dedicated
 command queue to the calling process *run_mimoDAQ* and enable pausing,
 resuming and controlled ending of the data-acquisition processes.
 
-The suggested structure of the project work-space for mimiCoRB applications 
+The suggested structure of the project work-space for mimoCoRB applications 
 is as follows:
 
 .. code-block::
@@ -384,32 +388,270 @@ For illustration and as a starting point for own applications, a stand-alone exa
 is provided as part of the package, as described in the following section. 
                     
 
-Application example
-...................
+Application examples
+....................
 
-The subdirectory *examples/* contains a rather complete application use case.
-It runs stand-alone and uses as input simulated waveform data of short pulses
-in a scintillator detector. The simulated physics process corresponds to 
-signatures produced by cosmic muons. Of particular interest in this case are 
-(rare) signatures with a double-pulse structure, where the first pulse originates
-from a detected muon and the second one from a decay electron of a muon that
-has been stopped in or near a detection layer. 
+The subdirectory *examples/* contains some complete application use cases based
+on input waveforms that are simulated in real-time. 
 
-Examples of code snippets and configuration data are provided in the 
-subdirectories `examples/modules/` and `examples/config/`, respectively.
+The central piece of every *mimoCoRB* application is the configuration
+file; examples of different complexity are provided in *examples/*_setup.yaml*. 
+Code snippets for data input, filtering and ouput and as well as configuration
+files are provided in the subdirectories `examples/modules/` and
+`examples/config/`, respectively.
+
 Waveform data, as provided by, for example, a multi-channel digital
 oscilloscope, are generated and filled into the first one of a cascaded set
-of three ringbuffers. The raw data are analyzed, and accepted data with a
-double-pulse signature are selected and directly passed on to a second
-ringbuffer. A third buffer contains only the information on found
-signal pulses; a result file in *csv* format contains the data extracted
-from this buffer. Configuration files and the recorded data files are stored
-in the subdirectory `examples/target/<projectname>_<date_and_time>`. 
+of ringbuffers and passed on to subsequent buffer stages depending on
+filter conditions. Data in the last buffer are recorde to disk.
+The configuration files and the recorded data files are stored in
+the subdirectory `examples/target/<projectname>_<date_and_time>`. 
+
+All examples run stand-alone and use as input simulated waveform data of
+short pulses as they arise e.g. in scintillator detectors.
+The simulated physics process corresponds to signatures produced by
+cosmic muons penetrating the detector layers.
+
+
+**Simple Example**
+
+A very simple example consits of recording two input channels from two
+redundant detectors (e.g. two stacked muon panels).
+The buffer configuration is defined in the file
+*examples/spectrum_setup.yaml*, shown here:
+
+.. code-block:: yaml
+		
+  # Configuration for recording tow channels with mimoCoRB
+  #  -----------------------------------------------------
+  #
+  # configure two buffers:
+  #  - RB_1 for raw waveforms
+  #  - RB_2 for derived pulse parameters
+  #  data from RB_2, the result buffer, are saved to a file in csv (text) format. 
+  #
+  #  - data from RB_1 are also passed to an Obsever process driving a real-time display
+  #  - data RB_2 are passed to a Reader process driving a real-time histogram display 
+  #
+  # Notes:
+  # 
+  #    1. additional config files controlling the user functions are
+  #       located in the subdirectory config/
+  #    2. necessary application-specific user code is located
+  #       in the subdirectory modules/
+  #
+  # ----------------------------------------------------------------------------
+  #
+
+  RingBuffer:
+    # define ring buffers
+    - RB_1:
+        # raw input data buffer (from picoScope, file or simulation)
+        number_of_slots: 16
+        channel_per_slot: 500
+        data_type:
+            1: ['chA', "float32"]
+            2: ['chB', "float32"]
+    - RB_2:
+        # buffer with correct signature double pulse parameters
+        number_of_slots: 16
+        channel_per_slot: 1
+        data_type:
+        data_type:
+            1: ['chA_height', "float32"]
+            2: ['chA_position', "int32"]
+            3: ['chA_integral', "float32"]
+            4: ['chB_height', "float32"]
+            5: ['chB_position', "int32"]
+            6: ['chB_integral', "float32"]
+  Functions:
+    # define functions and ringbuffer assignment
+    - Fkt_main:
+        config_file: "config/spectrum_config.yaml"
+    - Fkt_1:
+         ##  for simulation source
+         file_name: "modules/simul_source"
+         fkt_name: "simul_source"
+         num_process: 1
+         RB_assign:
+             RB_1: "write"
+    - Fkt_2:
+         file_name: "modules/spectrum_filter"
+         fkt_name: "find_peaks"
+         num_process: 2
+         RB_assign:
+             RB_1: "read"
+             RB_2: "write"
+    - Fkt_3:
+        file_name: "modules/save_files"
+        fkt_name: "save_to_txt"
+        num_process: 1
+        RB_assign:
+             RB_2: "read"
+
+The example coming with this package contains two more convenience
+functions, one for an observer process displaying a random sample of
+waveforms in an oscilloscope display, and a second one for on-line
+analysis and histogramming of buffer data. The addendum to the
+configuration looks as follows: 
+
+.. code-block:: yaml
+		
+  # --- the following functions are optioal 	   
+    - Fkt_4:
+        file_name: "modules/plot_waveform"
+        fkt_name: "plot_waveform"
+        num_process: 1
+        RB_assign:
+             RB_1: "observe"
+    - Fkt_5:
+        file_name: "modules/plot_histograms"
+        fkt_name: "plot_histograms"
+        num_process: 1
+        RB_assign:
+             RB_2: "read"  # pulse parameters
+	     
+These additional functions rely on the modules `mimocorb.plot_buffer` and
+`mimocorb.histogram_buffer`, which provide animated displays of waveforms
+similar to an oscilloscope and a histogram package for life-updates of
+frequency distributions of scalar variables.
+
+Configuration parameters needed for the functions associated to the
+ringbuffers can either be specified as a *yaml* block under a keyword in
+the general configuration file that is assigned to the function *Fkt_main*
+in the example above (`config_file: "config/spectrum_config.yaml"`).
+
+The functions are started as sub-processes and have a unique interface.
+Lists of dictionaries provide the necessary information to connect to the
+buffer manager via the *Writer*, *Reader* or *Observer* classes of the package.
+This information comprises the pointer to the shared buffer manager as well as
+pointers to instances of the functions *Event()* or *Queue()* from the
+multiprocessing package to enable communication and data transfers across
+processes. A further dictionary (*config_dict*) provides the function-specific
+parameters discussed previously. 
+The keyword dictionary *rb_info* specifies whether writer, reader or observer
+functionality is required. It contains a copy of the ring-buffer assignment
+block („RB_assign:") from the main setup file on function level. Its purpose
+is to facilitate the ring-buffer access part within a function or class.
+
+The function interface looks as follows:
+
+.. code-block:: python
+
+  def <function_name>(
+    source_list=None, sink_list=None, observe_list=None, config_dict=None, **rb_info):
+
+This interface must be respected by any user function. The argument list must also be
+passed to instances of the access classes *rbImort*, *rbExport*, *rbTransfer* or
+*rbObserve*. An example of a user fuction in the directory *modules/* to write buffer
+data to a text file is shown below:
+
+.. code-block:: python
+
+  """Module save_files to handle file I/O for data in txt and parquet format
+
+     This module relies on classes in mimocorb.buffer_control
+  """
+  from mimocorb.buffer_control import rb_toTxtfile, rb_toParquetfile
+  def save_to_txt(source_list=None, sink_list=None, observe_list=None, config_dict=None, **rb_info):
+      sv = rb_toTxtfile(source_list=source_list, config_dict=config_dict, **rb_info)
+      sv()
+
+Starting this example with the command *../run_daq.py spectrum_setup.yaml*
+yields the following output on screen: 
+
+.. code-block::
+
+  *==* script ../run_daq.py running 
+  
+  2 buffers created...  List of buffers
+  RB_1 16 500
+  RB_2 16 1
+  List of functions
+  FKT_1 simul_source (1)   {'RB_1': 'write'}
+  FKT_2 find_peaks (2)   {'RB_1': 'read', 'RB_2': 'write'}
+  FKT_3 save_to_txt (1)   {'RB_2': 'read'}
+  FKT_4 plot_waveform (1)   {'RB_1': 'observe'}
+  FKT_5 plot_histograms (1)   {'RB_2': 'read'}
+  
+Two buffers are created in this case, *RB1 _1* and *RB_2*. *RB_1* with
+two channels with 500 samples each is the input buffer, *RB_2* contains 6 scalar
+variables and is the output buffer, which is filled by the function *find_peaks*
+with two active workers. The functions *save_to_txt* and *plot_histograms*
+read from this buffer and store data to dist or show histograms, respectively.
+The funtion *plot_waveform* takes random samples from *RB_1* and displays
+the raw waveform data. 
+
+This example serves as a convenient starting point for own application
+development. The code in *simul_source.py*, shown below, is a very general
+example for data input. Only the function *pulseSimulator()* needs to
+be replaced by a function providing data from your own source.
+
+
+.. code-block:: python
+
+  """**simul_source**: a simple template for a mimoCoRB source to 
+  enter simulated waveform data in a mimoCoRB buffer.
+
+  Input data is provided as numpy-arry of shape (number_of_channels, number_of_samples).
+  """
+  from mimocorb.buffer_control import rbImport
+  import numpy as np
+  import sys, time
+  from pulseSimulator import pulseSimulator
+
+  def simul_source(source_list=None, sink_list=None, observe_list=None, config_dict=None, **rb_info):
+      """
+      Generate simulated data and pass data to buffer
+      The class mimocorb.buffer_control/rbImport is used to interface to the
+      newBuffer and Writer classes of the package mimoCoRB.mimo_buffer
+
+      This example may serve as a template for other data sources
+
+      :param config_dict: configuration dictionary
+
+        - events_required: number of events to be simulated or 0 for infinite
+        - sleeptime: (mean) time between events
+        - random: random time between events according to a Poission process
+        - number_of_samples, sample_time_ns, pretrigger_samples and analogue_offset
+          describe the waveform data to be generated (as for oscilloscope setup)
+      """
+
+      events_required = 1000 if "eventcount" not in config_dict else config_dict["eventcount"]
+
+      def yield_data():
+          """generate simulated data, called by instance of class mimoCoRB.rbImport"""
+  
+          event_count = 0
+          while events_required == 0 or event_count < events_required:
+              pulse = dataSource(number_of_channels)
+              # deliver pulse data and no metadata
+              yield (pulse, None)
+              event_count += 1
+  
+      dataSource = pulseSimulator(config_dict)
+      simulsource = rbImport(config_dict=config_dict, sink_list=sink_list, ufunc=yield_data, **rb_info)
+      number_of_channels = len(simulsource.sink.dtype)
+
+      simulsource()
+
+
+**Complex Example**
+
+In the second, more complex example discussed here we consider multiple
+pulses on the same channels, where, e.g. the first pulse originates
+from a detected muon and the second, later one from a decay electron
+of a muon that has been stopped in or near a detection layer. 
+
+The raw data are analyzed, and accepted data with a double-pulse signature
+are selected and directly passed on to a second ringbuffer. A third buffer
+contains only the information on found signal pulses; a result file
+in *csv* format contains the data extracted from this buffer.
 
 A graphical representation of the set-up is shown in the figure 
 below [source: Master's Thesis Christoph Mayer, ETP 2022].
 Note that the oscilloscope is replaced by a signal simulation in the 
-provided example. 
+example provided. 
 
 .. image:: mimoCoRB_lifetime.png
   :width: 650
@@ -418,7 +660,7 @@ provided example.
 The buffer layout and the associated functions are defined in the main
 configuration file `simulsource_setup.py`, which serves as the input to 
 the execution script `run_daq.py` in the top-level directory of the package. 
-The *python* files `simulation_source.py`, `liftime_filter.py` and
+The *python* files `simul_source.py`, `liftime_filter.py` and
 `save_files.py` contain the user code for data generation, analysis
 and filtering and extraction of the finally accepted data to disk files. 
 The `.yaml` files `simulation_config.yaml` and `save_lifetimes.yaml` contain 
@@ -428,84 +670,114 @@ This example is executed form the directory `examples/` by entering:
 
   `../run_daq.py simulsource_setup.yaml`
 
-The code needed to run a data acquisition based on the package
-*mimocorb.buffer_control.run_mimoDAQ* is shown here: 
+Again, the screen output gives an overwiew of the generated buffers
+and the functions writing to and reading from them: 
 
-.. code-block:: python
+.. code-block::
 
-  # script run_daq.py
+  *==* script ../run_daq.py running 
 
-  from mimocorb.buffer_control import run_mimoDAQ
-  daq = run_mimoDAQ()
-  daq.setup()
-  daq.run()
+  3 buffers created...  List of buffers
+  RB_1 128 4250
+  RB_2 128 4250
+  RB_3 32 1
+  List of functions
+  FKT_1 simul_source (1)   {'RB_1': 'write'}
+  FKT_2 calculate_decay_time (2)   {'RB_1': 'read', 'RB_2': 'write', 'RB_3': 'write'}
+  FKT_3 save_to_txt (1)   {'RB_3': 'read'}
+  FKT_4 save_parquet (1)   {'RB_2': 'read'}
+  FKT_5 plot_waveform (1)   {'RB_2': 'observe'}
+  FKT_6 plot_histograms (1)   {'RB_3': 'read'}
 
-The input *yaml* file for the example provided as part of the package looks
-as follows: 
+The input *yaml* file for this example looks as follows: 
 
 .. code-block:: yaml
-		
+
   #  Application example for mimoCoRB
   #  --------------------------------
+  #
+  # three buffers:
+  #  - RB_1 for (simuated) raw waveforms
+  #  - RB_2 for selected double-pulses
+  #  - RB_3 for derived pulse parameters
+  #
+  #  data from RB_2 and RB_3 are saved to files in tarred parquet format
+  #  or in text format.
+  #
+  #  data from RB_2 are passed to an observer process driving a real-time display
+  #
+  # Notes:
+  # 
+  #    1. additional config files controlling the user functions are
+  #       located in the subdirectory config/
+  #    2. user necessary application-specific user code is located
+  #       in the subdirectory modules/
+  #
+  # ----------------------------------------------------------------------------
+  #
+
+  # general control options
+  output_directory: target     # directory to store output data
+  GUI_control: true            # control daq via Grapical User Interface
+  KBD_control: true            # control daq via KeyBoarD
 
   RingBuffer:
     # define ring buffers
     - RB_1:
-        # raw input data buffer (waveforms from PicoScope, file_source or simulation_source)
+        # raw input data buffer (waveforms from PicoScope, file_source or simulation)
         number_of_slots: 128
         channel_per_slot: 4250
         data_type:
-            1: ['chA', "float64"]
-            2: ['chB', "float64"]
-            3: ['chC', "float64"]
-            4: ['chD', "float64"]          
+            1: ['chA', "float32"]
+            2: ['chB', "float32"]
+            3: ['chC', "float32"]
+            4: ['chD', "float32"]          
     - RB_2:
         # buffer with accepted signatures (here double-pulses)
         number_of_slots: 128
         channel_per_slot: 4250
         data_type:
-            1: ['chA', "float64"]
-            2: ['chB', "float64"]
-            3: ['chC', "float64"]
-            4: ['chD', "float64"]          
+            1: ['chA', "float32"]
+            2: ['chB', "float32"]
+            3: ['chC', "float32"]
+            4: ['chD', "float32"]          
     - RB_3:
         # buffer with pulse parameters (derived from waveforms)
         number_of_slots: 32
         channel_per_slot: 1
         data_type:
             1: ['decay_time', "int32"]
-            3: ['1st_chA_h', "float64"]
-            4: ['1st_chB_h', "float64"]
-            5: ['1st_chC_h', "float64"]          
+            3: ['1st_chA_h', "float32"]
+            4: ['1st_chB_h', "float32"]
+            5: ['1st_chC_h', "float32"]          
             6: ['1st_chA_p', "int32"]
             7: ['1st_chB_p', "int32"]
             8: ['1st_chC_p', "int32"]
-            9: ['1st_chA_int', "float64"]
-            10: ['1st_chB_int', "float64"]
-            11: ['1st_chC_int', "float64"]
-            12: ['2nd_chA_h', "float64"]
-            13: ['2nd_chB_h', "float64"]
-            14: ['2nd_chC_h', "float64"]
+            9: ['1st_chA_int', "float32"]
+            10: ['1st_chB_int', "float32"]
+            11: ['1st_chC_int', "float32"]
+            12: ['2nd_chA_h', "float32"]
+            13: ['2nd_chB_h', "float32"]
+            14: ['2nd_chC_h', "float32"]
             15: ['2nd_chA_p', "int32"]
             16: ['2nd_chB_p', "int32"]
             17: ['2nd_chC_p', "int32"]
-            18: ['2nd_chA_int', "float64"]
-            19: ['2nd_chB_int', "float64"]
-            20: ['2nd_chC_int', "float64"]
-            21: ['1st_chD_h', "float64"]
+            18: ['2nd_chA_int', "float32"]
+            19: ['2nd_chB_int', "float32"]
+            20: ['2nd_chC_int', "float32"]
+            21: ['1st_chD_h', "float32"]
             22: ['1st_chD_p', "int32"]
-            23: ['1st_chD_int', "float64"]
-            24: ['2nd_chD_h', "float64"]
+            23: ['1st_chD_int', "float32"]
+            24: ['2nd_chD_h', "float32"]
             25: ['2nd_chD_p', "int32"]
-            26: ['2nd_chD_int', "float64"]
-
+            26: ['2nd_chD_int', "float32"]
   Functions:
     # define functions and assignments
     - Fkt_main:
-        config_file: "config/simulation_config.yaml"
+         config_file: "config/simulation_config.yaml"
     - Fkt_1:
-         file_name: "modules/simulation_source"
-         fkt_name: "simulation_source"
+         file_name: "modules/simul_source"
+         fkt_name: "simul_source"
          num_process: 1
          RB_assign:
              RB_1: "write"
@@ -531,82 +803,23 @@ as follows:
         RB_assign:
              RB_2: "read"     # waveform to save
 
-The configuration file referenced in the line 
-`config_file: "config/simulation_config.yaml"` provides the
-information needed by the user-supplied functions.
+The functions for plotting result variables and for histogramming 
+are also contained in the example configuration provided as part of
+the package, in the same way as explained for the first example. 
 
-The example coming with this package contains two more convenience
-functions, one for an observer process displaying a random sample of
-waveforms in an oscilloscope display, and a second one for on-line
-analysis and histogramming of buffer data. The addendum to the
-configuration looks as follows: 
-
-.. code-block:: yaml
-		
-   - Fkt_5:
-        file_name: "modules/plot_waveform"
-        fkt_name: "plot_waveform"
-        num_process: 1
-        RB_assign:
-             RB_2: "observe"  # double pulse waveform
-    - Fkt_6:
-        file_name: "modules/plot_histograms"
-        fkt_name: "plot_histograms"
-        num_process: 1
-        RB_assign:
-           RB_3: "read"  # pulse parameters
-
-These additional functions rely on the modules `mimocorb.plot_buffer` and
-`mimocorb.histogram_buffer`, which provide animated displays of waveforms
-similar to an oscilloscope and a histogram package for life-updates of
-frequency distributions of scalar variables. Configuration parameters needed 
-for the functions associated to the ringbuffers can either be specified
-as a *yaml* block under a keyword in the general configuration file that
-is assigned to the function *Fkt_main* in the example above. 
-Alternatively, a dedicated configuration file can be specified in a separate
-*yaml* file, as is done for function *Fkt_3* in the example. This latter
-feature is particularly useful if the same function code is used to 
-handle data from different buffers, e.g. writing buffer contents to a 
-file in *csv* format. 
-
-The functions are started as sub-processes and have a unique interface. Lists of dictionaries
-provide the necessary information to connect to the buffer manager via the *Writer*, *Reader*
-or *Observer* classes of the package. This information comprises the pointer to the shared
-buffer manager as well as pointers to instances of the functions *Event()* or *Queue()*
-from the multiprocessing package to enable communication and data transfers across processes.
-A further dictionary (*config_dict*) provides the function-specific parameters discussed previously. 
-The keyword dictionary *rb_info* specifies whether writer, reader or observer functionality is required.
-It contains a copy of the ring-buffer assignment block („RB_assign:") from the main setup file 
-on function level. Its purpose is to facilitate the ring-buffer access part within a function or class.
-The function interface looks as follows:
-
-.. code-block:: python
-
-  def <function_name>(
-    source_list=None, sink_list=None, observe_list=None, config_dict=None, **rb_info):
-
-This interface must be respected by any user function. The argument list must also be
-passed to instances of the access classes *rbImort*, *rbExport*, *rbTransfer* or
-*rbObserve*. An example of a user fuction in the directory *modules/* to write bufer
-data to a text file is shown below:
-
-.. code-block:: python
-
-  """Module save_files to handle file I/O for data in txt and parquet format
-
-     This module relies on classes in mimocorb.buffer_control
-  """
-  from mimocorb.buffer_control import rb_toTxtfile, rb_toParquetfile
-  def save_to_txt(source_list=None, sink_list=None, observe_list=None, config_dict=None, **rb_info):
-      sv = rb_toTxtfile(source_list=source_list, config_dict=config_dict, **rb_info)
-      sv()
+In addition to the remarks concerning configuration files, it is worth
+noticing here that a dedicated configuration file is specified in a
+separate *yaml* file for function *Fkt_3*. This possibility
+is particularly useful if the same function code is used to 
+handle data from different buffers, e.g. the file name and special
+formatting for writing buffer contents to a file in *csv* format.  
 
 
-Examples showing how to implement user-supplied functions to interact with
-*mimiCoRB* are provided in the subdirectory *examples/* of the *mimiCoRB* package.
-The example described above is defined in the configuration file *simul_source_setup.yam*; 
-a more complex case with two streams  going to different output buffers and files is specified
-in the file simul_spin_setup.yaml. Starting this example with 
+**Even more omplex Example**
+
+A similar, but even more complex case with two streams going to different
+output buffers and files is specified in the file *simul_spin_setup.yaml*.
+Starting this example with 
 `>  ../run_daq.py simul_spin_setup.yaml` leads to the following terminal output:
 
 .. code-block::
@@ -619,7 +832,7 @@ in the file simul_spin_setup.yaml. Starting this example with
   RB_3 32 1
   RB_4 32 1
   List of functions
-  FKT_1 simulation_source (1)   {'RB_1': 'write'}
+  FKT_1 simul_source (1)   {'RB_1': 'write'}
   FKT_2 calculate_decay_time (2)   {'RB_1': 'read', 'RB_2': 'write', 'RB_3': 'write', 'RB_4': 'write'}
   FKT_3 save_to_txt (1)   {'RB_3': 'read'}
   FKT_4 save_to_txt (1)   {'RB_4': 'read'}
@@ -664,7 +877,7 @@ Module Documentation
        
 .. automodule:: rb_unittest
 
-.. automodule:: simulation_source
+.. automodule:: simul_source
      :members:
 
 .. automodule:: lifetime_filter

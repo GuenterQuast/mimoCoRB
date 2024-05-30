@@ -2,7 +2,7 @@
 #  --------------------------------
 #
 # three buffers:
-#  - RB_1 for (simuated) raw wavforms
+#  - RB_1 for (simuated) raw waveforms
 #  - RB_2 for selected double-pulses
 #  - RB_3 for derived pulse parameters
 #
@@ -29,7 +29,7 @@ KBD_control: true            # control daq via KeyBoarD
 RingBuffer:
   # define ring buffers
   - RB_1:
-      # raw input data buffer (waveforms from PicoScope, file_source or simulation_source)
+      # raw input data buffer (waveforms from PicoScope, file_source or simulation)
       number_of_slots: 128
       channel_per_slot: 4250
       data_type:
@@ -52,31 +52,30 @@ RingBuffer:
       channel_per_slot: 1
       data_type:
           1: ['decay_time', "int32"]
-          3: ['1st_chA_h', "float64"]
-          4: ['1st_chB_h', "float64"]
-          5: ['1st_chC_h', "float64"]          
+          3: ['1st_chA_h', "float32"]
+          4: ['1st_chB_h', "float32"]
+          5: ['1st_chC_h', "float32"]          
           6: ['1st_chA_p', "int32"]
           7: ['1st_chB_p', "int32"]
           8: ['1st_chC_p', "int32"]
-          9: ['1st_chA_int', "float64"]
-          10: ['1st_chB_int', "float64"]
-          11: ['1st_chC_int', "float64"]
-          12: ['2nd_chA_h', "float64"]
-          13: ['2nd_chB_h', "float64"]
-          14: ['2nd_chC_h', "float64"]
+          9: ['1st_chA_int', "float32"]
+          10: ['1st_chB_int', "float32"]
+          11: ['1st_chC_int', "float32"]
+          12: ['2nd_chA_h', "float32"]
+          13: ['2nd_chB_h', "float32"]
+          14: ['2nd_chC_h', "float32"]
           15: ['2nd_chA_p', "int32"]
           16: ['2nd_chB_p', "int32"]
           17: ['2nd_chC_p', "int32"]
-          18: ['2nd_chA_int', "float64"]
-          19: ['2nd_chB_int', "float64"]
-          20: ['2nd_chC_int', "float64"]
-          21: ['1st_chD_h', "float64"]
+          18: ['2nd_chA_int', "float32"]
+          19: ['2nd_chB_int', "float32"]
+          20: ['2nd_chC_int', "float32"]
+          21: ['1st_chD_h', "float32"]
           22: ['1st_chD_p', "int32"]
-          23: ['1st_chD_int', "float64"]
-          24: ['2nd_chD_h', "float64"]
+          23: ['1st_chD_int', "float32"]
+          24: ['2nd_chD_h', "float32"]
           25: ['2nd_chD_p', "int32"]
-          26: ['2nd_chD_int', "float64"]
-
+          26: ['2nd_chD_int', "float32"]
 Functions:
   # define functions and assignments
   - Fkt_main:
