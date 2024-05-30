@@ -24,8 +24,8 @@ find_peaks:
   trigger_channel: *trigger_channel
   trigger_position_tolerance: 7  # in number of samples (7 samples -> 28ns)
 
-# Dict for simulation_source.py
-simulation_source:
+# Dict for simul_source.py
+simul_source:
   sample_time_ns: *sample_time_ns
   number_of_samples: *number_of_samples
   pre_trigger_samples: *pre_trigger_samples

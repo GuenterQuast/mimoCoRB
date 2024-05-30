@@ -55,8 +55,8 @@ Functions:
 
   - Fkt_1:
        ##  for simulation source
-       file_name: "modules/simulation_source"
-       fkt_name: "simulation_source"
+       file_name: "modules/simul_source"
+       fkt_name: "simul_source"
        num_process: 1
        RB_assign:
            RB_1: "write"

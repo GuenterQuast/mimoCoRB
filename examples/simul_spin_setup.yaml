@@ -24,7 +24,7 @@
 RingBuffer:
   # define ring buffers
   - RB_1:
-      # raw input data buffer (waveforms from PicoScope, file_source or simulation_source)
+      # raw input data buffer (waveforms from PicoScope, file or simulation)
       number_of_slots: 128
       channel_per_slot: 4250
       data_type:
@@ -107,8 +107,8 @@ Functions:
   - Fkt_main:
       config_file: "config/simulation_config.yaml"
   - Fkt_1:
-       file_name: "modules/simulation_source"
-       fkt_name: "simulation_source"
+       file_name: "modules/simul_source"
+       fkt_name: "simul_source"
        num_process: 1
        RB_assign:
            RB_1: "write"
