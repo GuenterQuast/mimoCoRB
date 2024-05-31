@@ -28,23 +28,23 @@ all input buffers are full and an obligatory consumer is still busy
 processing. A second type of consumers (random consumers or "observers") 
 receive an event copy from the buffer manager upon request, without interrupting 
 the data acquisition process. Typical examples of random consumers are
-displays of a subset of the wave forms or of intermediate analysis
+displays of a subset of the waveforms or of intermediate analysis
 results.
 
 This project originated from an effort to structure and generalize
 data acquisition for several experiments in advanced physics laboratory
 courses at Karlsruhe Institute of Technology (KIT) and has been extensively
-tested unter Ubuntu Linux.
+tested with Ubuntu Linux.
 
-As a simple demonstration, we provide data from simulated signals as would
-be recorded by a detector for cosmic muons with four detection layers.
+As a simple, stand-alone  demonstration, we provide simulated signals as would
+be produced by a detector for cosmic muons with four detection layers.
 Occasionally, such muons stop in an absorber between the 2nd and 3rd layer,
 where they decay at rest and emit a high-energetic electron recorded as a
 2nd pulse in one or two of the detection layers. After data acquisition, a
 search for typical pulse shapes is performed and data with detected double
 pulses are selected and copied into a second buffer. A third buffer receives
 data in a reduced format which only contains the parameters of accepted pulses.
-These data and the wave forms of all double-pulses are finally stored
+These data and the waveforms of all double-pulses are finally stored
 on disk. Such an application is a very typical example of the general
 process of on-line data processing in modern physics experiments and may
 serve as a starting point for own projects.
@@ -61,8 +61,8 @@ For Developers: Description of components
 
 The following paragraphs provide some insight into the inner working of the components
 of *mimoCoRB* for interested users and for developers wanting to help improving the package. 
-Application developers should use the more convenient access classes to build an application 
-based the *mimoCoRB* framework.  
+Application developers should use the more convenient access classes described
+below to build an application based the *mimoCoRB* framework.  
 
 In order to decouple the random occurrence of "events" one needs a
 buffer capable of rapidly storing new incoming data and delivering
@@ -74,21 +74,23 @@ have finished.
 
 As digital filtering of incoming data may be very CPU intensive,
 multi-processing and multi-core capable components are needed to
-ensure sufficient compute power to process and analyze data.
+ensure sufficient compute power to process and analyze all data.
 `mimoCoRB.mimo_buffer` implements such a buffer allowing multiple 
 processes to read ("multiple out") or write ("multiple in") to a
-shared buffer space. 
+shared buffer space. Access to common memory storage and the
+synchronization of processes is achieved using the *shared_memory*,
+*Process* and *Queue* modules from the *multiprocessing* package. 
 
 Because processing of the data, i.e. digital filtering, selection, 
 compression and storage or real-time visualization of the data can 
-be a complex workflow, buffers may be arranged in chains where one 
-or several reader processes of a buffer write to one or several 
-output buffer(s). 
+be a complex workflow, data buffers may be arranged in chains where
+one  or several reader processes associated to a buffer write to
+one or several output buffer(s). 
 
 The central component takes care of memory management and access
 control provided by the class **newBuffer**. To control the data
 flow in a full data acquisition suite, three types of access are
-needed, implemented as  **Writer**, **Reader** and **Observer**
+foreseen, implemented as  **Writer**, **Reader** and **Observer**
 classes. Readers of the same type are grouped together for
 multi-processing of compute-intense tasks and form a Reader-group. 
 Observers receive only a sub-set of the data and are mainly 
@@ -116,12 +118,12 @@ signalling and message or data exchange across processes.
 
 The format of data stored in the buffers is based on structured
 *numpy* arrays with (configurable) field names and *numpy* *dtypes*.  
-Each buffer entry is also associated with a unique number, a time 
-stamp and a deadtime fraction to be provided by the initial
+Each buffer entry is also associated with a unique event number,
+a time stamp and a deadtime fraction to be provided by the initial
 data producer. The deadtime accounts for inefficiencies of the
-data acquisition due to processing in *mimoCoRB*. These metadata are 
-set by the initial producer and must not be changed at a later stage 
-in the processing chain. 
+data acquisition due to processing in *mimoCoRB*. These metadata
+are set by the initial producer and must not be changed at a later
+stage in the processing chain. 
 
 
 Simple application example 
@@ -272,26 +274,28 @@ The example including comment lines for explanation is shown here:
 For application developers: Access Classes in the module *buffer_control*
 -------------------------------------------------------------------------
 
-To facilitate user interaction with the buffer manager a set of additional classes 
-is provided in the module *buffer_control* to set-up and manage cascades of 
-ringbuffers and the associated functions for filling, filtering and extracting
-data. These classes are most interesting for application developers wanting
-to build upon the *mimoCoRB* framework.
+To facilitate user interaction with the buffer manager, a set of additional
+classes is provided in the module *buffer_control* to set-up and manage
+cascades of ringbuffers and the associated functions for filling, filtering
+and extracting data. These classes are most interesting for application
+developers wanting to build upon the *mimoCoRB* framework.
 
 The classes are: 
 
   - `class buffer_control`
       Set-up and management of ringbuffers and associated sub-processes.
-      This is the overarching class with access to all created buffers and sub-processes.
+      This is the overarching class with access to all created buffers and
+      sub-processes.
 
   - `class rbImport`
-      Read data from source (front-end like a PicoScope USB oscilloscope, of from file or simulation) 
-      and put data in a mimo_buffer. Data input is handled by a call of a user-supplied
-      Python generator (i.e. via 'yield()') for data and metadata.
+      Read data from source (e.g. a front-end like a PicoScope USB
+      oscilloscope, or from a file or simulation)  and put data in a
+      mimo_buffer. Data input is handled by a call of a user-supplied
+      Python generator (i.e. via '*yield*') for data and metadata.
 
   - `class rbTransfer`
       Read data from a mimo_buffer, filter and/or reformat data and write to output mimo_buffer(s).
-      Data is provided as the argument to a user-defined filter function returning *None* if data 
+      Data is provided as the argument to a user-defined filter function, returning *None* if data 
       is to be discarded, a number if data is to be copied to another buffer, or - optionally - a 
       list of transformed data records produced from processed input data. If such data are 
       provided, a respective number of ringbuffers as destination must be configured.
@@ -312,14 +316,14 @@ The classes are:
       
   - `class rb_toParquetfile`:
       Save mimo_buffer data to an archive in  *tar* format; each data record is packed in
-      Parquet format.
+      *Parquet* format.
 
   - `class run_mimoDAQ`
       Setup and run a Data Acquisition suite with the mimoCoRB buffer manager.   
       The layout of ringbuffers and associated functions are defined in
       a configuration file in *yaml* format. All configured functions are 
       executed as worker processes in separate sub-processes and therefore 
-      optimal use is made of of multi-core architectures. 
+      optimal use is made of multi-core architectures. 
 
   -  `class bufferinfoGUI`:
       A graphical interface showing buffer rates and status information 
@@ -327,7 +331,7 @@ The classes are:
       class. 
     
 These classes shield much of the complexity from the user, who can thus concentrate
-on writing the pieces of code need to acquire and process the data. 
+on writing the pieces of code needed to acquire and process the data. 
 The access classes expect as input lists of dictionaries with the parameters
 of buffers to read from (**source_list**), to write to (**sink_list**) or to
 observe (**observe_list**). An additional dictionary (**config_dict**) provides
@@ -340,13 +344,14 @@ The overarching class **buffer_control** provides methods to setup buffers and
 worker processes and to control the data acquisition process. The methods 
 collected in the class *run_mimoDAQ*, in particular the function **run_mimoDAQ**,
 contains the code needed to run a real example of a data-acquisition suite defined
-in a configuration file specifying the associated, user-defined functions for 
-data provisioning, filtering and storage. *run_mimoDAQ* is controlled either
-by keyboard commands of from a graphical user interface; pre-defined conditions
-on the total number of events processed, the duration of the data taking run
-or finishing of the writer process to the first buffer due to source exhaustion
-can also be defined to end data taking. The class structure and dependencies
-are shown in the figure below.
+in a configuration file specifying the ring buffers and associated,
+user-defined functions for data provisioning, filtering and storage.
+*run_mimoDAQ* is controlled either by keyboard commands of from a graphical
+user interface; pre-defined conditions on the total number of events
+processed, the duration of the data taking run or finishing of the writer
+process to the first buffer due to source exhaustion can also be defined
+to end data taking. The class structure and dependencies are shown in the
+figure below.
 
 .. image:: class_structure.png
   :width: 1024
@@ -354,8 +359,8 @@ are shown in the figure below.
 
 	
 A sequence diagram of a a typical application, shown below, illustrates
-illustrates the interplay and dependencies of the classes described
-above. The script *run_daq.py* creates an instance of *run_mimoDAQ* and
+the interplay and dependencies of the classes described above.
+The script *run_daq.py* creates an instance of *run_mimoDAQ* and
 starts its *run()*-method. The interction with the user-supplied filter
 functions is handled by methods of the class *buffer_control*. 
 
@@ -373,7 +378,7 @@ fill-levels. Klickable control buttons send information via a dedicated
 command queue to the calling process *run_mimoDAQ* and enable pausing,
 resuming and controlled ending of the data-acquisition processes.
 
-The suggested structure of the project work-space for mimoCoRB applications 
+The suggested structure of the project work-space for *mimoCoRB* applications 
 is as follows:
 
 .. code-block::
@@ -396,7 +401,7 @@ on input waveforms that are simulated in real-time.
 
 The central piece of every *mimoCoRB* application is the configuration
 file; examples of different complexity are provided in *examples/*_setup.yaml*. 
-Code snippets for data input, filtering and ouput and as well as configuration
+Code snippets for data input, filtering and ouput as well as configuration
 files are provided in the subdirectories `examples/modules/` and
 `examples/config/`, respectively.
 
@@ -410,7 +415,7 @@ the subdirectory `examples/target/<projectname>_<date_and_time>`.
 All examples run stand-alone and use as input simulated waveform data of
 short pulses as they arise e.g. in scintillator detectors.
 The simulated physics process corresponds to signatures produced by
-cosmic muons penetrating the detector layers.
+cosmic muons penetrating several detector layers.
 
 
 **Simple Example**
@@ -465,7 +470,7 @@ The buffer configuration is defined in the file
             5: ['chB_position', "int32"]
             6: ['chB_integral', "float32"]
   Functions:
-    # define functions and ringbuffer assignment
+    # define functions and ring buffer assignment
     - Fkt_main:
         config_file: "config/spectrum_config.yaml"
     - Fkt_1:
@@ -492,12 +497,12 @@ The buffer configuration is defined in the file
 The example coming with this package contains two more convenience
 functions, one for an observer process displaying a random sample of
 waveforms in an oscilloscope display, and a second one for on-line
-analysis and histogramming of buffer data. The addendum to the
-configuration looks as follows: 
+analysis and histogramming of buffer data. The necessary addendum to
+the configuration looks as follows: 
 
 .. code-block:: yaml
 		
-  # --- the following functions are optioal 	   
+  # --- the following functions are optional 	   
     - Fkt_4:
         file_name: "modules/plot_waveform"
         fkt_name: "plot_waveform"
@@ -511,15 +516,18 @@ configuration looks as follows:
         RB_assign:
              RB_2: "read"  # pulse parameters
 	     
-These additional functions rely on the modules `mimocorb.plot_buffer` and
-`mimocorb.histogram_buffer`, which provide animated displays of waveforms
-similar to an oscilloscope and a histogram package for life-updates of
-frequency distributions of scalar variables.
+These additional functions cover very general uses cases and rely on the
+modules `mimocorb.plot_buffer` and `mimocorb.histogram_buffer`, which
+provide animated displays of waveforms similar to an oscilloscope and a
+histogram package for life-updates of frequency distributions of scalar
+variables.  
 
 Configuration parameters needed for the functions associated to the
-ringbuffers can either be specified as a *yaml* block under a keyword in
+ring buffers can be specified as a *yaml* block under a keyword in
 the general configuration file that is assigned to the function *Fkt_main*
 in the example above (`config_file: "config/spectrum_config.yaml"`).
+It is also possible to specify individual configuration files for each
+of the functions, as will be shown below. 
 
 The functions are started as sub-processes and have a unique interface.
 Lists of dictionaries provide the necessary information to connect to the
@@ -549,7 +557,6 @@ data to a text file is shown below:
 .. code-block:: python
 
   """Module save_files to handle file I/O for data in txt and parquet format
-
      This module relies on classes in mimocorb.buffer_control
   """
   from mimocorb.buffer_control import rb_toTxtfile, rb_toParquetfile
@@ -557,7 +564,7 @@ data to a text file is shown below:
       sv = rb_toTxtfile(source_list=source_list, config_dict=config_dict, **rb_info)
       sv()
 
-Starting this example with the command *../run_daq.py spectrum_setup.yaml*
+Running the example with the command *../run_daq.py spectrum_setup.yaml*
 yields the following output on screen: 
 
 .. code-block::
@@ -578,15 +585,15 @@ Two buffers are created in this case, *RB1 _1* and *RB_2*. *RB_1* with
 two channels with 500 samples each is the input buffer, *RB_2* contains 6 scalar
 variables and is the output buffer, which is filled by the function *find_peaks*
 with two active workers. The functions *save_to_txt* and *plot_histograms*
-read from this buffer and store data to dist or show histograms, respectively.
-The funtion *plot_waveform* takes random samples from *RB_1* and displays
+read from this buffer and store data to disk or show histograms, respectively.
+The function *plot_waveform* takes random samples from *RB_1* and displays
 the raw waveform data. 
 
 This example serves as a convenient starting point for own application
 development. The code in *simul_source.py*, shown below, is a very general
 example for data input. Only the function *pulseSimulator()* needs to
-be replaced by a function providing data from your own source.
-
+be replaced by a function providing data from your own source. The code
+is shown here: 
 
 .. code-block:: python
 
@@ -620,7 +627,7 @@ be replaced by a function providing data from your own source.
       events_required = 1000 if "eventcount" not in config_dict else config_dict["eventcount"]
 
       def yield_data():
-          """generate simulated data, called by instance of class mimoCoRB.rbImport"""
+          """generate simulated data, called by an instance of class mimoCoRB.rbImport"""
   
           event_count = 0
           while events_required == 0 or event_count < events_required:
@@ -634,8 +641,9 @@ be replaced by a function providing data from your own source.
       number_of_channels = len(simulsource.sink.dtype)
 
       simulsource()
+  
 
-
+      
 **Complex Example**
 
 In the second, more complex example discussed here we consider multiple
@@ -644,7 +652,7 @@ from a detected muon and the second, later one from a decay electron
 of a muon that has been stopped in or near a detection layer. 
 
 The raw data are analyzed, and accepted data with a double-pulse signature
-are selected and directly passed on to a second ringbuffer. A third buffer
+are selected and directly passed on to a second ring buffer. A third buffer
 contains only the information on found signal pulses; a result file
 in *csv* format contains the data extracted from this buffer.
 
@@ -804,8 +812,9 @@ The input *yaml* file for this example looks as follows:
              RB_2: "read"     # waveform to save
 
 The functions for plotting result variables and for histogramming 
-are also contained in the example configuration provided as part of
-the package, in the same way as explained for the first example. 
+are not shown, but also contained in the example configuration
+provided as part of the package, in the same way as explained for
+the first example. 
 
 In addition to the remarks concerning configuration files, it is worth
 noticing here that a dedicated configuration file is specified in a
@@ -815,7 +824,7 @@ handle data from different buffers, e.g. the file name and special
 formatting for writing buffer contents to a file in *csv* format.  
 
 
-**Even more omplex Example**
+**Even more complex example**
 
 A similar, but even more complex case with two streams going to different
 output buffers and files is specified in the file *simul_spin_setup.yaml*.
