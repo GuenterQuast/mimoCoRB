@@ -350,7 +350,6 @@ class buffer_control:
             return None
         return vars(module)[function_name]
 
-
 # <-- end class buffer_control
 
 
@@ -452,8 +451,102 @@ class rbImport:
         # make sure last data entry is also processed
         self.sink.process_buffer()
 
-
 # <-- end class rbImport
+
+
+class rbPut:
+    """
+    Recieve data from external source (e.g. front-end device, file, simulation, etc.)
+    and put data in mimo_buffer.
+
+    Returns False if sink is not active
+    """
+
+    def __init__(self, sink_list=None, config_dict=None, ufunc=None, **rb_info):
+        """
+        Class to provide external input data to a buffer, usually "RB_1"
+
+        :param sink_list: list of length 1 with dictionary for destination buffer
+        :param observe_list: list of length 1 with dictionary for observer (not implemented yet)
+        :param config_dict: application-specific configuration
+        :param ufunc: user-supplied function to provide input data
+        :param rb_info: dictionary with names and function (read, write, observe) of ring buffers
+        """
+
+        # sub-logger for this class
+        self.logger = Gen_logger(__class__.__name__)
+
+        # general part for each function (template)
+        if sink_list is None:
+            self.logger.error("Faulty ring buffer configuration passed, 'sink_list' missing!")
+            raise ValueError("ERROR! Faulty ring buffer configuration passed ('sink_list' missing)!")
+
+        self.sink = None
+        for key, value in rb_info.items():
+            if value == "read":
+                self.logger.error("Reading buffers not foreseen!!")
+                raise ValueError("ERROR! reading buffers not foreseen!!")
+            elif value == "write":
+                self.logger.info(f"Writing to buffer {sink_list[0]}")
+                self.sink = bm.Writer(sink_list[0])
+                if len(sink_list) > 1:
+                    self.logger.error("More than one sink presently not foreseen!")
+                    print("!!! More than one sink presently not foreseen!!")
+            elif value == "observe":
+                self.logger.error("Observer processes not foreseen!")
+                raise ValueError("ERROR! obervers not foreseen!!")
+
+        if self.sink is None:
+            self.logger.error("Faulty ring buffer configuration passed. No sink found!")
+            raise ValueError("Faulty ring buffer configuration passed. No sink found!")
+
+        self.number_of_channels = len(self.sink.dtype)
+        self.chnams = [self.sink.dtype[i][0] for i in range(self.number_of_channels)]
+
+        self.event_count = 0
+        self.T_last = time.time()
+
+        if not callable(ufunc):
+            self.logger.error("User-supplied function is not callable!")
+            raise ValueError("ERROR! User-supplied function is not callable!")
+        else:
+            # set-up generator for the data
+            self.userdata_generator = ufunc()
+
+    def __call__(self, data, metadata):
+        if self.sink._active.is_set():
+            # do not write data if in paused mode
+            if self.sink._paused.is_set():
+                time.sleep(0.1)
+                return
+
+            T_data_ready = time.time()
+            timestamp = time.time_ns() * 1e-9  # in s as type float64
+            self.event_count += 1
+            
+            # get new buffer and store event data and meta-data
+            buffer = self.sink.get_new_buffer()
+            # - fill data and metadata
+            for i in range(self.number_of_channels):
+                buffer[self.chnams[i]][:] = data[i]
+
+            # - account for deadtime
+            T_buffer_ready = time.time()
+            deadtime = T_buffer_ready - T_data_ready
+            deadtime_fraction = deadtime / (T_buffer_ready - self.T_last)
+            if metadata is None:
+                self.sink.set_metadata(self.event_count, timestamp, deadtime_fraction)
+            else:
+                self.sink.set_metadata(*metadata)  # tuple to parameter list
+
+            self.T_last = T_buffer_ready
+        else:
+        # make sure last data entry is also processed
+            self.sink.process_buffer()
+
+        return self.sink._active.is_set()
+
+# <-- end class push_to_rb
 
 
 class rbExport:
@@ -503,7 +596,6 @@ class rbExport:
 
     def __del__(self):
         pass
-
 
 # <-- end class rbExport
 
@@ -618,7 +710,6 @@ class rbTransfer:
                         self.writers[idx_out].process_buffer()
                     idx_out += 1
 
-
 # <-- end class rbTransfer
 
 
@@ -706,6 +797,8 @@ class rb_toTxtfile:
         #  END
         print("\n ** rb_toTxtfile: end seen")
 
+# <-- end class rb_to_Textfile
+
 
 class rb_toParquetfile:
     """Save data a set of parquet-files packed as a tar archive"""
@@ -771,7 +864,6 @@ class rb_toParquetfile:
         self.tar.close()
         # print(" ** rb_toParquet: file closed")
 
-
 # <-- end class rb_toParqeutfile
 
 
@@ -828,6 +920,8 @@ class rbObserver:
 
     def __del__(self):
         pass
+
+# <-- end class rbObserver
 
 
 class rbWSObserver:
@@ -927,7 +1021,6 @@ class rbWSObserver:
                 self.wait_data_thread.join()
                 yield (None)
                 break
-
 
 # <-- end class rbWSObserver
 
