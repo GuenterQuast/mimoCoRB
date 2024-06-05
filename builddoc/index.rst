@@ -430,7 +430,7 @@ cosmic muons penetrating several detector layers.
 A very simple example consits of recording two input channels from two
 redundant detectors (e.g. two stacked muon panels).
 The buffer configuration is defined in the file
-*examples/spectrum_setup.yaml*, shown here:
+*examples/setup.yaml*, shown here:
 
 .. code-block:: yaml
 		
@@ -571,7 +571,10 @@ data to a text file is shown below:
       sv = rb_toTxtfile(source_list=source_list, config_dict=config_dict, **rb_info)
       sv()
 
-Running the example with the command *../run_daq.py spectrum_setup.yaml*
+Running the example with the command
+
+  `../run_daq.py setup.yaml`  
+
 yields the following output on screen: 
 
 .. code-block::
@@ -673,7 +676,7 @@ example provided.
   :alt: The signal processing chain for the lifetime measurement	  
 
 The buffer layout and the associated functions are defined in the main
-configuration file `simulsource_setup.py`, which serves as the input to 
+configuration file `lifetime_setup.py`, which serves as the input to 
 the execution script `run_daq.py` in the top-level directory of the package. 
 The *python* files `simul_source.py`, `liftime_filter.py` and
 `save_files.py` contain the user code for data generation, analysis
@@ -683,7 +686,7 @@ configurable parameters provided to these functions.
 
 This example is executed form the directory `examples/` by entering:
 
-  `../run_daq.py simulsource_setup.yaml`
+  `../run_daq.py lifetime_setup.yaml`
 
 Again, the screen output gives an overwiew of the generated buffers
 and the functions writing to and reading from them: 
@@ -834,9 +837,9 @@ formatting for writing buffer contents to a file in *csv* format.
 **Even more complex example**
 
 A similar, but even more complex case with two streams going to different
-output buffers and files is specified in the file *simul_spin_setup.yaml*.
+output buffers and files is specified in the file *spin_setup.yaml*.
 Starting this example with 
-`>  ../run_daq.py simul_spin_setup.yaml` leads to the following terminal output:
+`>  ../run_daq.py spin_setup.yaml` leads to the following terminal output:
 
 .. code-block::
 
