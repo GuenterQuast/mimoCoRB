@@ -288,10 +288,17 @@ The classes are:
       sub-processes.
 
   - `class rbImport`
-      Read data from source (e.g. a front-end like a PicoScope USB
-      oscilloscope, or from a file or simulation)  and put data in a
-      mimo_buffer. Data input is handled by a call of a user-supplied
-      Python generator (i.e. via '*yield*') for data and metadata.
+      Read data from source (e.g. a front-end like a PicoScope USB oscilloscope,
+      or from a file or simulation)  import data and metadata in a mimo buffer
+      by calling user-supplied Python generator (i.e. via '*yield*'). In this
+      approach, mimiCoRB "pulls" data.
+
+  - `class rbPut`
+      Read data from source (e.g. a front-end like a PicoScope USB oscilloscope,
+      or from a file or simulation)  and put data in a mimo_buffer by calling
+      a Python function, thus pushing the data to a mimiCorB bufffer under control
+      of the reading application. This method is useful in cases weher the application
+      providing the data has its own event loop (driving e.g. ist own graphical display). 
 
   - `class rbTransfer`
       Read data from a mimo_buffer, filter and/or reformat data and write to output mimo_buffer(s).
