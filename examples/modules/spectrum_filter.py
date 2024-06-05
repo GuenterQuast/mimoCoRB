@@ -29,7 +29,7 @@ import os, sys
 from filters import *
 
 def find_peaks(source_list=None, sink_list=None, observe_list=None, config_dict=None, **rb_info):
-    """flter client for mimiCoRB: Find valid signal pulses in waveform data
+    """filter client for mimoCoRB: Find valid signal pulses in waveform data
 
        Input: 
 

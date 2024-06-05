@@ -34,6 +34,16 @@ simul_source:
   sleeptime: 0.03
   random: true
 
+# Dict for push_simul
+push_simul:
+  sample_time_ns: *sample_time_ns
+  number_of_samples: *number_of_samples
+  pre_trigger_samples: *pre_trigger_samples
+  analogue_offset: *analogue_offset
+  eventcount: *number_of_events
+  sleeptime: 0.03
+  random: true
+
 save_to_txt:
   filename: "spectrum"
 

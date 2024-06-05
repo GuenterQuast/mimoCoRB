@@ -506,13 +506,6 @@ class rbPut:
         self.event_count = 0
         self.T_last = time.time()
 
-        if not callable(ufunc):
-            self.logger.error("User-supplied function is not callable!")
-            raise ValueError("ERROR! User-supplied function is not callable!")
-        else:
-            # set-up generator for the data
-            self.userdata_generator = ufunc()
-
     def __call__(self, data, metadata):
         if self.sink._active.is_set():
             # do not write data if in paused mode
