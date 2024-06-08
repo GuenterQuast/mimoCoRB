@@ -30,7 +30,7 @@ class animWaveformPlotter(object):
     created in __init__
     """
 
-    def __init__(self, conf_dict=None, dtypes=None, fig=None):
+    def __init__(self, conf_dict=None, dtypes=None, source_dict=None, fig=None):
         """
         Oscilloscope-like display of wave from buffer data
 
@@ -45,8 +45,10 @@ class animWaveformPlotter(object):
         """
 
         self.conf_dict = conf_dict
-        self.dtypes = dtypes
-
+        self.source_dict=source_dict
+        self.dtypes=source_dict["dtype"]
+        self.debug=self.source_dict["debug"]
+        
         plot_title = "" if "title" not in conf_dict else conf_dict["title"]
 
         # Create figure object if needed
@@ -70,7 +72,7 @@ class animWaveformPlotter(object):
             0 if "pre_trigger_samples" not in self.conf_dict else self.conf_dict["pre_trigger_samples"]
         )
         pre_trigger_ns = pre_trigger_samples * sample_time_ns
-        plot_length = self.conf_dict["number_of_samples"]
+        plot_length = self.source_dict["values_per_slot"]
         total_time_ns = plot_length * sample_time_ns
 
         self.min_sleeptime = 1.0 if "min_sleeptime" not in self.conf_dict else self.conf_dict["min_sleeptime"]
@@ -139,7 +141,6 @@ class animWaveformPlotter(object):
         # init frequency measurement
         self.last_evNr = 0
         self.last_evT = time.time()
-        self.first_call = True
         
     def init(self):
         """plot initial line objects to be animated"""
@@ -149,18 +150,7 @@ class animWaveformPlotter(object):
         """
         Update variable element of graphics
         """
-        # update variable graphics elements
-        #    - check length of waveform data
-        if self.first_call:
-            self.first_call = False
-            len_x = len(self.x_linspace)
-            len_y = len(data[:][self.dtypes[0][0]])
-            if len_x != len_y:
-                print("!!! animWaveformPlotter: expected data of length ", len_x,
-                     " received ", len_y, "  exiting !")
-                raise SystemExit
-        
-        # - draw variable graphics elements using  blitting to speed things up
+        # draw variable graphics elements using blitting
         self.fig.canvas.restore_region(self.bg)
         for i, line in enumerate(self.channel_lines):
             line.set_ydata(data[:: self.iStep][self.dtypes[i][0]] - self.analogue_offset)
@@ -215,7 +205,7 @@ class plot_buffer:
         self.active_event = self.data_reader.source._active
         self.source_dict = observe_list[0]
         # initialize oscilloscope-like display
-        self.osciplot = animWaveformPlotter(conf_dict=config_dict, dtypes=self.source_dict["dtype"])
+        self.osciplot = animWaveformPlotter(conf_dict=config_dict, source_dict=self.source_dict)
 
     def __call__(self):
         """
