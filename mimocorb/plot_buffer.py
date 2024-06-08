@@ -139,7 +139,8 @@ class animWaveformPlotter(object):
         # init frequency measurement
         self.last_evNr = 0
         self.last_evT = time.time()
-
+        self.first_call = True
+        
     def init(self):
         """plot initial line objects to be animated"""
         return self.channel_lines
@@ -149,6 +150,16 @@ class animWaveformPlotter(object):
         Update variable element of graphics
         """
         # update variable graphics elements
+        #    - check length of waveform data
+        if self.first_call:
+            self.first_call = False
+            len_x = len(self.x_linspace)
+            len_y = len(data[:][self.dtypes[0][0]])
+            if len_x != len_y:
+                print("!!! animWaveformPlotter: expected data of length ", len_x,
+                     " received ", len_y, "  exiting !")
+                raise SystemExit
+        
         # - draw variable graphics elements using  blitting to speed things up
         self.fig.canvas.restore_region(self.bg)
         for i, line in enumerate(self.channel_lines):
