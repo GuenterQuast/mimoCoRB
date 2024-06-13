@@ -507,7 +507,7 @@ class rbPut:
         self.T_last = time.time()
 
     def __call__(self, data, metadata):
-        if self.sink._active.is_set():
+        if self.sink._active.is_set() and data is not None:
             # do not write data if in paused mode
             if self.sink._paused.is_set():
                 time.sleep(0.1)
