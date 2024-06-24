@@ -722,8 +722,6 @@ class rbDrain:
         # general part for each reader (template)
         if source_list is None:
             raise ValueError("Faulty ring buffer configuration passed ('source_list' missing)!")
-        if config_dict is None:
-            raise ValueError("Faulty configuration passed ('config_dict' missing)!")
 
         self.source = None
         for key, value in rb_info.items():
@@ -739,6 +737,10 @@ class rbDrain:
         if self.source is None:
             raise ValueError("Faulty ring buffer configuration passed. No source found!")
 
+        self.filename = config_dict["directory_prefix"] + "/" + "message.txt"
+        with open(self.filename, 'w') as f:
+            print("No output foreseen to be written by rbDrain()", file=f)
+        
     def __del__(self):
         pass
 
