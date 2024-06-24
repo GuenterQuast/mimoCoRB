@@ -706,6 +706,53 @@ class rbTransfer:
 # <-- end class rbTransfer
 
 
+class rbDrain:
+    """read data from ring buffer and sent to null"""
+
+    def __init__(self, source_list=None, config_dict=None, **rb_info):
+        """
+        Class to extract data 
+
+        :param _list: list of length 1 with dictionary for source buffer
+        :param observe_list: list of length 1 with dictionary for observer (not implemented yet)
+        :param config_dict: application-specific configuration (file name)
+        :param rb_info: dictionary with names and function (read, write, observe) of ring buffers
+        """
+
+        # general part for each reader (template)
+        if source_list is None:
+            raise ValueError("Faulty ring buffer configuration passed ('source_list' missing)!")
+        if config_dict is None:
+            raise ValueError("Faulty configuration passed ('config_dict' missing)!")
+
+        self.source = None
+        for key, value in rb_info.items():
+            if value == "read":
+                self.source = bm.Reader(source_list[0])
+                if len(source_list) > 1:
+                    print("!!! more than one reader process currently not supported")
+            elif value == "write":
+                print("!!! Writing to buffer not foreseen !!")
+            elif value == "observe":
+                print("!!! Observer processes not foreseen !!")
+
+        if self.source is None:
+            raise ValueError("Faulty ring buffer configuration passed. No source found!")
+
+    def __del__(self):
+        pass
+
+    def __call__(self):
+        # sart reading (and do nothing)
+        while self.source._active.is_set():
+            input_data = self.source.get()
+            if input_data is None:
+                break  # last event is none
+        #  END
+        print("\n ** rbDrain: end seen")
+
+# <-- end class rbDrain
+
 class rb_toTxtfile:
     """Save data to file in csv-format"""
 
@@ -741,7 +788,7 @@ class rb_toTxtfile:
 
         if not (self.source.values_per_slot == 1):
             raise ValueError(
-                "LogToTxt can only safe single buffer lines! " + "(Make sure: bm.Reader.values_per_slot == 1 )"
+                "LogToTxt can only save single buffer lines! " + "(Make sure: bm.Reader.values_per_slot == 1 )"
             )
 
         self.filename = config_dict["directory_prefix"] + "/" + config_dict["filename"] + ".txt"
