@@ -213,7 +213,7 @@ def bufferinfoGUI(Qcmd, Qlog, Qinfo, RBnames=["RB_1"], maxRate=100.0, interval=1
 
     # generate window, Buttons, graphics and text display
     Tkwin = Tk.Tk()
-    Tkwin.geometry("1024x600")
+    Tkwin.geometry('1024x600+0+0')
     Tkwin.wm_title("Buffer Information")
 
     # handle destruction of top-level window
