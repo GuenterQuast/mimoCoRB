@@ -95,14 +95,14 @@ Functions:
            RB_2: "write"    # waveform to save (if double pulse was found)
            RB_3: "write"    # pulse data
   - Fkt_3:
-      file_name: "modules/save_files"
+      file_name: "modules/exporters"
       fkt_name: "save_to_txt"
       config_file: "config/save_lifetime.yaml"
       num_process: 1
       RB_assign:
            RB_3: "read"     # pulse data
   - Fkt_4:
-      file_name: "modules/save_files"
+      file_name: "modules/exporters"
       fkt_name: "save_parquet"
       num_process: 1
       RB_assign:

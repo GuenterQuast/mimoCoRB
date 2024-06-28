@@ -495,7 +495,7 @@ The buffer configuration is defined in the file
              RB_1: "read"
              RB_2: "write"
     - Fkt_3:
-        file_name: "modules/save_files"
+        file_name: "modules/exporters"
         fkt_name: "save_to_txt"
         num_process: 1
         RB_assign:
@@ -563,7 +563,7 @@ data to a text file is shown below:
 
 .. code-block:: python
 
-  """Module save_files to handle file I/O for data in txt and parquet format
+  """Module exporters to handle file I/O for data in txt and parquet format
      This module relies on classes in mimocorb.buffer_control
   """
   from mimocorb.buffer_control import rb_toTxtfile, rb_toParquetfile
@@ -679,7 +679,7 @@ The buffer layout and the associated functions are defined in the main
 configuration file `lifetime_setup.py`, which serves as the input to 
 the execution script `run_daq.py` in the top-level directory of the package. 
 The *python* files `simul_source.py`, `liftime_filter.py` and
-`save_files.py` contain the user code for data generation, analysis
+`exporters.py` contain the user code for data generation, analysis
 and filtering and extraction of the finally accepted data to disk files. 
 The `.yaml` files `simulation_config.yaml` and `save_lifetimes.yaml` contain 
 configurable parameters provided to these functions.
@@ -808,14 +808,14 @@ The input *yaml* file for this example looks as follows:
              RB_2: "write"    # waveform to save (if double pulse was found)
              RB_3: "write"    # pulse data
     - Fkt_3:
-        file_name: "modules/save_files"
+        file_name: "modules/exporters"
         fkt_name: "save_to_txt"
         config_file: "config/save_lifetime.yaml"
         num_process: 1
         RB_assign:
              RB_3: "read"     # pulse data
     - Fkt_4:
-        file_name: "modules/save_files"
+        file_name: "modules/exporters"
         fkt_name: "save_parquet"
         num_process: 1
         RB_assign:
