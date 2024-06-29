@@ -17,14 +17,17 @@ class pulseSimulator:
         self.events_required = 1000 if "eventcount" not in config_dict else config_dict["eventcount"]
         self.sleeptime = 0.10 if "sleeptime" not in config_dict else config_dict["sleeptime"]
         self.random = False if "random" not in config_dict else config_dict["random"]
-
         # parameters for pulse simulation and detector porperties 
-        self.plen = 400 // self.sample_time_ns  # 400 ns pulse window
+#        self.plen = 400 // self.sample_time_ns  # 400 ns pulse window
+        self.plen = 100 if "pulseWindow" not in config_dict else\
+            config_dict["pulseWindow"]
+        self.pulse_height = 250.0 if "pulseHeight" not in config_dict else\
+            config_dict["pulseHeight"]
+        self.pulse_spread = self.pulse_height * 0.3 if "pulseSpread" not in config_dict else\
+            config_dict["pulseSpread"]
         self.tau = self.plen / 4.0  # decay time of exponential pulse
         self.mn_position = self.pre_trigger_samples
         self.mx_position = self.number_of_samples - self.plen
-        self.pulse_height = 250.0
-        self.pulse_spread = 100.0
         self.pulse_template = np.exp(-np.float32(np.linspace(0.0, self.plen, self.plen, endpoint=False)) / self.tau)
         self.noise = self.pulse_height / 30.0
         self.tau_mu = 2200  # muyon life time in ns
