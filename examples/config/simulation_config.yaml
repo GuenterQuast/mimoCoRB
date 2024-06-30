@@ -20,6 +20,12 @@ simul_source:
   pre_trigger_samples: *pre_trigger_samples
   analogue_offset: *analogue_offset
   eventcount: *number_of_events
+  # define pulse characteristics
+  #pulseWindow: 100   # pulse width = 4*tau_pulse
+  #pulseHeight: 250
+  #pulseSpread: 75
+  #prbInteraction: 0.95
+  #prb2ndPulse: 0.10
   sleeptime: 0.003
   random: true
 
