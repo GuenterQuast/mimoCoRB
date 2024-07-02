@@ -51,11 +51,22 @@ Functions:
        ##  for simulation source
        file_name: "modules/simul_source"
        fkt_name: "simul_source"
+       ## for data from file
+       #file_name: "modules/file_source"
+       #fkt_name: "tar_parquet_source"
        num_process: 1
        RB_assign:
            RB_1: "write"
 
   - Fkt_2:
+      file_name: "modules/exporters"
+      # fkt_name: "save_parquet"
+      fkt_name: "drain"
+      num_process: 1
+      RB_assign:
+           RB_1: "read"     # waveform to save
+
+  - Fkt_3:
        file_name: "modules/spectrum_filter"
        fkt_name: "find_peaks"
        num_process: 2
@@ -63,7 +74,7 @@ Functions:
            RB_1: "read"
            RB_2: "write"
 
-  - Fkt_3:
+  - Fkt_4:
       file_name: "modules/exporters"
      # fkt_name: "save_to_txt" # save data to text
       fkt_name: "drain"        # no saving of data
@@ -73,13 +84,13 @@ Functions:
 
 # --- the following functions are optioal 	   
 
-  - Fkt_4:
+  - Fkt_5:
       file_name: "modules/plot_waveform"
       fkt_name: "plot_waveform"
       num_process: 1
       RB_assign:
            RB_1: "observe"
-  - Fkt_5:
+  - Fkt_6:
       file_name: "modules/plot_histograms"
       fkt_name: "plot_histograms"
       num_process: 1
