@@ -41,7 +41,7 @@ def tar_parquet_source(source_list=None, sink_list=None, observe_list=None,
 
     filenames = iter([os.path.join(path, f) for f in os.listdir(path) if \
                       os.path.isfile(os.path.join(path, f)) and \
-                      pathlib.Path(f).suffix in supported_suffixes ])  
+                      pathlib.Path(f).suffix in supported_suffixes ])
 
     def yield_data():
         """
@@ -49,7 +49,7 @@ def tar_parquet_source(source_list=None, sink_list=None, observe_list=None,
         """
 
         f = next(filenames)
-        # print("** file_source: opening file: ", f, 10*' ' + '\n')
+        #print("** file_source: opening file: ", f, 10*' ' + '\n')
         in_tar = tarfile.open(f, 'r:*') # open with transparent compression
 
         while True:   
@@ -69,7 +69,7 @@ def tar_parquet_source(source_list=None, sink_list=None, observe_list=None,
             if random: 
                 time.sleep(-sleeptime*np.log(np.random.rand())) # random Poisson sleep time
             else:
-                 time.sleep(sleeptime)  # fixed sleep time
+                time.sleep(sleeptime)  # fixed sleep time
             try:
                 pd_data = pd.read_parquet(in_tar.extractfile(parquet))
             except FileNotFoundError:
@@ -79,7 +79,7 @@ def tar_parquet_source(source_list=None, sink_list=None, observe_list=None,
             # data from file is pandas format, convert to array
             data = []
             for i in range(number_of_channels):
-                chnam = 'ch' + chr(ord('A') + i)
+                chnam = chnams[i]
                 data.append(pd_data[chnam].to_numpy())
             # deliver data and no metadata
             yield(data, None)                
@@ -88,6 +88,7 @@ def tar_parquet_source(source_list=None, sink_list=None, observe_list=None,
     fs = rbImport(sink_list=sink_list, config_dict=config_dict,
                   ufunc = yield_data, **rb_info)
     number_of_channels = len(fs.sink.dtype)
+    chnams = [fs.sink.dtype[i][0] for i in range(number_of_channels)]
 
     # TODO: Change to logger!
     # print("** tar_parquet_source ** started, config_dict: \n", config_dict)
