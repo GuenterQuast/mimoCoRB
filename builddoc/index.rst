@@ -894,6 +894,9 @@ Module Documentation
 .. automodule:: mimocorb.histogram_buffer
      :members:
        
+.. automodule:: mimocorb.pulseSimulator
+     :members:	
+
 .. automodule:: rb_unittest
 
 .. automodule:: simul_source
@@ -907,3 +910,4 @@ Module Documentation
 
 .. automodule:: plot_histograms
      :members:	
+
