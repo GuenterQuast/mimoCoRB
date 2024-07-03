@@ -33,8 +33,7 @@ def tar_parquet_source(source_list=None, sink_list=None, observe_list=None,
         Data generator to deliver raw pulse data from parquet files
         """
 
-        event_count = 0
-        while events_required == 0 or event_count < events_required:
+        while True:
             data = reader()
             if data is None: # reached end, exit process
                 sys.exit()
@@ -44,7 +43,6 @@ def tar_parquet_source(source_list=None, sink_list=None, observe_list=None,
     reader = parquetReader(config_dict)        
     fs = rbImport(sink_list=sink_list, config_dict=config_dict,
                   ufunc = yield_data, **rb_info)
-    reader.number_of_channels = len(fs.sink.dtype)
     number_of_channels = len(fs.sink.dtype)
     reader.number_of_channels = number_of_channels
     reader.chnams = [fs.sink.dtype[i][0] for i in range(number_of_channels)]
