@@ -25,4 +25,5 @@ __all__ = [
     "plot_buffer",
     "histogram_buffer",
     "pulseSimulator",
+    "parquetReader",
 ]
