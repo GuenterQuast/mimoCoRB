@@ -37,7 +37,7 @@ def tar_parquet_source(source_list=None, sink_list=None, observe_list=None,
             data = reader()
             if data is None: # reached end, exit process
                 sys.exit()
-            yield(data, None)                
+            yield(data, None)
 
 
     reader = parquetReader(config_dict)        

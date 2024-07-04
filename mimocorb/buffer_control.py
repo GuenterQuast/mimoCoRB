@@ -870,10 +870,10 @@ class rb_toParquetfile:
                 print("!!! Observer Process not foreseen!!")
 
         if self.source is None:
-            raise ValueError("Faulty ring buffer configuration passed to 'SaveBufferParquet'!")
+            raise ValueError("Faulty ring buffer configuration passed to 'rb_toParquetfile'!")
 
         if not "filename" in config_dict:
-            raise ValueError("A 'filename' has to be provided to 'SaveBufferParquet' the config_dict!")
+            raise ValueError("A 'filename' has to be provided to 'rb_toParquetfile'")
         else:
             self.filename = config_dict["filename"]
 
