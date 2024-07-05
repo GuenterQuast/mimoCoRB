@@ -161,7 +161,7 @@ class buffer_control:
                 try:
                     config_dict = config_dict_common[fkt_py_name]
                 except (KeyError, TypeError):
-                    print("Warning: no configuration found for file '{}'!".format(fkt_py_name))
+                    print("Warning: no configuration found for function '{}'!".format(fkt_py_name))
                     pass  # If both are not present, no external configuration is passed to the function
             else:
                 # > In case of a function specific configuration file, copy it over into the target directory

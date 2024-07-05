@@ -26,8 +26,6 @@ def tar_parquet_source(source_list=None, sink_list=None, observe_list=None,
     """
 
 
-    events_required = 1000 if "eventcount" not in config_dict else config_dict["eventcount"]
-    
     def yield_data():
         """
         Data generator to deliver raw pulse data from parquet files
@@ -39,15 +37,16 @@ def tar_parquet_source(source_list=None, sink_list=None, observe_list=None,
                 sys.exit()
             yield(data, None)
 
-
-    reader = parquetReader(config_dict)        
+    # initialize file reader 
+    reader = parquetReader(config_dict)
+    # get configuration
+    sink_dict = sink_list[0]
+    number_of_channels = len(sink_dict["dtype"])
+    number_of_values = sink_dict["values_per_slot"]
+    reader.number_of_channels = number_of_channels
+    reader.chnams = [sink_dict["dtype"][i][0] for i in range(number_of_channels)]
+    # start mimoCoRB client
     fs = rbImport(sink_list=sink_list, config_dict=config_dict,
                   ufunc = yield_data, **rb_info)
-    number_of_channels = len(fs.sink.dtype)
-    reader.number_of_channels = number_of_channels
-    reader.chnams = [fs.sink.dtype[i][0] for i in range(number_of_channels)]
-
-    # TODO: Change to logger!
     # print("** tar_parquet_source ** started, config_dict: \n", config_dict)
-    # print("?> sample interval: {:02.1f}ns".format(fs.time_interval_ns.value))
     fs()
