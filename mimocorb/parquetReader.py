@@ -21,13 +21,17 @@ class parquetReader():
         self.filenames = iter([os.path.join(self.path, f) for f in os.listdir(self.path) if \
                       os.path.isfile(os.path.join(self.path, f)) and \
                       pathlib.Path(f).suffix in supported_suffixes ])
-        self.number_of_channels = None
-        self.chnams = None
         
         f = next(self.filenames)
         #print("** file_source: opening file: ", f, 10*' ' + '\n')
         self.in_tar = tarfile.open(f, 'r:*') # open with transparent compression
 
+    def init(self, number_of_channels = None, number_of_values = None, channel_names = None):
+        """set parameters from buffer configuration and initialize"""
+        self.number_of_channels = number_of_channels
+        self.number_of_values = number_of_values
+        self.channel_names = channel_names        
+        
     def __call__(self):
         parquet = self.in_tar.next()
         if parquet is None:
@@ -56,6 +60,6 @@ class parquetReader():
         # data from file is pandas format, convert to array
         data = []
         for i in range(self.number_of_channels):
-            data.append(pd_data[self.chnams[i]].to_numpy())
+            data.append(pd_data[self.channel_names[i]].to_numpy())
         # deliver data
         return data

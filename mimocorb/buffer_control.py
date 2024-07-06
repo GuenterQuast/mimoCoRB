@@ -425,6 +425,8 @@ class rbImport:
             # get new buffer and store event data and meta-data
             # no try-block to ease debugging of user code
             data, metadata = next(self.userdata_generator)
+            if data is None:  # source exhausted
+                break
 #            try:
 #                data, metadata = next(self.userdata_generator)
 #            except:

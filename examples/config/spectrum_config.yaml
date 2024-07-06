@@ -25,17 +25,7 @@ find_peaks:
   trigger_position_tolerance: 7  # in number of samples (7 samples -> 28ns)
 
 # Dict for simul_source.py
-simul_source:
-  sample_time_ns: *sample_time_ns
-  number_of_samples: *number_of_samples
-  pre_trigger_samples: *pre_trigger_samples
-  analogue_offset: *analogue_offset
-  eventcount: *number_of_events
-  sleeptime: 0.03
-  random: true
-
-# Dict for push_simul
-push_simul:
+simulation_source:
   sample_time_ns: *sample_time_ns
   number_of_samples: *number_of_samples
   pre_trigger_samples: *pre_trigger_samples

@@ -108,7 +108,7 @@ Functions:
       config_file: "config/simulation_config.yaml"
   - Fkt_1:
        file_name: "modules/simul_source"
-       fkt_name: "simul_source"
+       fkt_name: "simulation_source"
        num_process: 1
        RB_assign:
            RB_1: "write"

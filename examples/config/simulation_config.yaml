@@ -13,7 +13,7 @@ general:
   pre_trigger_samples: &pre_trigger_samples 500
 
 # Dict for simul_source.py
-simul_source:
+simulation_source:
   sample_time_ns: *sample_time_ns
   number_of_samples: *number_of_samples
   trigger_level: *trigger_level
