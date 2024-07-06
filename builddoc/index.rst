@@ -289,16 +289,16 @@ The classes are:
 
   - `class rbImport`
       Read data from source (e.g. a front-end like a PicoScope USB oscilloscope,
-      or from a file or simulation)  import data and metadata in a mimo buffer
+      or from a file or simulation) and import data and metadata in a mimo buffer
       by calling user-supplied Python generator (i.e. via '*yield*'). In this
       approach, mimiCoRB "pulls" data.
 
   - `class rbPut`
       Read data from source (e.g. a front-end like a PicoScope USB oscilloscope,
       or from a file or simulation)  and put data in a mimo_buffer by calling
-      a Python function, thus pushing the data to a mimiCorB bufffer under control
-      of the reading application. This method is useful in cases weher the application
-      providing the data has its own event loop (driving e.g. ist own graphical display). 
+      a Python function, thus pushing the data under control of the reading application.
+      This method is useful in cases weher the application providing the data has its
+      own event loop (driving e.g. ist own graphical display). 
 
   - `class rbTransfer`
       Read data from a mimo_buffer, filter and/or reformat data and write to output mimo_buffer(s).
@@ -483,7 +483,7 @@ The buffer configuration is defined in the file
     - Fkt_1:
          ##  for simulation source
          file_name: "modules/simul_source"
-         fkt_name: "simul_source"
+         fkt_name: "simulation_source"
          num_process: 1
          RB_assign:
              RB_1: "write"
@@ -607,51 +607,56 @@ is shown here:
 
 .. code-block:: python
 
-  """**simul_source**: a simple template for a mimoCoRB source to 
-  enter simulated waveform data in a mimoCoRB buffer.
-
-  Input data is provided as numpy-arry of shape (number_of_channels, number_of_samples).
-  """
-  from mimocorb.buffer_control import rbImport
-  from mimocorb.pulseSimulator import pulseSimulator
-  import numpy as np
-  import sys, time
-
-  def simul_source(source_list=None, sink_list=None, observe_list=None, config_dict=None, **rb_info):
+  def simulation_source(source_list=None, sink_list=None, observe_list=None, config_dict=None, **rb_info):
       """
-      Generate simulated data and pass data to buffer
-      The class mimocorb.buffer_control/rbImport is used to interface to the
+      General example for data import from external source  
+      (here: generation of simulated data with module pulseSimulator)
+
+      Uses class mimocorb.buffer_control/rbImport to interface to the
       newBuffer and Writer classes of the package mimoCoRB.mimo_buffer
 
+      mimiCoRB interacts with this code via a generator (*yield_data()*), 
+      which itself received data via the *__call__* function of the class
+      *dataSource* providing the input data. Configuration parametes 
+      in the dictionary *config_dict* are passed to this class during
+      initialistation. Parameters of the configured buffers are set after 
+      after initialisation.
+
       This example may serve as a template for other data sources
-
-      :param config_dict: configuration dictionary
-
-        - events_required: number of events to be simulated or 0 for infinite
-        - sleeptime: (mean) time between events
-        - random: random time between events according to a Poission process
-        - number_of_samples, sample_time_ns, pretrigger_samples and analogue_offset
-          describe the waveform data to be generated (as for oscilloscope setup)
       """
 
-      events_required = 1000 if "eventcount" not in config_dict else config_dict["eventcount"]
+      # define and instantiate external data source
+      source = dataSource(config_dict)
 
       def yield_data():
-          """generate simulated data, called by an instance of class mimoCoRB.rbImport"""
-  
+          """generate simulated data, called by instance of class mimoCoRB.rbImport"""
           event_count = 0
-          while events_required == 0 or event_count < events_required:
-              pulse = dataSource(number_of_channels)
-              # deliver pulse data and no metadata
-              yield (pulse, None)
+          while True:
+              data = source()
+              # deliver pulse data (and no metadata; these are added by rbImport)
+              yield (data, None)
               event_count += 1
-  
-      dataSource = pulseSimulator(config_dict)
-      simulsource = rbImport(config_dict=config_dict, sink_list=sink_list, ufunc=yield_data, **rb_info)
-      number_of_channels = len(simulsource.sink.dtype)
 
-      simulsource()
+      # get buffer configuration
+      sink_dict = sink_list[0]
+      number_of_channels = len(sink_dict["dtype"])
+      number_of_values = sink_dict["values_per_slot"]
+      channel_names = [sink_dict["dtype"][i][0] for i in range(number_of_channels)]
+      # consistency check
+      if "number_of_samples" not in config_dict:
+          pass
+      else: 
+          if number_of_values != config_dict["number_of_samples"]:
+              print("! Config Error: requested number of samples does not match buffer size !")
+              sys.exit("requested number of samples does not match buffer size !")
+      source.init(number_of_channels, number_of_values, channel_names)        
+
+      # instantiate buffer manager interface
+      rbImporter = rbImport(config_dict=config_dict, sink_list=sink_list, ufunc=yield_data, **rb_info)
+      # print("** simulation_source ** started, config_dict: \n", config_dict)
   
+      # start __call__ method of rbImport instance 
+      rbImporter()
 
       
 **Complex Example**
