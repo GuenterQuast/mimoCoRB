@@ -1132,7 +1132,7 @@ class run_mimoDAQ:
         # check for / read command line arguments and load DAQ configuration file
         try:
             with open(os.path.abspath(self.setup_filename), "r") as file:
-                setup_yaml = yaml.load(file, Loader=yaml.FullLoader)  # SafeLoader
+                self.setup_dict = yaml.load(file, Loader=yaml.FullLoader)  # SafeLoader
         except FileNotFoundError:
             raise FileNotFoundError("Setup YAML file '{}' does not exist!".format(self.setup_filename))
         except yaml.YAMLError:
@@ -1140,11 +1140,14 @@ class run_mimoDAQ:
 
         # set general options from input dictionary
         # - output directory prefix
-        self.output_directory = "target" if "output_directory" not in setup_yaml else setup_yaml["output_directory"]
+        self.output_directory = "target" if "output_directory" not in self.setup_dict else\
+            self.setup_dict["output_directory"]
         # - allow keyboard control ?
-        self.kbdcontrol = True if "KBD_control" not in setup_yaml else setup_yaml["KBD_control"]
+        self.kbdcontrol = True if "KBD_control" not in self.setup_dict else\
+            self.setup_dict["KBD_control"]
         # - enable GUI ?
-        self.GUIcontrol = True if "GUI_control" not in setup_yaml else setup_yaml["GUI_control"]
+        self.GUIcontrol = True if "GUI_control" not in self.setup_dict else\
+            self.setup_dict["GUI_control"]
 
         # > Get start time
         start_time = time.localtime()
@@ -1172,9 +1175,11 @@ class run_mimoDAQ:
         )
 
         # > Separate setup_yaml into ring buffers and functions:
-        self.ringbuffers_dict = setup_yaml["RingBuffer"]
-        self.parallel_functions_dict = setup_yaml["Functions"]
-
+        self.ringbuffers_dict = self.setup_dict["RingBuffer"]
+        self.parallel_functions_dict =self.setup_dict["Functions"]
+        self.function_config_dict = None if "FunctionConfigs" not in self.setup_dict else\
+            self.setup_dict["FunctionConfigs"]
+        
     def __del__(self):
         # print("run_mimoDAQ: destructor called")
         pass

@@ -1,11 +1,13 @@
 # Dict with uid's as key and a nested dict with configuration variables
 general:
-  runtime: 600  # desired runtime in seconds
-  runevents: &number_of_events 100000
+  # run-time and number of desired events may be specified her (overrides entry in Fkt_main, if present)
+  #runtime: 600  # desired runtime in seconds
+  #runevents: &number_of_events 100000
+  
+  # general parameters: 
   number_of_samples: &number_of_samples 500
   analogue_offset: &analogue_offset -0.48  # in V and not adc!
   sample_time_ns: &sample_time_ns 4
-
   trigger_level: &trigger_level -440 # triger level in mV incl. offset
   trigger_channel: &trigger_channel 'A'
   trigger_direction: &trigger_direction 'rising'
@@ -30,7 +32,7 @@ simulation_source:
   number_of_samples: *number_of_samples
   pre_trigger_samples: *pre_trigger_samples
   analogue_offset: *analogue_offset
-  eventcount: *number_of_events
+  eventcount: 0     # run until stopped 
   sleeptime: 0.03
   random: true
 
@@ -47,6 +49,9 @@ save_to_txt:
 
 save_parquet:
   filename: "spectrum"
+
+drain:   # has no parameters, empty field is sufficient
+  key: 
 
 plot_waveform:
   title: "Muon waveform"

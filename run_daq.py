@@ -9,7 +9,7 @@ from mimocorb.buffer_control import run_mimoDAQ
 
 # define command line arguments ...
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument('filename', nargs='?', default = "setup.yaml",
+parser.add_argument('filename', nargs='?', default = "demo_setup.yaml",
                     help = "configuration file")
 parser.add_argument('-v','--verbose', type=int, default=2,
                     help="verbosity level (2)")

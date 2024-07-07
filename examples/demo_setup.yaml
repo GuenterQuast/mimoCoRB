@@ -1,18 +1,33 @@
 # Configuration for recording two channels with mimoCoRB
 #  -----------------------------------------------------
+# 
+# illustrates the structure of a mimiCoRB setup file:
+# the blocks
+# - RingBuffer: 
+# - Functions:
+# must be present.
+# The names RB_i and FKT_i with i = 1, 2, 3, ... are fixed. 
+# Optionally, a block
+# - FunctionConfigs:
+# can be specified to provide the configuration for each one of the
+# assigned functions. These may also be specified in a separate
+# configuration file for all functions, or in dedicated files for
+# each function using the keys "config_file:" in the FTK_main section
+# or in the FKT_i: sections, respectively. 
 #
-# configure tiw buffers:
+# In this example, two buffers are configured:
 #  - RB_1 for raw waveforms
 #  - RB_2 for derived pulse parameters
-#  data from RB_2, the result buffer, are saved to a file in csv (text) format.
-#
-#  - data from RB_1 are also passed to an obsever process driving a real-time display
-#  - data RB_2 are passed to a Reader process driving a real-time histogram display
+
+#  Data from RB_2, the result buffer, are saved to a file in csv (text) format.
+#  Data from RB_1 are also passed to an obsever process driving a real-time display,
+#  and are also passed to a Reader process driving a real-time histogram display.
 #
 # Notes:
 # 
 #    1. additional config files controlling the user functions are
 #       located in the subdirectory config/
+#
 #    2. necessary application-specific user code is located
 #       in the subdirectory modules/
 #
@@ -45,7 +60,9 @@ Functions:
   # define functions and ringbuffer assignment
 
   - Fkt_main:
-      config_file: "config/spectrum_config.yaml"
+       # runtime: 60  # desired runtime in seconds
+       runevents: 1000
+       config_file: "config/spectrum_config.yaml"
 
   - Fkt_1:
        ##  for simulation source
