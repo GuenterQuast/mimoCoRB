@@ -77,7 +77,7 @@ Functions:
 
   - Fkt_2:
       file_name: "modules/exporters"
-      # fkt_name: "save_parquet"
+     # fkt_name: "save_parquet"
       fkt_name: "drain"
       num_process: 1
       RB_assign:
@@ -113,3 +113,14 @@ Functions:
       num_process: 1
       RB_assign:
            RB_2: "read"  # pulse parameters
+
+FunctionConfigs:
+# configuration of functions provided by mimoCoRB
+  save_to_txt:
+    filename: "spectrum"
+
+  save_parquet:
+    filename: "spectrum"
+
+  drain:   # has no parameters, empty field is sufficient
+    key: 

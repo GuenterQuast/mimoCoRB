@@ -44,14 +44,14 @@ tar_parquet_source:
   sleeptime: 0.010
   random: true
 
-save_to_txt:
-  filename: "spectrum"
-
-save_parquet:
-  filename: "spectrum"
-
-drain:   # has no parameters, empty field is sufficient
-  key: 
+#save_to_txt:
+#  filename: "spectrum"
+#
+#save_parquet:
+#  filename: "spectrum"
+#
+#drain:   # has no parameters, empty field is sufficient
+#  key: 
 
 plot_waveform:
   title: "Muon waveform"

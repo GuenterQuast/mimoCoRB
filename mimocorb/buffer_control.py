@@ -38,17 +38,19 @@ class buffer_control:
 
     """
 
-    def __init__(self, buffers_dict, functions_dict, output_directory):
+    def __init__(self, buffers_dict, functions_dict, function_config_dict, output_directory):
         """
         Class to hold and control mimoCoRB buffer objects
 
         :param buffers_dict: dictionary defining buffers RB_1, RB_2, ...
         :param functions_dict: dictionary defining functions FKT_1, FKT_2, ...
+        :param function_config_dict: configuration dictionary for functions
         :param output_directory: directory prefix for copies of config files and daq output
         """
 
-        self.buffers_dict = buffers_dict
+        self.buffers_dict = buffers_dict 
         self.number_of_ringbuffers = len(buffers_dict) + 1
+        self.function_config_dict = function_config_dict
         self.out_dir = output_directory
 
         self.functions_dict = functions_dict
@@ -109,14 +111,10 @@ class buffer_control:
         config_dict_common = None
 
         # get configuration file and time or events per run
-        self.runtime = (
-            0 if "runtime" not in self.functions_dict[0]["Fkt_main"] else self.functions_dict[0]["Fkt_main"]["runtime"]
-        )
-        self.runevents = (
-            0
-            if "runevents" not in self.functions_dict[0]["Fkt_main"]
-            else self.functions_dict[0]["Fkt_main"]["runevents"]
-        )
+        self.runtime = 0 if "runtime" not in self.functions_dict[0]["Fkt_main"] else\
+            self.functions_dict[0]["Fkt_main"]["runtime"]
+        self.runevents = 0 if "runevents" not in self.functions_dict[0]["Fkt_main"] else\
+            self.functions_dict[0]["Fkt_main"]["runevents"]
 
         if "config_file" in self.functions_dict[0]["Fkt_main"]:
             cfg_common = self.functions_dict[0]["Fkt_main"]["config_file"]
@@ -150,26 +148,23 @@ class buffer_control:
                 # and block closing the main application
                 # (for p in process_list: p.join() blocks until all processes terminate by themselfes!)
 
-            # > Check if this function needs external configuration (specified in a yaml file)
-            config_dict = {}
-            try:
-                # > Use a function specific configuration file referenced in the setup_yaml?
+            # > Check if this function needs configuration
+            # 1. from main setup file
+            config_dict = {} if fkt_py_name not in self.function_config_dict else self.function_config_dict[fkt_py_name]
+            # or 2. from common yaml config
+            if fkt_py_name in config_dict_common:
+                config_dict = config_dict_common[fkt_py_name]
+            # or 3. from external yaml:
+            if "config_file" in self.functions_dict[i][function_name]:
                 cfg_file_name = self.functions_dict[i][function_name]["config_file"]
-            except KeyError:
-                # > If there is no specific configuration file, see if there is function specific data
-                #   in the common configuration file
-                try:
-                    config_dict = config_dict_common[fkt_py_name]
-                except (KeyError, TypeError):
-                    print("Warning: no configuration found for function '{}'!".format(fkt_py_name))
-                    pass  # If both are not present, no external configuration is passed to the function
-            else:
-                # > In case of a function specific configuration file, copy it over into the target directory
+                # > if found, copy it over into the target directory
                 shutil.copyfile(
                     os.path.abspath(cfg_file_name),
                     os.path.dirname(self.out_dir) + "/" + os.path.basename(cfg_file_name),
                 )
                 config_dict = self._get_config(cfg_file_name)
+            if config_dict == {}:
+                print("Warning: no configuration found for function '{}'!".format(fkt_py_name))
 
             # > Pass the target-directory created above to the worker function (so, if applicable,
             #   it can safe own data in this directory and everything is contained there)
@@ -1174,19 +1169,19 @@ class run_mimoDAQ:
             os.path.dirname(self.directory_prefix) + "/" + self.setup_filename,
         )
 
-        # > Separate setup_yaml into ring buffers and functions:
-        self.ringbuffers_dict = self.setup_dict["RingBuffer"]
-        self.parallel_functions_dict =self.setup_dict["Functions"]
-        self.function_config_dict = None if "FunctionConfigs" not in self.setup_dict else\
-            self.setup_dict["FunctionConfigs"]
-        
     def __del__(self):
         # print("run_mimoDAQ: destructor called")
         pass
 
     def setup(self):
+        # > Separate setup_yaml into ring buffers and functions:
+        ringbuffers_dict = self.setup_dict["RingBuffer"]
+        parallel_functions_dict =self.setup_dict["Functions"]
+        function_config_dict = None if "FunctionConfigs" not in self.setup_dict else\
+            self.setup_dict["FunctionConfigs"]
+        
         # > Set up ring buffers from dictionaries
-        self.bc = buffer_control(self.ringbuffers_dict, self.parallel_functions_dict, self.directory_prefix)
+        self.bc = buffer_control(ringbuffers_dict, parallel_functions_dict, function_config_dict, self.directory_prefix)
         self.ringbuffers = self.bc.setup_buffers()
         self.RBnames = self.bc.ringbuffer_names
         print("{:d} buffers created...  ".format(len(self.ringbuffers)), end="")
