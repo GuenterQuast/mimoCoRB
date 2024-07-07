@@ -1177,7 +1177,7 @@ class run_mimoDAQ:
         # > Separate setup_yaml into ring buffers and functions:
         ringbuffers_dict = self.setup_dict["RingBuffer"]
         parallel_functions_dict =self.setup_dict["Functions"]
-        function_config_dict = None if "FunctionConfigs" not in self.setup_dict else\
+        function_config_dict = {} if "FunctionConfigs" not in self.setup_dict else\
             self.setup_dict["FunctionConfigs"]
         
         # > Set up ring buffers from dictionaries
