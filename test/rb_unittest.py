@@ -2,14 +2,15 @@
 """
 **rb_unittest:** application example for mimo_buffer
 
-This code may serve as a very basic starting point for own projects 
+This code may serve as a very basic starting point for own projects
 
 Set-up: 2 ring buffers are defined:
 
     - input Buffer  RB_1: 10 ch x 1024 slots (int32)
     - output Buffer RB_2: 10 ch x 2 slots/ch (float64)
-   
+
 """
+
 import time
 import unittest
 import numpy as np

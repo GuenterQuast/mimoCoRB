@@ -1,4 +1,4 @@
-"""Module **lifetime_filter** 
+"""Module **lifetime_filter**
 
 This (rather complex) module filters waveform data to search for valid
 signal pulses in the channel data. The goal is to clearly identify coincidences
@@ -8,12 +8,12 @@ or near a detection layer where the resulting decay-electron produced a delayed
 pulse. The time difference between the initial and the delayed pulses is
 the individual lifetime of the muon.
 
-Wave forms passing this filter-criterion an passed on to a new buffer; the 
-decay time and the properties of the signal pulses (height, integral and 
-postition in time) are written to another buffer. 
+Wave forms passing this filter-criterion an passed on to a new buffer; the
+decay time and the properties of the signal pulses (height, integral and
+postition in time) are written to another buffer.
 
-The relevant configuration parameters can be found in the section 
-*calculate_decay_time:* of the configuration file. 
+The relevant configuration parameters can be found in the section
+*calculate_decay_time:* of the configuration file.
 
 """
 
