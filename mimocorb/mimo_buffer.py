@@ -268,7 +268,7 @@ class NewBuffer:
                     if reader_heap[0] != self.read_pointer:
                         pop_last_element = False
                         break
-                except IndexError as err:
+                except IndexError:
                     # This error is thrown if the heap is empty! In that case we can't increment the reader pointer!
                     pop_last_element = False
                     break
@@ -511,8 +511,9 @@ class NewBuffer:
             # This could cause an infinite loop! (Only possible if the reader closes prematurely, eg.
             # due to unconventional signal chains!)
             print(
-                "Shutdown is waiting for processing to end!\n"
-                "  processing: {:d}, target: {:d}".format(self.read_pointer, latest_observed_index)
+                "Shutdown is waiting for processing to end!\n" "  processing: {:d}, target: {:d}".format(
+                    self.read_pointer, latest_observed_index
+                )
             )
             time.sleep(0.5)
             # We have to update latest_observed_index since self.write_pointer might change

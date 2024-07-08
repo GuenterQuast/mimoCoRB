@@ -4,20 +4,21 @@ Graphical display of buffer status
 code adapted from https://github.com/GuenterQuast/picoDAQ
 """
 
-import sys, time, numpy as np
-import threading, multiprocessing as mp
+import time
+import numpy as np
+import threading
 
 import tkinter as Tk
 from tkinter import messagebox as mbox
 
 import matplotlib
-
-matplotlib.use("TkAgg")
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-import matplotlib.pyplot as plt, matplotlib.animation as anim
+import matplotlib.pyplot as plt
+import matplotlib.animation as anim
 from cycler import cycle
 
 # define global graphics style
+matplotlib.use("TkAgg")
 pref_style = "dark_background"
 _style = pref_style if pref_style in plt.style.available else "default"
 plt.style.use(_style)
@@ -213,7 +214,7 @@ def bufferinfoGUI(Qcmd, Qlog, Qinfo, RBnames=["RB_1"], maxRate=100.0, interval=1
 
     # generate window, Buttons, graphics and text display
     Tkwin = Tk.Tk()
-    Tkwin.geometry('1024x600+0+0')
+    Tkwin.geometry("1024x600+0+0")
     Tkwin.wm_title("Buffer Information")
 
     # handle destruction of top-level window

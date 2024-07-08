@@ -48,7 +48,7 @@ class buffer_control:
         :param output_directory: directory prefix for copies of config files and daq output
         """
 
-        self.buffers_dict = buffers_dict 
+        self.buffers_dict = buffers_dict
         self.number_of_ringbuffers = len(buffers_dict) + 1
         self.function_config_dict = function_config_dict
         self.out_dir = output_directory
@@ -80,9 +80,9 @@ class buffer_control:
             num_ch = self.buffers_dict[i - 1][RBnam]["channel_per_slot"]
             data_type = self.buffers_dict[i - 1][RBnam]["data_type"]  # simple string type or list expected
             # > Create the buffer data structure (data type of the underlying buffer array)
-            if type(data_type) == str:
+            if type(data_type) is str:
                 rb_datatype = np.dtype(data_type)
-            elif type(data_type) == dict:
+            elif type(data_type) is dict:
                 rb_datatype = list()
                 for key, value in data_type.items():
                     rb_datatype.append((value[0], np.dtype(value[1])))
@@ -90,7 +90,7 @@ class buffer_control:
                 raise RuntimeError(
                     "Ring buffer data type '{}' is unknown! "
                     + "Please use canonical numpy data type names ('float', 'int', 'uint8', ...)"
-                    + " or a list of tuples (see numpy.dtype()-API reference)".format(data_type)
+                    + " or a list of tuples (see numpy.dtype()-API reference)".format()
                 )
 
             # > Create and store the new ring buffer object (one per ringbuffer definition in the setup yaml file)
@@ -111,10 +111,14 @@ class buffer_control:
         config_dict_common = None
 
         # get configuration file and time or events per run
-        self.runtime = 0 if "runtime" not in self.functions_dict[0]["Fkt_main"] else\
-            self.functions_dict[0]["Fkt_main"]["runtime"]
-        self.runevents = 0 if "runevents" not in self.functions_dict[0]["Fkt_main"] else\
-            self.functions_dict[0]["Fkt_main"]["runevents"]
+        self.runtime = (
+            0 if "runtime" not in self.functions_dict[0]["Fkt_main"] else self.functions_dict[0]["Fkt_main"]["runtime"]
+        )
+        self.runevents = (
+            0
+            if "runevents" not in self.functions_dict[0]["Fkt_main"]
+            else self.functions_dict[0]["Fkt_main"]["runevents"]
+        )
 
         if "config_file" in self.functions_dict[0]["Fkt_main"]:
             cfg_common = self.functions_dict[0]["Fkt_main"]["config_file"]
@@ -345,6 +349,7 @@ class buffer_control:
             return None
         return vars(module)[function_name]
 
+
 # <-- end class buffer_control
 
 
@@ -422,11 +427,11 @@ class rbImport:
             data, metadata = next(self.userdata_generator)
             if data is None:  # source exhausted
                 break
-#            try:
-#                data, metadata = next(self.userdata_generator)
-#            except:
-#                logging.error("Error in user-supplied generator: cannot retrieve data and metadata")
-#                break
+            #            try:
+            #                data, metadata = next(self.userdata_generator)
+            #            except:
+            #                logging.error("Error in user-supplied generator: cannot retrieve data and metadata")
+            #                break
 
             timestamp = time.time_ns() * 1e-9  # in s as type float64
             T_data_ready = time.time()
@@ -447,6 +452,7 @@ class rbImport:
             self.T_last = T_buffer_ready
         # make sure last data entry is also processed
         self.sink.process_buffer()
+
 
 # <-- end class rbImport
 
@@ -513,7 +519,7 @@ class rbPut:
             T_data_ready = time.time()
             timestamp = time.time_ns() * 1e-9  # in s as type float64
             self.event_count += 1
-            
+
             # get new buffer and store event data and meta-data
             buffer = self.sink.get_new_buffer()
             # - fill data and metadata
@@ -531,10 +537,11 @@ class rbPut:
 
             self.T_last = T_buffer_ready
         else:
-        # make sure last data entry is also processed
+            # make sure last data entry is also processed
             self.sink.process_buffer()
 
         return self.sink._active.is_set()
+
 
 # <-- end class push_to_rb
 
@@ -586,6 +593,7 @@ class rbExport:
 
     def __del__(self):
         pass
+
 
 # <-- end class rbExport
 
@@ -700,6 +708,7 @@ class rbTransfer:
                         self.writers[idx_out].process_buffer()
                     idx_out += 1
 
+
 # <-- end class rbTransfer
 
 
@@ -708,7 +717,7 @@ class rbDrain:
 
     def __init__(self, source_list=None, config_dict=None, **rb_info):
         """
-        Class to extract data 
+        Class to extract data
 
         :param _list: list of length 1 with dictionary for source buffer
         :param observe_list: list of length 1 with dictionary for observer (not implemented yet)
@@ -735,9 +744,9 @@ class rbDrain:
             raise ValueError("Faulty ring buffer configuration passed. No source found!")
 
         self.filename = config_dict["directory_prefix"] + "/" + "message.txt"
-        with open(self.filename, 'w') as f:
+        with open(self.filename, "w") as f:
             print("No output foreseen to be written by rbDrain()", file=f)
-        
+
     def __del__(self):
         pass
 
@@ -750,7 +759,9 @@ class rbDrain:
         #  END
         print("\n ** rbDrain: end seen")
 
+
 # <-- end class rbDrain
+
 
 class rb_toTxtfile:
     """Save data to file in csv-format"""
@@ -836,6 +847,7 @@ class rb_toTxtfile:
         #  END
         print("\n ** rb_toTxtfile: end seen")
 
+
 # <-- end class rb_to_Textfile
 
 
@@ -869,7 +881,7 @@ class rb_toParquetfile:
         if self.source is None:
             raise ValueError("Faulty ring buffer configuration passed to 'rb_toParquetfile'!")
 
-        if not "filename" in config_dict:
+        if "filename" not in config_dict:
             raise ValueError("A 'filename' has to be provided to 'rb_toParquetfile'")
         else:
             self.filename = config_dict["filename"]
@@ -902,6 +914,7 @@ class rb_toParquetfile:
     def __del__(self):
         self.tar.close()
         # print(" ** rb_toParquet: file closed")
+
 
 # <-- end class rb_toParqeutfile
 
@@ -959,6 +972,7 @@ class rbObserver:
 
     def __del__(self):
         pass
+
 
 # <-- end class rbObserver
 
@@ -1061,6 +1075,7 @@ class rbWSObserver:
                 yield (None)
                 break
 
+
 # <-- end class rbWSObserver
 
 
@@ -1120,7 +1135,9 @@ class run_mimoDAQ:
         self.verbose = verbose
 
         # set global logging level for all sub-logger used by this module
-        Gen_logger.set_level(logging.DEBUG if debug else logging.WARNING,)
+        Gen_logger.set_level(
+            logging.DEBUG if debug else logging.WARNING,
+        )
         # create sub-logger for this class
         self.logger = Gen_logger(__class__.__name__)
 
@@ -1135,14 +1152,13 @@ class run_mimoDAQ:
 
         # set general options from input dictionary
         # - output directory prefix
-        self.output_directory = "target" if "output_directory" not in self.setup_dict else\
-            self.setup_dict["output_directory"]
+        self.output_directory = (
+            "target" if "output_directory" not in self.setup_dict else self.setup_dict["output_directory"]
+        )
         # - allow keyboard control ?
-        self.kbdcontrol = True if "KBD_control" not in self.setup_dict else\
-            self.setup_dict["KBD_control"]
+        self.kbdcontrol = True if "KBD_control" not in self.setup_dict else self.setup_dict["KBD_control"]
         # - enable GUI ?
-        self.GUIcontrol = True if "GUI_control" not in self.setup_dict else\
-            self.setup_dict["GUI_control"]
+        self.GUIcontrol = True if "GUI_control" not in self.setup_dict else self.setup_dict["GUI_control"]
 
         # > Get start time
         start_time = time.localtime()
@@ -1176,10 +1192,9 @@ class run_mimoDAQ:
     def setup(self):
         # > Separate setup_yaml into ring buffers and functions:
         ringbuffers_dict = self.setup_dict["RingBuffer"]
-        parallel_functions_dict =self.setup_dict["Functions"]
-        function_config_dict = {} if "FunctionConfigs" not in self.setup_dict else\
-            self.setup_dict["FunctionConfigs"]
-        
+        parallel_functions_dict = self.setup_dict["Functions"]
+        function_config_dict = {} if "FunctionConfigs" not in self.setup_dict else self.setup_dict["FunctionConfigs"]
+
         # > Set up ring buffers from dictionaries
         self.bc = buffer_control(ringbuffers_dict, parallel_functions_dict, function_config_dict, self.directory_prefix)
         self.ringbuffers = self.bc.setup_buffers()

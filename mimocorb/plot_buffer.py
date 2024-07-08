@@ -7,18 +7,16 @@ The _call__() method of this latter class is the entry point to the package.
 """
 
 import numpy as np
-from cycler import cycler
 import time
+import matplotlib.pyplot as plt
 
-import matplotlib.pyplot as plt, matplotlib.animation as anim
+# access to mimiCoRB Observer class
+from .buffer_control import rbObserver
 
 # define global graphics style
 pref_style = "dark_background"
 _style = pref_style if pref_style in plt.style.available else "default"
 plt.style.use(_style)
-
-# access to mimiCoRB Observer class
-from .buffer_control import rbObserver
 
 
 class animWaveformPlotter(object):
@@ -45,10 +43,10 @@ class animWaveformPlotter(object):
         """
 
         self.conf_dict = conf_dict
-        self.source_dict=source_dict
-        self.dtypes=source_dict["dtype"]
-        self.debug=self.source_dict["debug"]
-        
+        self.source_dict = source_dict
+        self.dtypes = source_dict["dtype"]
+        self.debug = self.source_dict["debug"]
+
         plot_title = "" if "title" not in conf_dict else conf_dict["title"]
 
         # Create figure object if needed
@@ -141,7 +139,7 @@ class animWaveformPlotter(object):
         # init frequency measurement
         self.last_evNr = 0
         self.last_evT = time.time()
-        
+
     def init(self):
         """plot initial line objects to be animated"""
         return self.channel_lines
@@ -177,7 +175,8 @@ class plot_buffer:
     """
 
     import matplotlib
-    import matplotlib.pyplot as plt, matplotlib.animation as anim
+    import matplotlib.pyplot as plt
+    import matplotlib.animation as anim
 
     def __init__(
         self,
@@ -215,7 +214,7 @@ class plot_buffer:
             data = next(self.data_reader())
             if data is not None:
                 # expect tuple (data, metadata)
-                channel_lines = self.osciplot(data[0], data[1])  # update graphics with data
+                self.channel_lines = self.osciplot(data[0], data[1])  # update graphics with data
                 # interrupted sleep so that end-event (=None) is not missed
                 dt = 0
                 while self.active_event.is_set():

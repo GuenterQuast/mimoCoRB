@@ -1,43 +1,41 @@
 import numpy as np
 import time
 
+
 class pulseSimulator:
-    """generate wavevorm data of typical pulses from particle detectors, 
-       characterised by an exponential shape with parameters height and 
-       mean length tau and a noise contribution. 
-    """    
-   
+    """generate wavevorm data of typical pulses from particle detectors,
+    characterised by an exponential shape with parameters height and
+    mean length tau and a noise contribution.
+    """
+
     def __init__(self, config_dict):
-        # evaluate configuration dictionary providing settings of recording device 
-        self.number_of_samples = config_dict["number_of_samples"] # not needed here, taken from buffer configuration
+        # evaluate configuration dictionary providing settings of recording device
+        self.number_of_samples = config_dict["number_of_samples"]  # not needed here, taken from buffer configuration
         self.analogue_offset_mv = config_dict["analogue_offset"] * 1000.0
-        self.trigger_level = 0. if "trigger_level" not in config_dict else config_dict["trigger_level"] - self.analogue_offset_mv
+        self.trigger_level = (
+            0.0 if "trigger_level" not in config_dict else config_dict["trigger_level"] - self.analogue_offset_mv
+        )
         self.sample_time_ns = config_dict["sample_time_ns"]
         self.pre_trigger_samples = config_dict["pre_trigger_samples"]
         self.events_required = 1000 if "eventcount" not in config_dict else config_dict["eventcount"]
         self.sleeptime = 0.10 if "sleeptime" not in config_dict else config_dict["sleeptime"]
         self.random = False if "random" not in config_dict else config_dict["random"]
-        self.plen = 100 if "pulseWindow" not in config_dict else\
-            config_dict["pulseWindow"]
-        self.pulse_height = 250.0 if "pulseHeight" not in config_dict else\
-            config_dict["pulseHeight"]
+        self.plen = 100 if "pulseWindow" not in config_dict else config_dict["pulseWindow"]
+        self.pulse_height = 250.0 if "pulseHeight" not in config_dict else config_dict["pulseHeight"]
         if not isinstance(self.pulse_height, list):
             self.pulse_height = [self.pulse_height]
         self.pulse_height = np.array(self.pulse_height)
-        self.pulse_spread = self.pulse_height * 0.3 if "pulseSpread" not in config_dict else\
-            config_dict["pulseSpread"]
-        self.detector_efficiency = 0.95 if "prbInteraction" not in config_dict else\
-            config_dict["prbInteraction"]
-        self.stopping_probability = 0.10  if "prb2ndPulse" not in config_dict else\
-            config_dict["prb2ndPulse"]
-        
-    def init(self, number_of_channels = None, number_of_values = None, channel_names = None):
+        self.pulse_spread = self.pulse_height * 0.3 if "pulseSpread" not in config_dict else config_dict["pulseSpread"]
+        self.detector_efficiency = 0.95 if "prbInteraction" not in config_dict else config_dict["prbInteraction"]
+        self.stopping_probability = 0.10 if "prb2ndPulse" not in config_dict else config_dict["prb2ndPulse"]
+
+    def init(self, number_of_channels=None, number_of_values=None, channel_names=None):
         """set parameters from buffer configuration and initialize"""
         self.number_of_channels = number_of_channels
         self.number_of_values = number_of_values
-        self.channel_names = channel_names        
+        self.channel_names = channel_names
 
-        # parameters for pulse simulation and detector porperties 
+        # parameters for pulse simulation and detector porperties
         self.tau = self.plen / 4.0  # decay time of exponential pulse
         self.mn_position = self.pre_trigger_samples
         self.mx_position = self.number_of_values - self.plen
@@ -45,7 +43,6 @@ class pulseSimulator:
         self.noise = self.pulse_height.mean() / 30.0
         self.tau_mu = 2197  # muon life time in ns
 
-        
     def __call__(self):
         nchan = self.number_of_channels
         # initialize output array with noise signal
@@ -65,7 +62,7 @@ class pulseSimulator:
             if i_layer == 0:
                 #  respect trigger condition in layer 1
                 while pheight < self.trigger_level:
-                    pheight =np.random.choice(self.pulse_height) + self.pulse_spread * np.random.normal()
+                    pheight = np.random.choice(self.pulse_height) + self.pulse_spread * np.random.normal()
             if np.random.rand() < self.detector_efficiency:
                 pulse[i_layer, self.mn_position : self.mn_position + self.plen] += pheight * self.pulse_template
 
@@ -97,4 +94,3 @@ class pulseSimulator:
             time.sleep(self.sleeptime)  # fixed sleep time
 
         return pulse
-

@@ -1,11 +1,10 @@
-
 import logging  # TODO: Set log level
 
 
 # set logging format for all loggers globally
 logging.basicConfig(
-    format='%(asctime)s %(name)s:%(levelname)-8s %(message)s',  # time name:level  message
-    datefmt="%Y-%m-%d %H:%M:%S"  # YYYY-MM-DD HH:MM:SS
+    format="%(asctime)s %(name)s:%(levelname)-8s %(message)s",  # time name:level  message
+    datefmt="%Y-%m-%d %H:%M:%S",  # YYYY-MM-DD HH:MM:SS
 )
 
 
@@ -18,6 +17,7 @@ class Logging_manager:
     Therefore the run_mimoDaq constructor gets a debug flag to set the logging level in an instance of this class
     Afterwards all sub-loggers are created with the same level.
     """
+
     def __init__(self) -> None:
         self.level = logging.WARNING  # default logging level
         self.logger_pool = []

@@ -7,21 +7,23 @@ Because this process runs as a 'Reader' process, the plotting function
 is executed as a background task in order to avoid blockingn of the main task.
 
 The entry point is either the __call__() function of class histogram_buffer,
-which connects to a mimocorb buffer via the rbExport class, or directly the 
-function plot_Histograms(), which receives data to be histogrammed via a 
+which connects to a mimocorb buffer via the rbExport class, or directly the
+function plot_Histograms(), which receives data to be histogrammed via a
 multiprocessing Queue().
 
 code adapted from https://github.com/GuenterQuast/picoDAQ
 """
 
-import time, numpy as np
+import time
+import numpy as np
 import itertools
 
 import matplotlib as mpl
 
 mpl.use("TkAgg")
 
-import matplotlib.pyplot as plt, matplotlib.animation as anim
+import matplotlib.pyplot as plt
+import matplotlib.animation as anim
 
 # define global graphics style
 pref_style = "dark_background"
