@@ -430,25 +430,40 @@ cosmic muons penetrating several detector layers.
 A very simple example consits of recording two input channels from two
 redundant detectors (e.g. two stacked muon panels).
 The buffer configuration is defined in the file
-*examples/setup.yaml*, shown here:
+*examples/demo_setup.yaml*, shown here:
 
 .. code-block:: yaml
-		
-  # Configuration for recording tow channels with mimoCoRB
+
+  # Configuration for recording two channels with mimoCoRB
   #  -----------------------------------------------------
+  # 
+  # illustrates the structure of a mimiCoRB setup file:
+  # the blocks
+  # - RingBuffer: 
+  # - Functions:
+  # must be present.
+  # The names RB_i and FKT_i with i = 1, 2, 3, ... are fixed. 
+  # Optionally, a block
+  # - FunctionConfigs:
+  # can be specified to provide the configuration for each one of the
+  # assigned functions. These may also be specified in a separate
+  # configuration file for all functions, or in dedicated files for
+  # each function using the keys "config_file:" in the FTK_main section
+  # or in the FKT_i: sections, respectively. 
   #
-  # configure two buffers:
+  # In this example, two buffers are configured:
   #  - RB_1 for raw waveforms
   #  - RB_2 for derived pulse parameters
-  #  data from RB_2, the result buffer, are saved to a file in csv (text) format. 
   #
-  #  - data from RB_1 are also passed to an Obsever process driving a real-time display
-  #  - data RB_2 are passed to a Reader process driving a real-time histogram display 
+  #  Data from RB_2, the result buffer, are saved to a file in csv (text) format.
+  #  Data from RB_1 are also passed to an obsever process driving a real-time display,
+  #  and are also passed to a Reader process driving a real-time histogram display.
   #
   # Notes:
   # 
   #    1. additional config files controlling the user functions are
   #       located in the subdirectory config/
+  #
   #    2. necessary application-specific user code is located
   #       in the subdirectory modules/
   #
@@ -458,48 +473,67 @@ The buffer configuration is defined in the file
   RingBuffer:
     # define ring buffers
     - RB_1:
-        # raw input data buffer (from picoScope, file or simulation)
-        number_of_slots: 16
-        channel_per_slot: 500
-        data_type:
-            1: ['chA', "float32"]
-            2: ['chB', "float32"]
+      # raw input data buffer (from picoScope, file or simulation)
+      number_of_slots: 16
+      channel_per_slot: 500
+      data_type:
+          1: ['chA', "float32"]
+          2: ['chB', "float32"]
     - RB_2:
-        # buffer with correct signature double pulse parameters
-        number_of_slots: 16
-        channel_per_slot: 1
-        data_type:
-        data_type:
-            1: ['chA_height', "float32"]
-            2: ['chA_position', "int32"]
-            3: ['chA_integral', "float32"]
-            4: ['chB_height', "float32"]
-            5: ['chB_position', "int32"]
-            6: ['chB_integral', "float32"]
+      # buffer with correct signature double pulse parameters
+      number_of_slots: 16
+      channel_per_slot: 1
+      data_type:
+      data_type:
+          1: ['chA_height', "float32"]
+          2: ['chA_position', "int32"]
+          3: ['chA_integral', "float32"]
+          4: ['chB_height', "float32"]
+          5: ['chB_position', "int32"]
+          6: ['chB_integral', "float32"]
+
   Functions:
-    # define functions and ring buffer assignment
+    # define functions and ringbuffer assignment
+
     - Fkt_main:
-        config_file: "config/spectrum_config.yaml"
+       # runtime: 60  # desired runtime in seconds
+       runevents: 1000
+       config_file: "config/spectrum_config.yaml"
+
     - Fkt_1:
-         ##  for simulation source
-         file_name: "modules/simul_source"
-         fkt_name: "simulation_source"
-         num_process: 1
-         RB_assign:
-             RB_1: "write"
+       ##  for simulation source
+       file_name: "modules/simul_source"
+       fkt_name: "simulation_source"
+       ## for data from file
+       #file_name: "modules/file_source"
+       #fkt_name: "tar_parquet_source"
+       num_process: 1
+       RB_assign:
+           RB_1: "write"
+
     - Fkt_2:
-         file_name: "modules/spectrum_filter"
-         fkt_name: "find_peaks"
-         num_process: 2
-         RB_assign:
-             RB_1: "read"
-             RB_2: "write"
+      file_name: "modules/exporters"
+     # fkt_name: "save_parquet"
+      fkt_name: "drain"
+      num_process: 1
+      RB_assign:
+           RB_1: "read"     # waveform to save
+
     - Fkt_3:
-        file_name: "modules/exporters"
-        fkt_name: "save_to_txt"
-        num_process: 1
-        RB_assign:
-             RB_2: "read"
+       file_name: "modules/spectrum_filter"
+       fkt_name: "find_peaks"
+       num_process: 2
+       RB_assign:
+           RB_1: "read"
+           RB_2: "write"
+
+    - Fkt_4:
+      file_name: "modules/exporters"
+     # fkt_name: "save_to_txt" # save data to text
+      fkt_name: "drain"        # no saving of data
+      num_process: 1
+      RB_assign:
+           RB_2: "read"
 
 The example coming with this package contains two more convenience
 functions, one for an observer process displaying a random sample of
@@ -508,42 +542,58 @@ analysis and histogramming of buffer data. The necessary addendum to
 the configuration looks as follows: 
 
 .. code-block:: yaml
-		
-  # --- the following functions are optional 	   
-    - Fkt_4:
-        file_name: "modules/plot_waveform"
-        fkt_name: "plot_waveform"
-        num_process: 1
-        RB_assign:
-             RB_1: "observe"
+
+  # --- the following functions are optioal 	   
+
     - Fkt_5:
-        file_name: "modules/plot_histograms"
-        fkt_name: "plot_histograms"
-        num_process: 1
-        RB_assign:
-             RB_2: "read"  # pulse parameters
-	     
+      file_name: "modules/plot_waveform"
+      fkt_name: "plot_waveform"
+      num_process: 1
+      RB_assign:
+           RB_1: "observe"
+    - Fkt_6:
+      file_name: "modules/plot_histograms"
+      fkt_name: "plot_histograms"
+      num_process: 1
+      RB_assign:
+           RB_2: "read"  # pulse parameters
+
 These additional functions cover very general uses cases and rely on the
 modules `mimocorb.plot_buffer` and `mimocorb.histogram_buffer`, which
 provide animated displays of waveforms similar to an oscilloscope and a
 histogram package for life-updates of frequency distributions of scalar
 variables.  
 
-Configuration parameters needed for the functions associated to the
-ring buffers can be specified as a *yaml* block under a keyword in
-the general configuration file that is assigned to the function *Fkt_main*
-in the example above (`config_file: "config/spectrum_config.yaml"`).
-It is also possible to specify individual configuration files for each
-of the functions, as will be shown below. 
+The last *yaml* block contains configuration parameters needed for some
+of the functions. 
 
-The functions are started as sub-processes and have a unique interface.
-Lists of dictionaries provide the necessary information to connect to the
-buffer manager via the *Writer*, *Reader* or *Observer* classes of the package.
+.. code-block:: yaml
+
+  FunctionConfigs:
+  # configuration of functions provided by mimoCoRB
+    save_to_txt:
+      filename: "spectrum"
+
+    save_parquet:
+      filename: "spectrum"
+
+    drain:   # has no parameters, empty field is sufficient
+      key: 
+
+As an alternative, configuration parameters for functions can also be
+provided in a separate *yaml* file in the block `FKT_main`.
+(line `config_file: "config/spectrum_config.yaml"`).
+It is also possible to specify configuration files for each of
+the functions individually in the respective block `FKT_i`, i=1,2, ... 
+
+The declared functions must support a unique calling interface and are started as
+sub-processes. Lists of dictionaries provide the necessary information to connect
+to the buffer manager via the *Writer*, *Reader* or *Observer* classes of the package.
 This information comprises the pointer to the shared buffer manager as well as
 pointers to instances of the functions *Event()* or *Queue()* from the
 multiprocessing package to enable communication and data transfers across
 processes. A further dictionary (*config_dict*) provides the function-specific
-parameters discussed previously. 
+configuration parameters discussed previously. 
 The keyword dictionary *rb_info* specifies whether writer, reader or observer
 functionality is required. It contains a copy of the ring-buffer assignment
 block („RB_assign:") from the main setup file on function level. Its purpose
@@ -573,7 +623,7 @@ data to a text file is shown below:
 
 Running the example with the command
 
-  `../run_daq.py setup.yaml`  
+  `../run_daq.py demo_setup.yaml`  
 
 yields the following output on screen: 
 
@@ -591,8 +641,8 @@ yields the following output on screen:
   FKT_4 plot_waveform (1)   {'RB_1': 'observe'}
   FKT_5 plot_histograms (1)   {'RB_2': 'read'}
   
-Two buffers are created in this case, *RB1 _1* and *RB_2*. *RB_1* with
-two channels with 500 samples each is the input buffer, *RB_2* contains 6 scalar
+Two buffers are created in this case, *RB1 _1* and *RB_2*. *RB_1* with two
+channels with 500 samples each is the input buffer. *RB_2* contains 6 scalar
 variables and is the output buffer, which is filled by the function *find_peaks*
 with two active workers. The functions *save_to_txt* and *plot_histograms*
 read from this buffer and store data to disk or show histograms, respectively.
@@ -633,7 +683,7 @@ is shown here:
           event_count = 0
           while True:
               data = source()
-              # deliver pulse data (and no metadata; these are added by rbImport)
+              # deliver pulse data (and no metadata - these are added by rbImport)
               yield (data, None)
               event_count += 1
 
