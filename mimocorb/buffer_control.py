@@ -349,7 +349,6 @@ class buffer_control:
             return None
         return vars(module)[function_name]
 
-
 # <-- end class buffer_control
 
 
@@ -373,7 +372,6 @@ class rbImport:
 
         # sub-logger for this class
         self.logger = Gen_logger(__class__.__name__)
-
         # general part for each function (template)
         if sink_list is None:
             self.logger.error("Faulty ring buffer configuration passed, 'sink_list' missing!")
@@ -452,7 +450,6 @@ class rbImport:
             self.T_last = T_buffer_ready
         # make sure last data entry is also processed
         self.sink.process_buffer()
-
 
 # <-- end class rbImport
 

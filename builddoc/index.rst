@@ -703,9 +703,8 @@ is shown here:
 
       # instantiate buffer manager interface
       rbImporter = rbImport(config_dict=config_dict, sink_list=sink_list, ufunc=yield_data, **rb_info)
-      # print("** simulation_source ** started, config_dict: \n", config_dict)
-  
-      # start __call__ method of rbImport instance 
+      rbImporter.logger.info(f"sub-process {__name__} started") 
+      # start __call__ method of rbImport instance
       rbImporter()
 
       
