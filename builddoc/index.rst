@@ -62,14 +62,13 @@ For Developers: Description of components
 The following paragraphs provide some insight into the inner working of the components
 of *mimoCoRB* for interested users and for developers wanting to help improving the package. 
 Application developers should use the more convenient access classes described
-below to build an application based the *mimoCoRB* framework.  
+below to build an application based on the *mimoCoRB* framework.  
 
-In order to decouple the random occurrence of "events" one needs a
-buffer capable of rapidly storing new incoming data and delivering
+In order to decouple the random occurrence of "events" at the start of a data-acquisition 
+chain one needs a buffer capable of rapidly storing new incoming data and delivering
 a constant data stream to subsequent consumer processes. 
-This is typically implemented as a first-in, first out ringbuffer 
-providing storage space in memory for incoming data, which is 
-released and overwritten by new data when all consuming processes 
+This is typically implemented as a first-in, first out ringbuffer providing storage space in memory 
+for incoming data, which is  released and overwritten by new data when all consuming processes 
 have finished.
 
 As digital filtering of incoming data may be very CPU intensive,
@@ -81,7 +80,7 @@ shared buffer space. Access to common memory storage and the
 synchronization of processes is achieved using the *shared_memory*,
 *Process* and *Queue* modules from the *multiprocessing* package. 
 
-Because processing of the data, i.e. digital filtering, selection, 
+Because processing of the data, i. e. digital filtering, selection, 
 compression and storage or real-time visualization of the data can 
 be a complex workflow, data buffers may be arranged in chains where
 one  or several reader processes associated to a buffer write to
@@ -114,7 +113,7 @@ of the *multiprocessing* package available since Python 3.8 for
 direct access to shared memory across processes. Other modules
 of the package (*Process*, *Lock*, *Event*, and *SimpleQueue*
 or *Queue*) are used to create and control sub-processes and for
-signalling and message or data exchange across processes. 
+signaling and message or data exchange across processes. 
 
 The format of data stored in the buffers is based on structured
 *numpy* arrays with (configurable) field names and *numpy* *dtypes*.  
@@ -282,34 +281,34 @@ developers wanting to build upon the *mimoCoRB* framework.
 
 The classes are: 
 
-  - `class buffer_control`
+  - `class buffer_control`:
       Set-up and management of ringbuffers and associated sub-processes.
       This is the overarching class with access to all created buffers and
       sub-processes.
 
-  - `class rbImport`
+  - `class rbImport`:
       Read data from source (e.g. a front-end like a PicoScope USB oscilloscope,
-      or from a file or simulation) and import data and metadata in a mimo buffer
+      or from a file or simulation) and import data and metadata in a mimo_buffer
       by calling user-supplied Python generator (i.e. via '*yield*'). In this
       approach, mimiCoRB "pulls" data.
 
-  - `class rbPut`
+  - `class rbPut`:
       Read data from source (e.g. a front-end like a PicoScope USB oscilloscope,
       or from a file or simulation)  and put data in a mimo_buffer by calling
       a Python function, thus pushing the data under control of the reading application.
-      This method is useful in cases weher the application providing the data has its
-      own event loop (driving e.g. ist own graphical display). 
+      This method is useful in cases where the application providing the data has its
+      own event loop (driving e. g. its own graphical user interface). 
 
-  - `class rbTransfer`
+  - `class rbTransfer`:
       Read data from a mimo_buffer, filter and/or reformat data and write to output mimo_buffer(s).
       Data is provided as the argument to a user-defined filter function, returning *None* if data 
       is to be discarded, a number if data is to be copied to another buffer, or - optionally - a 
       list of transformed data records produced from processed input data. If such data are 
       provided, a respective number of ringbuffers as destination must be configured.
       
-  - `class rbExport`
+  - `class rbExport`:
       Read data from mimo_buffer and analyze (with user-supplied code), without writing
-      to another ringbuffer. Data is expected to be provided by a Python generator in 
+      to another ringbuffer. Data are provided to the user function as a  Python generator in 
       the __call__() method of the class yielding a tuple of data and metadata. 
       
   - `class rbObserver`
@@ -325,7 +324,7 @@ The classes are:
       Save mimo_buffer data to an archive in  *tar* format; each data record is packed in
       *Parquet* format.
 
-  - `class run_mimoDAQ`
+  - `class run_mimoDAQ`:
       Setup and run a Data Acquisition suite with the mimoCoRB buffer manager.   
       The layout of ringbuffers and associated functions are defined in
       a configuration file in *yaml* format. All configured functions are 
@@ -333,12 +332,11 @@ The classes are:
       optimal use is made of multi-core architectures. 
 
   -  `class bufferinfoGUI`:
-      A graphical interface showing buffer rates and status information 
-      and providing some control buttons interacting with the run_mimoDAQ
-      class. 
+      A graphical interface showing buffer rates and status information and
+       providing some control buttons interacting with the run_mimoDAQ class. 
     
-These classes shield much of the complexity from the user, who can thus concentrate
-on writing the pieces of code needed to acquire and process the data. 
+These classes shield much of the internal complexity from the user, who can thus  
+concentrate on writing the pieces of code needed to acquire and process the data. 
 The access classes expect as input lists of dictionaries with the parameters
 of buffers to read from (**source_list**), to write to (**sink_list**) or to
 observe (**observe_list**). An additional dictionary (**config_dict**) provides
@@ -350,40 +348,37 @@ relies on Python generators (i.e. the *yield* instruction).
 The overarching class **buffer_control** provides methods to setup buffers and 
 worker processes and to control the data acquisition process. The methods 
 collected in the class *run_mimoDAQ*, in particular the function **run_mimoDAQ**,
-contains the code needed to run a real example of a data-acquisition suite defined
+contains the code needed to run an instance of a data-acquisition suite defined
 in a configuration file specifying the ring buffers and associated,
 user-defined functions for data provisioning, filtering and storage.
 *run_mimoDAQ* is controlled either by keyboard commands of from a graphical
-user interface; pre-defined conditions on the total number of events
-processed, the duration of the data taking run or finishing of the writer
-process to the first buffer due to source exhaustion can also be defined
-to end data taking. The class structure and dependencies are shown in the
-figure below.
+user interface; pre-defined conditions on the total number of events processed, 
+the duration of the data taking run or finishing of the writer process to the first buffer
+due to source exhaustion can also be defined to end data taking. The class structure
+and dependencies are shown in the figure below.
 
 .. image:: class_structure.png
   :width: 1024
   :alt: The structure of a mimoCoRB project
 
-	
 A sequence diagram of a a typical application, shown below, illustrates
 the interplay and dependencies of the classes described above.
 The script *run_daq.py* creates an instance of *run_mimoDAQ* and
-starts its *run()*-method. The interction with the user-supplied filter
+starts its *run()*-method. The interaction with the user-supplied filter
 functions is handled by methods of the class *buffer_control*. 
 
 .. image:: mimoCoRB_sequence.png
   :width: 1024
   :alt: Sequence diagram of a general mimoCoRB application
 
-	
 For complex setups and longer data-taking periods it is important to gain 
 a quick overview of the status of all buffers and to monitor long-term stability. 
-Therefore, a graphical display with the processing rate of all buffers is
-provided by the class **bufferinfoGUI**. A text window receives frequent 
-updates of the number of events processed by each buffer and of the buffer 
-fill-levels. Klickable control buttons send information via a dedicated
-command queue to the calling process *run_mimoDAQ* and enable pausing,
-resuming and controlled ending of the data-acquisition processes.
+Therefore, a graphical display with the processing rate of all buffers is provided
+by the class **bufferinfoGUI**. A text window receives frequent updates of 
+the number of events processed by each buffer and of the buffer fill-levels. 
+Clickable control buttons send information via a dedicated command queue to 
+the calling process *run_mimoDAQ* and enable pausing, resuming and 
+controlled ending of the data-acquisition processes.
 
 The suggested structure of the project work-space for *mimoCoRB* applications 
 is as follows:
@@ -392,9 +387,9 @@ is as follows:
 
   |--> <user working directory>       # the main configuration script resides here
                     |
-                    | --> modules     # project-specific, user-supplied python code
-                    | --> config      # configuration files in yaml format
-                    | --> target      # output of data-acquisition run(s)
+                    | --> modules    # project-specific, user-supplied python code
+                    | --> config        # configuration files in yaml format
+                    | --> target        # output of data-acquisition run(s)
 
 For illustration and as a starting point for own applications, a stand-alone example 
 is provided as part of the package, as described in the following section. 
@@ -404,10 +399,10 @@ Application examples
 ....................
 
 The subdirectory *examples/* contains some complete application use cases based
-on input waveforms that are simulated in real-time. 
+on input waveforms that are generated by a simulator in real-time. 
 
-The central piece of every *mimoCoRB* application is the configuration
-file; examples of different complexity are provided in *examples/*_setup.yaml*. 
+The central piece of every *mimoCoRB* application is the configuration file; 
+examples of different complexity are provided in *examples/*_setup.yaml*. 
 Code snippets for data input, filtering and ouput as well as configuration
 files are provided in the subdirectories `examples/modules/` and
 `examples/config/`, respectively.
@@ -420,16 +415,16 @@ The configuration files and the recorded data files are stored in
 the subdirectory `examples/target/<projectname>_<date_and_time>`. 
 
 All examples run stand-alone and use as input simulated waveform data of
-short pulses as they arise e.g. in scintillator detectors.
+short pulses as they arise e. g. in scintillation or semi-conductor detection
+devices for single particles. 
 The simulated physics process corresponds to signatures produced by
-cosmic muons penetrating several detector layers.
+cosmic muons penetrating several  layers of scintillator material. 
 
 
 **Simple Example**
 
-A very simple example consits of recording two input channels from two
-redundant detectors (e.g. two stacked muon panels).
-The buffer configuration is defined in the file
+A very simple example consists of recording two input channels from two
+redundant detectors. The buffer configuration is defined in the file
 *examples/demo_setup.yaml*, shown here:
 
 .. code-block:: yaml
@@ -711,9 +706,9 @@ is shown here:
 **Complex Example**
 
 In the second, more complex example discussed here we consider multiple
-pulses on the same channels, where, e.g. the first pulse originates
-from a detected muon and the second, later one from a decay electron
-of a muon that has been stopped in or near a detection layer. 
+pulses on the same channels, where, e. g. the first pulse originates from a 
+detected muon and the second, later one from a decay electron of a muon 
+that has been stopped in or near a detection layer. 
 
 The raw data are analyzed, and accepted data with a double-pulse signature
 are selected and directly passed on to a second ring buffer. A third buffer
@@ -722,8 +717,8 @@ in *csv* format contains the data extracted from this buffer.
 
 A graphical representation of the set-up is shown in the figure 
 below [source: Master's Thesis Christoph Mayer, ETP 2022].
-Note that the oscilloscope is replaced by a signal simulation in the 
-example provided. 
+Note that the oscilloscope as the data-acquisition front-end is replaced 
+by a signal simulation in the example provided. 
 
 .. image:: mimoCoRB_lifetime.png
   :width: 650
