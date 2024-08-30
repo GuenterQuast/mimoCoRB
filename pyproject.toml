@@ -53,3 +53,9 @@ version = {attr = "mimocorb.__version__"}
 [project.urls]
 Homepage = "http://www.etp.kit.edu/~quast/"
 
+# options for linting tools 
+[tool.black]
+line-length = 120
+
+[tool.ruff]
+line-length = 120
