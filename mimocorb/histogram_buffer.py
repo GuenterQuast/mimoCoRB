@@ -22,6 +22,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.animation as anim
 from multiprocessing import Queue, Process
+
 # module to read data from buffer
 from .buffer_control import rbExport
 
@@ -31,7 +32,6 @@ mpl.use("TkAgg")
 pref_style = "dark_background"
 _style = pref_style if pref_style in plt.style.available else "default"
 plt.style.use(_style)
-
 
 
 class animHists(object):
