@@ -19,21 +19,19 @@ import numpy as np
 import itertools
 
 import matplotlib as mpl
-
-mpl.use("TkAgg")
-
 import matplotlib.pyplot as plt
 import matplotlib.animation as anim
+from multiprocessing import Queue, Process
+# module to read data from buffer
+from .buffer_control import rbExport
 
+# define graphics backend
+mpl.use("TkAgg")
 # define global graphics style
 pref_style = "dark_background"
 _style = pref_style if pref_style in plt.style.available else "default"
 plt.style.use(_style)
 
-from multiprocessing import Queue, Process
-
-# module to read data from buffer
-from .buffer_control import rbExport
 
 
 class animHists(object):
@@ -236,7 +234,7 @@ def plot_Histograms(Q, Hdescripts, interval, name="Histograms"):
                     v = Q.get(timeout=0.1)
                     yield v
                 cnt += 1
-        except:
+        except Exception:
             print("*==* yieldData_fromQ: termination signal received")
             return
 
@@ -262,7 +260,7 @@ def plot_Histograms(Q, Hdescripts, interval, name="Histograms"):
     )
     plt.show()
 
-    #  except:
+    #  except Exception:
     #    print('*==* plot_Histgrams: termination signal recieved')
     raise SystemExit
 

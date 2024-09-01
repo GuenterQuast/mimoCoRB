@@ -132,7 +132,7 @@ class plot_bufferinfo(object):
                 RBinfo,
                 all_workers_active,
             ) = self.Q.get(block=True, timeout=0.5)
-        except:
+        except Exception:
             return self.animlines + self.animtxts
 
         # update animated graphics objects
@@ -280,7 +280,6 @@ def bufferinfoGUI(Qcmd, Qlog, Qinfo, RBnames=["RB_1"], maxRate=100.0, interval=1
     S.config(command=T.yview)
     T.config(yscroll=S.set)
 
-    ##! try:
     while True:
         # start display of active time
         clkLabel(clock)
@@ -304,8 +303,3 @@ def bufferinfoGUI(Qcmd, Qlog, Qinfo, RBnames=["RB_1"], maxRate=100.0, interval=1
             cache_frame_data=False,
         )
         Tk.mainloop()
-
-
-#  except:
-#    print('*==* bufferinfoGUI: termination signal received')
-#  sys.exit()

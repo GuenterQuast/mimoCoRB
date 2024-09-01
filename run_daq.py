@@ -4,7 +4,8 @@ run mimoCoRB data acquisition suite
 """
 
 import argparse
-import sys, time
+import sys
+import time
 from mimocorb.buffer_control import run_mimoDAQ
 
 # define command line arguments ...

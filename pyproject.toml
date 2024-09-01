@@ -58,4 +58,21 @@ Homepage = "http://www.etp.kit.edu/~quast/"
 line-length = 120
 
 [tool.ruff]
+# only differences from default 
 line-length = 120
+
+[tool.ruff.lint]
+# ignore "unable to detect undefined names", "name may be undefined",
+# "undefined name", "ambiguous name", "unused variable"
+ignore = ["F403", "F405", "F821", "E741", "F841"]
+
+[tool.ruff.format]
+quote-style = "preserve"
+line-ending = "lf"
+
+[tool.ruff.lint.per-file-ignores]
+# allow imports not at top
+"__init__.py" = ["E402"]
+"builddoc/conf.py" = ["E402"]
+
+

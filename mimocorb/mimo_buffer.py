@@ -554,7 +554,7 @@ class NewBuffer:
             self.m_share.unlink()
             self.m_metadata_share.close()
             self.m_metadata_share.unlink()
-        except:
+        except Exception:
             pass
 
 
