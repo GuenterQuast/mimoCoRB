@@ -41,6 +41,7 @@ autodoc_mock_imports = [
     "websockets",
     "tarfile",
     "pandas",
+    "pyarrow",
     "unittest",
     "test",
 ]
