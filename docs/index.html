@@ -1,0 +1,1769 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>mimoCoRB - multiple-in multile-out Configurable Ring Buffer &#8212; mimoCoRB 1.0.2rc1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b3523f8e" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=039e1c02" />
+    <script src="_static/documentation_options.js?v=524dbd58"></script>
+    <script src="_static/doctools.js?v=888ff710"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="mimocorb-multiple-in-multile-out-configurable-ring-buffer">
+<h1>mimoCoRB - multiple-in multile-out Configurable Ring Buffer<a class="headerlink" href="#mimocorb-multiple-in-multile-out-configurable-ring-buffer" title="Link to this heading">¶</a></h1>
+<section id="mimocorb-multiple-in-multile-out-configurable-ring-buffer-overview">
+<h2>mimoCoRB -  multiple-in multile-out Configurable Ring Buffer: Overview<a class="headerlink" href="#mimocorb-multiple-in-multile-out-configurable-ring-buffer-overview" title="Link to this heading">¶</a></h2>
+<p><strong>mimoCoRB</strong>: multiple-in multiple-out Configurable Ring Buffer</p>
+<p>The package <strong>mimoCoRB</strong> provides a central component of each data acquisition
+system needed to record and pre-analyse data from randomly occurring processes.
+Typical examples are waveform data as provided by detectors common in quantum
+mechanical measurements, or in nuclear physics, particle physics and astro particle
+physics, e. g. photo tubes, Geiger counters, avalanche photo-diodes or modern
+SiPMs.</p>
+<p>The random nature of such processes and the need to keep read-out dead
+times low requires an input buffer for fast collection of data and an
+efficient buffer manager delivering a constant data stream to the subsequent
+processing steps.
+While a data source feeds data into the buffer, consumer processes receive the
+data to filter, reduce, analyze or simply visualize the recorded data. In
+order to optimally use the available resources, multi-core and multi-processing
+techniques must be applied.
+Data consumers may be obligatory ones, i. e. data acquisition pauses if
+all input buffers are full and an obligatory consumer is still busy
+processing. A second type of consumers (random consumers or “observers”)
+receive an event copy from the buffer manager upon request, without interrupting
+the data acquisition process. Typical examples of random consumers are
+displays of a subset of the waveforms or of intermediate analysis
+results.</p>
+<p>This project originated from an effort to structure and generalize
+data acquisition for several experiments in advanced physics laboratory
+courses at Karlsruhe Institute of Technology (KIT) and has been extensively
+tested with Ubuntu Linux.</p>
+<p>As a simple, stand-alone  demonstration, we provide simulated signals as would
+be produced by a detector for cosmic muons with four detection layers.
+Occasionally, such muons stop in an absorber between the 2nd and 3rd layer,
+where they decay at rest and emit a high-energetic electron recorded as a
+2nd pulse in one or two of the detection layers. After data acquisition, a
+search for typical pulse shapes is performed and data with detected double
+pulses are selected and copied into a second buffer. A third buffer receives
+data in a reduced format which only contains the parameters of accepted pulses.
+These data and the waveforms of all double-pulses are finally stored
+on disk. Such an application is a very typical example of the general
+process of on-line data processing in modern physics experiments and may
+serve as a starting point for own projects.</p>
+<div class="toctree-wrapper compound">
+</div>
+<section id="for-developers-description-of-components">
+<h3>For Developers: Description of components<a class="headerlink" href="#for-developers-description-of-components" title="Link to this heading">¶</a></h3>
+<p>The following paragraphs provide some insight into the inner working of the components
+of <em>mimoCoRB</em> for interested users and for developers wanting to help improving the package.
+Application developers should use the more convenient access classes described
+below to build an application based on the <em>mimoCoRB</em> framework.</p>
+<p>In order to decouple the random occurrence of “events” at the start of a data-acquisition
+chain one needs a buffer capable of rapidly storing new incoming data and delivering
+a constant data stream to subsequent consumer processes.
+This is typically implemented as a first-in, first out ringbuffer providing storage space in memory
+for incoming data, which is  released and overwritten by new data when all consuming processes
+have finished.</p>
+<p>As digital filtering of incoming data may be very CPU intensive,
+multi-processing and multi-core capable components are needed to
+ensure sufficient compute power to process and analyze all data.
+<cite>mimoCoRB.mimo_buffer</cite> implements such a buffer allowing multiple
+processes to read (“multiple out”) or write (“multiple in”) to a
+shared buffer space. Access to common memory storage and the
+synchronization of processes is achieved using the <em>shared_memory</em>,
+<em>Process</em> and <em>Queue</em> modules from the <em>multiprocessing</em> package.</p>
+<p>Because processing of the data, i. e. digital filtering, selection,
+compression and storage or real-time visualization of the data can
+be a complex workflow, data buffers may be arranged in chains where
+one  or several reader processes associated to a buffer write to
+one or several output buffer(s).</p>
+<p>The central component takes care of memory management and access
+control provided by the class <strong>newBuffer</strong>. To control the data
+flow in a full data acquisition suite, three types of access are
+foreseen, implemented as  <strong>Writer</strong>, <strong>Reader</strong> and <strong>Observer</strong>
+classes. Readers of the same type are grouped together for
+multi-processing of compute-intense tasks and form a Reader-group.
+Observers receive only a sub-set of the data and are mainly
+intended to be used for visual inspection or graphical representation
+of samples of the recorded or processed data.</p>
+<p>Processes for data provisioning from front-end hardware or
+from other sources, like disk files, web streams or simulation,
+rely on the Writer class; similarly, processes reading data for
+filtering and transfer to subsequent buffers or to analyse, transform
+or extract data to storage media use the Reader class.
+Note that the buffer manager ensures that every slot assigned to a
+Reader (or a group  of Readers) is actually processed; therefore,
+input to a buffer blocks if the buffer is filled up completely.
+The Writer class resumes data input as soon as a Reader or member of
+a Reader-group has finished processing and thus freed a slot in the
+buffer.</p>
+<p>Multiprocessing is enabled by use of the <em>shared_memory</em> module
+of the <em>multiprocessing</em> package available since Python 3.8 for
+direct access to shared memory across processes. Other modules
+of the package (<em>Process</em>, <em>Lock</em>, <em>Event</em>, and <em>SimpleQueue</em>
+or <em>Queue</em>) are used to create and control sub-processes and for
+signaling and message or data exchange across processes.</p>
+<p>The format of data stored in the buffers is based on structured
+<em>numpy</em> arrays with (configurable) field names and <em>numpy</em> <em>dtypes</em>.
+Each buffer entry is also associated with a unique event number,
+a time stamp and a deadtime fraction to be provided by the initial
+data producer. The deadtime accounts for inefficiencies of the
+data acquisition due to processing in <em>mimoCoRB</em>. These metadata
+are set by the initial producer and must not be changed at a later
+stage in the processing chain.</p>
+</section>
+<section id="simple-application-example">
+<h3>Simple application example<a class="headerlink" href="#simple-application-example" title="Link to this heading">¶</a></h3>
+<p>An application example of <em>mimo_buffer</em> is shown below;
+it is also provided as a unit test. The set-up is as follows:</p>
+<p>Two ring buffers are defined:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>input Buffer  RB_1: 10 ch x 1024 slots (int32)</p></li>
+<li><p>output Buffer RB_2: 10 ch x 2 slots/ch (float64)</p></li>
+</ul>
+<p>Simple data is filled into RB_1, copied and extended by a process
+writing data into RB_2, and finally a reader process to check
+integrity and completeness of the data. The most complex part of
+the code is in function <em>run_control()</em>, which demonstrates
+how to set up the buffers, define Reader and Writer instances
+and start the parallel processes for generating, processing
+and reading the data.</p>
+</div></blockquote>
+<p>The example including comment lines for explanation is shown here:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">unittest</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">multiprocessing</span> <span class="kn">import</span> <span class="n">Process</span><span class="p">,</span> <span class="n">Value</span>
+<span class="kn">from</span> <span class="nn">mimocorb</span> <span class="kn">import</span> <span class="n">mimo_buffer</span> <span class="k">as</span> <span class="n">bm</span>
+
+<span class="c1"># global variables</span>
+<span class="n">N_requested</span> <span class="o">=</span> <span class="mi">1000</span>  <span class="c1"># number of data injections (&quot;events&quot;)</span>
+<span class="n">Time_tick</span> <span class="o">=</span> <span class="mf">0.001</span>   <span class="c1"># time between events</span>
+<span class="n">Ncpu1</span> <span class="o">=</span> <span class="mi">2</span>           <span class="c1"># number of parallel analyzer processes</span>
+
+<span class="k">def</span> <span class="nf">data_generator</span><span class="p">(</span><span class="n">sink_dict</span><span class="p">):</span>
+<span class="w">  </span><span class="sd">&quot;&quot;&quot;writes continuously rising integers to buffer specified in sink_dict</span>
+<span class="sd">  &quot;&quot;&quot;</span>
+  <span class="n">sink</span> <span class="o">=</span> <span class="n">bm</span><span class="o">.</span><span class="n">Writer</span><span class="p">(</span><span class="n">sink_dict</span><span class="p">)</span>
+  <span class="n">n</span><span class="o">=</span><span class="mi">0</span>
+  <span class="c1"># inject data</span>
+  <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N_requested</span><span class="p">):</span>
+      <span class="n">buffer</span> <span class="o">=</span> <span class="n">sink</span><span class="o">.</span><span class="n">get_new_buffer</span><span class="p">()</span> <span class="c1"># get new buffer and pass last item</span>
+      <span class="c1">#  random wait for next data item</span>
+      <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="o">-</span><span class="n">Time_tick</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">()</span> <span class="p">))</span>
+      <span class="c1"># fill &quot;data&quot;</span>
+      <span class="n">n</span> <span class="o">+=</span> <span class="mi">1</span>
+      <span class="n">buffer</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">n</span>
+  <span class="c1"># process last data item</span>
+  <span class="n">sink</span><span class="o">.</span><span class="n">process_buffer</span><span class="p">()</span>
+
+<span class="k">def</span> <span class="nf">analyzer</span><span class="p">(</span><span class="n">source_dict</span><span class="p">,</span> <span class="n">sink_dict</span><span class="p">):</span>
+<span class="w">  </span><span class="sd">&quot;&quot;&quot;read from source and write first element and a time difference to sink</span>
+<span class="sd">  &quot;&quot;&quot;</span>
+  <span class="n">source</span> <span class="o">=</span> <span class="n">bm</span><span class="o">.</span><span class="n">Reader</span><span class="p">(</span><span class="n">source_dict</span><span class="p">)</span>
+  <span class="n">sink</span> <span class="o">=</span> <span class="n">bm</span><span class="o">.</span><span class="n">Writer</span><span class="p">(</span><span class="n">sink_dict</span><span class="p">)</span>
+  <span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+
+  <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+      <span class="n">input_data</span> <span class="o">=</span> <span class="n">source</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+      <span class="n">output_data</span> <span class="o">=</span> <span class="n">sink</span><span class="o">.</span><span class="n">get_new_buffer</span><span class="p">()</span>
+      <span class="c1"># process data</span>
+      <span class="n">output_data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">input_data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+      <span class="c1"># mimick processing time</span>
+      <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">Time_tick</span><span class="p">)</span>
+      <span class="n">output_data</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span>
+
+      <span class="c1">#</span>
+      <span class="n">sink</span><span class="o">.</span><span class="n">process_buffer</span><span class="p">()</span>
+
+<span class="k">def</span> <span class="nf">check_result</span><span class="p">(</span><span class="n">source_dict</span><span class="p">,</span> <span class="n">res</span><span class="p">):</span>
+<span class="w">  </span><span class="sd">&quot;&quot;&quot;reads RB_2 and sum up the integer content</span>
+
+<span class="sd">     sum is returned as shared memory Value-object</span>
+<span class="sd">  &quot;&quot;&quot;</span>
+  <span class="n">source</span> <span class="o">=</span> <span class="n">bm</span><span class="o">.</span><span class="n">Reader</span><span class="p">(</span><span class="n">source_dict</span><span class="p">)</span>
+  <span class="n">sum_rb</span> <span class="o">=</span> <span class="mi">0</span>
+  <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+      <span class="n">input_data</span> <span class="o">=</span> <span class="n">source</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+      <span class="n">res</span><span class="o">.</span><span class="n">value</span> <span class="o">+=</span><span class="nb">int</span><span class="p">(</span><span class="n">input_data</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+<span class="k">def</span> <span class="nf">run_control</span><span class="p">():</span>
+<span class="w">  </span><span class="sd">&quot;&quot;&quot;Setup buffers, start processes and shut_down when 1st writer done</span>
+<span class="sd">  &quot;&quot;&quot;</span>
+
+  <span class="c1"># Create ring buffers: #2: 10 channel, 2 value per channel</span>
+  <span class="c1">#    (1: buffer content; 2: time difference as int)</span>
+  <span class="c1">#    d_type = [(&#39;chA&#39;, np.float)]  #not necessary: always the same type</span>
+  <span class="n">generator_buffer</span> <span class="o">=</span> <span class="n">bm</span><span class="o">.</span><span class="n">NewBuffer</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+  <span class="n">eval_buffer</span> <span class="o">=</span> <span class="n">bm</span><span class="o">.</span><span class="n">NewBuffer</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+
+  <span class="c1"># create readers first</span>
+  <span class="n">source_dic_gen</span> <span class="o">=</span> <span class="n">generator_buffer</span><span class="o">.</span><span class="n">new_reader_group</span><span class="p">()</span>
+  <span class="n">source_dic_eval</span> <span class="o">=</span> <span class="n">eval_buffer</span><span class="o">.</span><span class="n">new_reader_group</span><span class="p">()</span>
+
+  <span class="c1"># Create worker processes (correct sequence: first action as last)</span>
+  <span class="n">process_list</span> <span class="o">=</span> <span class="p">[]</span>
+  <span class="c1">#  evaluation to test ring buffer behavior</span>
+  <span class="n">result</span> <span class="o">=</span> <span class="n">Value</span><span class="p">(</span><span class="s1">&#39;i&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>   <span class="c1"># int variable in shared meomry</span>
+  <span class="n">process_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Process</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">check_result</span><span class="p">,</span>
+                              <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">source_dic_eval</span><span class="p">,</span> <span class="n">result</span><span class="p">)))</span>
+  <span class="c1"># data transfer between the 2 buffers: generator_buffer -&gt; eval_buffer</span>
+  <span class="n">sink_dic_eval</span> <span class="o">=</span> <span class="n">eval_buffer</span><span class="o">.</span><span class="n">new_writer</span><span class="p">()</span>
+  <span class="c1"># work with all cpu&#39;s requested</span>
+  <span class="n">number_of_workers</span> <span class="o">=</span> <span class="n">Ncpu1</span>
+  <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">number_of_workers</span><span class="p">):</span>
+      <span class="n">process_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Process</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">analyzer</span><span class="p">,</span>
+                                  <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">source_dic_gen</span><span class="p">,</span> <span class="n">sink_dic_eval</span><span class="p">)))</span>
+
+  <span class="c1"># fill buffer (generator_buffer) with data first</span>
+  <span class="n">sink_dic_gen</span> <span class="o">=</span> <span class="n">generator_buffer</span><span class="o">.</span><span class="n">new_writer</span><span class="p">()</span>
+  <span class="n">process_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Process</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">data_generator</span><span class="p">,</span>
+                              <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">sink_dic_gen</span><span class="p">,)))</span>
+
+  <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">process_list</span><span class="p">:</span>
+      <span class="n">p</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+
+  <span class="n">run_active</span> <span class="o">=</span> <span class="kc">True</span>
+  <span class="k">while</span> <span class="n">run_active</span><span class="p">:</span>
+     <span class="n">run_active</span> <span class="o">=</span> <span class="kc">False</span> <span class="k">if</span> <span class="n">process_list</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">exitcode</span><span class="o">==</span><span class="mi">0</span> <span class="k">else</span> <span class="kc">True</span>
+     <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.1</span><span class="p">)</span>  <span class="c1"># wait</span>
+  <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.1</span><span class="p">)</span>  <span class="c1"># some grace-time for readers to finish</span>
+
+  <span class="n">generator_buffer</span><span class="o">.</span><span class="n">shutdown</span><span class="p">()</span>
+  <span class="n">eval_buffer</span><span class="o">.</span><span class="n">shutdown</span><span class="p">()</span>
+  <span class="k">del</span> <span class="n">generator_buffer</span><span class="p">,</span> <span class="n">eval_buffer</span>
+
+  <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">process_list</span><span class="p">:</span>
+      <span class="n">p</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
+
+  <span class="k">return</span> <span class="n">result</span><span class="o">.</span><span class="n">value</span>
+
+<span class="k">class</span> <span class="nc">RPTest</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
+
+  <span class="k">def</span> <span class="nf">test_process</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+      <span class="c1"># start python test module and check result</span>
+      <span class="n">a</span> <span class="o">=</span> <span class="n">run_control</span><span class="p">()</span>
+      <span class="n">expected_result</span> <span class="o">=</span> <span class="n">N_requested</span><span class="o">*</span><span class="p">(</span><span class="n">N_requested</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="o">//</span><span class="mi">2</span>
+             <span class="c1"># expected result: sum(i); i = 1, N_requested</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">expected_result</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+  <span class="n">unittest</span><span class="o">.</span><span class="n">main</span><span class="p">(</span><span class="n">verbosity</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="for-application-developers-access-classes-in-the-module-buffer-control">
+<h2>For application developers: Access Classes in the module <em>buffer_control</em><a class="headerlink" href="#for-application-developers-access-classes-in-the-module-buffer-control" title="Link to this heading">¶</a></h2>
+<p>To facilitate user interaction with the buffer manager, a set of additional
+classes is provided in the module <em>buffer_control</em> to set-up and manage
+cascades of ringbuffers and the associated functions for filling, filtering
+and extracting data. These classes are most interesting for application
+developers wanting to build upon the <em>mimoCoRB</em> framework.</p>
+<p>The classes are:</p>
+<blockquote>
+<div><ul class="simple">
+<li><dl class="simple">
+<dt><cite>class buffer_control</cite>:</dt><dd><p>Set-up and management of ringbuffers and associated sub-processes.
+This is the overarching class with access to all created buffers and
+sub-processes.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><cite>class rbImport</cite>:</dt><dd><p>Read data from source (e.g. a front-end like a PicoScope USB oscilloscope,
+or from a file or simulation) and import data and metadata in a mimo_buffer
+by calling user-supplied Python generator (i.e. via ‘<em>yield</em>’). In this
+approach, mimiCoRB “pulls” data.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><cite>class rbPut</cite>:</dt><dd><p>Read data from source (e.g. a front-end like a PicoScope USB oscilloscope,
+or from a file or simulation)  and put data in a mimo_buffer by calling
+a Python function, thus pushing the data under control of the reading application.
+This method is useful in cases where the application providing the data has its
+own event loop (driving e. g. its own graphical user interface).</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><cite>class rbTransfer</cite>:</dt><dd><p>Read data from a mimo_buffer, filter and/or reformat data and write to output mimo_buffer(s).
+Data is provided as the argument to a user-defined filter function, returning <em>None</em> if data
+is to be discarded, a number if data is to be copied to another buffer, or - optionally - a
+list of transformed data records produced from processed input data. If such data are
+provided, a respective number of ringbuffers as destination must be configured.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><cite>class rbExport</cite>:</dt><dd><p>Read data from mimo_buffer and analyze (with user-supplied code), without writing
+to another ringbuffer. Data are provided to the user function as a  Python generator in
+the __call__() method of the class yielding a tuple of data and metadata.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><cite>class rbObserver</cite></dt><dd><p>Deliver data from a buffer to an observer process. A tuple (data, metadata) is
+provided by a Python generator implemented in the __call__() method of the class.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><cite>class rb_toTxtfile</cite>:</dt><dd><p>Save mimo_buffer data to a file in csv-format. The header line of this file contains
+the keys of the respective columns, which are derived from the datatype of the structured
+ringbuffer array. Aliases for improved clarity can be provided in the configuration file.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><cite>class rb_toParquetfile</cite>:</dt><dd><p>Save mimo_buffer data to an archive in  <em>tar</em> format; each data record is packed in
+<em>Parquet</em> format.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><cite>class run_mimoDAQ</cite>:</dt><dd><p>Setup and run a Data Acquisition suite with the mimoCoRB buffer manager.
+The layout of ringbuffers and associated functions are defined in
+a configuration file in <em>yaml</em> format. All configured functions are
+executed as worker processes in separate sub-processes and therefore
+optimal use is made of multi-core architectures.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><cite>class bufferinfoGUI</cite>:</dt><dd><dl class="simple">
+<dt>A graphical interface showing buffer rates and status information and</dt><dd><p>providing some control buttons interacting with the run_mimoDAQ class.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</li>
+</ul>
+</div></blockquote>
+<p>These classes shield much of the internal complexity from the user, who can thus
+concentrate on writing the pieces of code needed to acquire and process the data.
+The access classes expect as input lists of dictionaries with the parameters
+of buffers to read from (<strong>source_list</strong>), to write to (<strong>sink_list</strong>) or to
+observe (<strong>observe_list</strong>). An additional dictionary (<strong>config_dict</strong>) provides
+the parameters needed for the specific functionality, for example names of
+functions to read, filter or manipulate data or the names of target files.
+The interface for passing data between the user-defined functions and ringbuffers
+relies on Python generators (i.e. the <em>yield</em> instruction).</p>
+<p>The overarching class <strong>buffer_control</strong> provides methods to setup buffers and
+worker processes and to control the data acquisition process. The methods
+collected in the class <em>run_mimoDAQ</em>, in particular the function <strong>run_mimoDAQ</strong>,
+contains the code needed to run an instance of a data-acquisition suite defined
+in a configuration file specifying the ring buffers and associated,
+user-defined functions for data provisioning, filtering and storage.
+<em>run_mimoDAQ</em> is controlled either by keyboard commands of from a graphical
+user interface; pre-defined conditions on the total number of events processed,
+the duration of the data taking run or finishing of the writer process to the first buffer
+due to source exhaustion can also be defined to end data taking. The class structure
+and dependencies are shown in the figure below.</p>
+<a class="reference internal image-reference" href="_images/class_structure.png"><img alt="The structure of a mimoCoRB project" src="_images/class_structure.png" style="width: 1024px;" /></a>
+<p>A sequence diagram of a a typical application, shown below, illustrates
+the interplay and dependencies of the classes described above.
+The script <em>run_daq.py</em> creates an instance of <em>run_mimoDAQ</em> and
+starts its <em>run()</em>-method. The interaction with the user-supplied filter
+functions is handled by methods of the class <em>buffer_control</em>.</p>
+<a class="reference internal image-reference" href="_images/mimoCoRB_sequence.png"><img alt="Sequence diagram of a general mimoCoRB application" src="_images/mimoCoRB_sequence.png" style="width: 1024px;" /></a>
+<p>For complex setups and longer data-taking periods it is important to gain
+a quick overview of the status of all buffers and to monitor long-term stability.
+Therefore, a graphical display with the processing rate of all buffers is provided
+by the class <strong>bufferinfoGUI</strong>. A text window receives frequent updates of
+the number of events processed by each buffer and of the buffer fill-levels.
+Clickable control buttons send information via a dedicated command queue to
+the calling process <em>run_mimoDAQ</em> and enable pausing, resuming and
+controlled ending of the data-acquisition processes.</p>
+<p>The suggested structure of the project work-space for <em>mimoCoRB</em> applications
+is as follows:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">|--&gt;</span> <span class="o">&lt;</span><span class="n">user</span> <span class="n">working</span> <span class="n">directory</span><span class="o">&gt;</span>       <span class="c1"># the main configuration script resides here</span>
+                  <span class="o">|</span>
+                  <span class="o">|</span> <span class="o">--&gt;</span> <span class="n">modules</span>    <span class="c1"># project-specific, user-supplied python code</span>
+                  <span class="o">|</span> <span class="o">--&gt;</span> <span class="n">config</span>        <span class="c1"># configuration files in yaml format</span>
+                  <span class="o">|</span> <span class="o">--&gt;</span> <span class="n">target</span>        <span class="c1"># output of data-acquisition run(s)</span>
+</pre></div>
+</div>
+<p>For illustration and as a starting point for own applications, a stand-alone example
+is provided as part of the package, as described in the following section.</p>
+<section id="application-examples">
+<h3>Application examples<a class="headerlink" href="#application-examples" title="Link to this heading">¶</a></h3>
+<p>The subdirectory <em>examples/</em> contains some complete application use cases based
+on input waveforms that are generated by a simulator in real-time.</p>
+<p>The central piece of every <em>mimoCoRB</em> application is the configuration file;
+examples of different complexity are provided in <em>examples/*_setup.yaml</em>.
+Code snippets for data input, filtering and ouput as well as configuration
+files are provided in the subdirectories <cite>examples/modules/</cite> and
+<cite>examples/config/</cite>, respectively.</p>
+<p>Waveform data, as provided by, for example, a multi-channel digital
+oscilloscope, are generated and filled into the first one of a cascaded set
+of ringbuffers and passed on to subsequent buffer stages depending on
+filter conditions. Data in the last buffer are recorde to disk.
+The configuration files and the recorded data files are stored in
+the subdirectory <cite>examples/target/&lt;projectname&gt;_&lt;date_and_time&gt;</cite>.</p>
+<p>All examples run stand-alone and use as input simulated waveform data of
+short pulses as they arise e. g. in scintillation or semi-conductor detection
+devices for single particles.
+The simulated physics process corresponds to signatures produced by
+cosmic muons penetrating several  layers of scintillator material.</p>
+<p><strong>Simple Example</strong></p>
+<p>A very simple example consists of recording two input channels from two
+redundant detectors. The buffer configuration is defined in the file
+<em>examples/demo_setup.yaml</em>, shown here:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Configuration for recording two channels with mimoCoRB</span>
+<span class="c1">#  -----------------------------------------------------</span>
+<span class="c1">#</span>
+<span class="c1"># illustrates the structure of a mimiCoRB setup file:</span>
+<span class="c1"># the blocks</span>
+<span class="c1"># - RingBuffer:</span>
+<span class="c1"># - Functions:</span>
+<span class="c1"># must be present.</span>
+<span class="c1"># The names RB_i and FKT_i with i = 1, 2, 3, ... are fixed.</span>
+<span class="c1"># Optionally, a block</span>
+<span class="c1"># - FunctionConfigs:</span>
+<span class="c1"># can be specified to provide the configuration for each one of the</span>
+<span class="c1"># assigned functions. These may also be specified in a separate</span>
+<span class="c1"># configuration file for all functions, or in dedicated files for</span>
+<span class="c1"># each function using the keys &quot;config_file:&quot; in the FTK_main section</span>
+<span class="c1"># or in the FKT_i: sections, respectively.</span>
+<span class="c1">#</span>
+<span class="c1"># In this example, two buffers are configured:</span>
+<span class="c1">#  - RB_1 for raw waveforms</span>
+<span class="c1">#  - RB_2 for derived pulse parameters</span>
+<span class="c1">#</span>
+<span class="c1">#  Data from RB_2, the result buffer, are saved to a file in csv (text) format.</span>
+<span class="c1">#  Data from RB_1 are also passed to an obsever process driving a real-time display,</span>
+<span class="c1">#  and are also passed to a Reader process driving a real-time histogram display.</span>
+<span class="c1">#</span>
+<span class="c1"># Notes:</span>
+<span class="c1">#</span>
+<span class="c1">#    1. additional config files controlling the user functions are</span>
+<span class="c1">#       located in the subdirectory config/</span>
+<span class="c1">#</span>
+<span class="c1">#    2. necessary application-specific user code is located</span>
+<span class="c1">#       in the subdirectory modules/</span>
+<span class="c1">#</span>
+<span class="c1"># ----------------------------------------------------------------------------</span>
+<span class="c1">#</span>
+
+<span class="nt">RingBuffer</span><span class="p">:</span>
+<span class="w">  </span><span class="c1"># define ring buffers</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">RB_1</span><span class="p">:</span>
+<span class="w">    </span><span class="c1"># raw input data buffer (from picoScope, file or simulation)</span>
+<span class="w">    </span><span class="nt">number_of_slots</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">16</span>
+<span class="w">    </span><span class="nt">channel_per_slot</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">500</span>
+<span class="w">    </span><span class="nt">data_type</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">1</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;chA&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;float32&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">        </span><span class="nt">2</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;chB&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;float32&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">RB_2</span><span class="p">:</span>
+<span class="w">    </span><span class="c1"># buffer with correct signature double pulse parameters</span>
+<span class="w">    </span><span class="nt">number_of_slots</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">16</span>
+<span class="w">    </span><span class="nt">channel_per_slot</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="w">    </span><span class="nt">data_type</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">data_type</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">1</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;chA_height&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;float32&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">        </span><span class="nt">2</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;chA_position&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;int32&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">        </span><span class="nt">3</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;chA_integral&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;float32&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">        </span><span class="nt">4</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;chB_height&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;float32&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">        </span><span class="nt">5</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;chB_position&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;int32&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">        </span><span class="nt">6</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;chB_integral&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;float32&quot;</span><span class="p p-Indicator">]</span>
+
+<span class="nt">Functions</span><span class="p">:</span>
+<span class="w">  </span><span class="c1"># define functions and ringbuffer assignment</span>
+
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Fkt_main</span><span class="p">:</span>
+<span class="w">     </span><span class="c1"># runtime: 60  # desired runtime in seconds</span>
+<span class="w">     </span><span class="nt">runevents</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1000</span>
+<span class="w">     </span><span class="nt">config_file</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;config/spectrum_config.yaml&quot;</span>
+
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Fkt_1</span><span class="p">:</span>
+<span class="w">     </span><span class="c1">##  for simulation source</span>
+<span class="w">     </span><span class="nt">file_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;modules/simul_source&quot;</span>
+<span class="w">     </span><span class="nt">fkt_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;simulation_source&quot;</span>
+<span class="w">     </span><span class="c1">## for data from file</span>
+<span class="w">     </span><span class="c1">#file_name: &quot;modules/file_source&quot;</span>
+<span class="w">     </span><span class="c1">#fkt_name: &quot;tar_parquet_source&quot;</span>
+<span class="w">     </span><span class="nt">num_process</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="w">     </span><span class="nt">RB_assign</span><span class="p">:</span>
+<span class="w">         </span><span class="nt">RB_1</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;write&quot;</span>
+
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Fkt_2</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">file_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;modules/exporters&quot;</span>
+<span class="w">   </span><span class="c1"># fkt_name: &quot;save_parquet&quot;</span>
+<span class="w">    </span><span class="nt">fkt_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;drain&quot;</span>
+<span class="w">    </span><span class="nt">num_process</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="w">    </span><span class="nt">RB_assign</span><span class="p">:</span>
+<span class="w">         </span><span class="nt">RB_1</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;read&quot;</span><span class="w">     </span><span class="c1"># waveform to save</span>
+
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Fkt_3</span><span class="p">:</span>
+<span class="w">     </span><span class="nt">file_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;modules/spectrum_filter&quot;</span>
+<span class="w">     </span><span class="nt">fkt_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;find_peaks&quot;</span>
+<span class="w">     </span><span class="nt">num_process</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+<span class="w">     </span><span class="nt">RB_assign</span><span class="p">:</span>
+<span class="w">         </span><span class="nt">RB_1</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;read&quot;</span>
+<span class="w">         </span><span class="nt">RB_2</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;write&quot;</span>
+
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Fkt_4</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">file_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;modules/exporters&quot;</span>
+<span class="w">   </span><span class="c1"># fkt_name: &quot;save_to_txt&quot; # save data to text</span>
+<span class="w">    </span><span class="nt">fkt_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;drain&quot;</span><span class="w">        </span><span class="c1"># no saving of data</span>
+<span class="w">    </span><span class="nt">num_process</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="w">    </span><span class="nt">RB_assign</span><span class="p">:</span>
+<span class="w">         </span><span class="nt">RB_2</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;read&quot;</span>
+</pre></div>
+</div>
+<p>The example coming with this package contains two more convenience
+functions, one for an observer process displaying a random sample of
+waveforms in an oscilloscope display, and a second one for on-line
+analysis and histogramming of buffer data. The necessary addendum to
+the configuration looks as follows:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># --- the following functions are optioal</span>
+
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Fkt_5</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">file_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;modules/plot_waveform&quot;</span>
+<span class="w">    </span><span class="nt">fkt_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;plot_waveform&quot;</span>
+<span class="w">    </span><span class="nt">num_process</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="w">    </span><span class="nt">RB_assign</span><span class="p">:</span>
+<span class="w">         </span><span class="nt">RB_1</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;observe&quot;</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Fkt_6</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">file_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;modules/plot_histograms&quot;</span>
+<span class="w">    </span><span class="nt">fkt_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;plot_histograms&quot;</span>
+<span class="w">    </span><span class="nt">num_process</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="w">    </span><span class="nt">RB_assign</span><span class="p">:</span>
+<span class="w">         </span><span class="nt">RB_2</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;read&quot;</span><span class="w">  </span><span class="c1"># pulse parameters</span>
+</pre></div>
+</div>
+<p>These additional functions cover very general uses cases and rely on the
+modules <cite>mimocorb.plot_buffer</cite> and <cite>mimocorb.histogram_buffer</cite>, which
+provide animated displays of waveforms similar to an oscilloscope and a
+histogram package for life-updates of frequency distributions of scalar
+variables.</p>
+<p>The last <em>yaml</em> block contains configuration parameters needed for some
+of the functions.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">FunctionConfigs</span><span class="p">:</span>
+<span class="c1"># configuration of functions provided by mimoCoRB</span>
+<span class="w">  </span><span class="nt">save_to_txt</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">filename</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;spectrum&quot;</span>
+
+<span class="w">  </span><span class="nt">save_parquet</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">filename</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;spectrum&quot;</span>
+
+<span class="w">  </span><span class="nt">drain</span><span class="p">:</span><span class="w">   </span><span class="c1"># has no parameters, empty field is sufficient</span>
+<span class="w">    </span><span class="nt">key</span><span class="p">:</span>
+</pre></div>
+</div>
+<p>As an alternative, configuration parameters for functions can also be
+provided in a separate <em>yaml</em> file in the block <cite>FKT_main</cite>.
+(line <cite>config_file: “config/spectrum_config.yaml”</cite>).
+It is also possible to specify configuration files for each of
+the functions individually in the respective block <cite>FKT_i</cite>, i=1,2, …</p>
+<p>The declared functions must support a unique calling interface and are started as
+sub-processes. Lists of dictionaries provide the necessary information to connect
+to the buffer manager via the <em>Writer</em>, <em>Reader</em> or <em>Observer</em> classes of the package.
+This information comprises the pointer to the shared buffer manager as well as
+pointers to instances of the functions <em>Event()</em> or <em>Queue()</em> from the
+multiprocessing package to enable communication and data transfers across
+processes. A further dictionary (<em>config_dict</em>) provides the function-specific
+configuration parameters discussed previously.
+The keyword dictionary <em>rb_info</em> specifies whether writer, reader or observer
+functionality is required. It contains a copy of the ring-buffer assignment
+block („RB_assign:”) from the main setup file on function level. Its purpose
+is to facilitate the ring-buffer access part within a function or class.</p>
+<p>The function interface looks as follows:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="o">&lt;</span><span class="n">function_name</span><span class="o">&gt;</span><span class="p">(</span>
+  <span class="n">source_list</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sink_list</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">observe_list</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">config_dict</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">rb_info</span><span class="p">):</span>
+</pre></div>
+</div>
+<p>This interface must be respected by any user function. The argument list must also be
+passed to instances of the access classes <em>rbImort</em>, <em>rbExport</em>, <em>rbTransfer</em> or
+<em>rbObserve</em>. An example of a user fuction in the directory <em>modules/</em> to write buffer
+data to a text file is shown below:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="sd">&quot;&quot;&quot;Module exporters to handle file I/O for data in txt and parquet format</span>
+<span class="sd">   This module relies on classes in mimocorb.buffer_control</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">mimocorb.buffer_control</span> <span class="kn">import</span> <span class="n">rb_toTxtfile</span><span class="p">,</span> <span class="n">rb_toParquetfile</span>
+<span class="k">def</span> <span class="nf">save_to_txt</span><span class="p">(</span><span class="n">source_list</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sink_list</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">observe_list</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">config_dict</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">rb_info</span><span class="p">):</span>
+    <span class="n">sv</span> <span class="o">=</span> <span class="n">rb_toTxtfile</span><span class="p">(</span><span class="n">source_list</span><span class="o">=</span><span class="n">source_list</span><span class="p">,</span> <span class="n">config_dict</span><span class="o">=</span><span class="n">config_dict</span><span class="p">,</span> <span class="o">**</span><span class="n">rb_info</span><span class="p">)</span>
+    <span class="n">sv</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Running the example with the command</p>
+<blockquote>
+<div><p><cite>../run_daq.py demo_setup.yaml</cite></p>
+</div></blockquote>
+<p>yields the following output on screen:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">*==*</span> <span class="n">script</span> <span class="o">../</span><span class="n">run_daq</span><span class="o">.</span><span class="n">py</span> <span class="n">running</span>
+
+<span class="mi">2</span> <span class="n">buffers</span> <span class="n">created</span><span class="o">...</span>  <span class="n">List</span> <span class="n">of</span> <span class="n">buffers</span>
+<span class="n">RB_1</span> <span class="mi">16</span> <span class="mi">500</span>
+<span class="n">RB_2</span> <span class="mi">16</span> <span class="mi">1</span>
+<span class="n">List</span> <span class="n">of</span> <span class="n">functions</span>
+<span class="n">FKT_1</span> <span class="n">simul_source</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span>   <span class="p">{</span><span class="s1">&#39;RB_1&#39;</span><span class="p">:</span> <span class="s1">&#39;write&#39;</span><span class="p">}</span>
+<span class="n">FKT_2</span> <span class="n">find_peaks</span> <span class="p">(</span><span class="mi">2</span><span class="p">)</span>   <span class="p">{</span><span class="s1">&#39;RB_1&#39;</span><span class="p">:</span> <span class="s1">&#39;read&#39;</span><span class="p">,</span> <span class="s1">&#39;RB_2&#39;</span><span class="p">:</span> <span class="s1">&#39;write&#39;</span><span class="p">}</span>
+<span class="n">FKT_3</span> <span class="n">save_to_txt</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span>   <span class="p">{</span><span class="s1">&#39;RB_2&#39;</span><span class="p">:</span> <span class="s1">&#39;read&#39;</span><span class="p">}</span>
+<span class="n">FKT_4</span> <span class="n">plot_waveform</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span>   <span class="p">{</span><span class="s1">&#39;RB_1&#39;</span><span class="p">:</span> <span class="s1">&#39;observe&#39;</span><span class="p">}</span>
+<span class="n">FKT_5</span> <span class="n">plot_histograms</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span>   <span class="p">{</span><span class="s1">&#39;RB_2&#39;</span><span class="p">:</span> <span class="s1">&#39;read&#39;</span><span class="p">}</span>
+</pre></div>
+</div>
+<p>Two buffers are created in this case, <em>RB1 _1</em> and <em>RB_2</em>. <em>RB_1</em> with two
+channels with 500 samples each is the input buffer. <em>RB_2</em> contains 6 scalar
+variables and is the output buffer, which is filled by the function <em>find_peaks</em>
+with two active workers. The functions <em>save_to_txt</em> and <em>plot_histograms</em>
+read from this buffer and store data to disk or show histograms, respectively.
+The function <em>plot_waveform</em> takes random samples from <em>RB_1</em> and displays
+the raw waveform data.</p>
+<p>This example serves as a convenient starting point for own application
+development. The code in <em>simul_source.py</em>, shown below, is a very general
+example for data input. Only the function <em>pulseSimulator()</em> needs to
+be replaced by a function providing data from your own source. The code
+is shown here:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">simulation_source</span><span class="p">(</span><span class="n">source_list</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sink_list</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">observe_list</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">config_dict</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">rb_info</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    General example for data import from external source</span>
+<span class="sd">    (here: generation of simulated data with module pulseSimulator)</span>
+
+<span class="sd">    Uses class mimocorb.buffer_control/rbImport to interface to the</span>
+<span class="sd">    newBuffer and Writer classes of the package mimoCoRB.mimo_buffer</span>
+
+<span class="sd">    mimiCoRB interacts with this code via a generator (*yield_data()*),</span>
+<span class="sd">    which itself received data via the *__call__* function of the class</span>
+<span class="sd">    *dataSource* providing the input data. Configuration parametes</span>
+<span class="sd">    in the dictionary *config_dict* are passed to this class during</span>
+<span class="sd">    initialistation. Parameters of the configured buffers are set after</span>
+<span class="sd">    after initialisation.</span>
+
+<span class="sd">    This example may serve as a template for other data sources</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># define and instantiate external data source</span>
+    <span class="n">source</span> <span class="o">=</span> <span class="n">dataSource</span><span class="p">(</span><span class="n">config_dict</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">yield_data</span><span class="p">():</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;generate simulated data, called by instance of class mimoCoRB.rbImport&quot;&quot;&quot;</span>
+        <span class="n">event_count</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">source</span><span class="p">()</span>
+            <span class="c1"># deliver pulse data (and no metadata - these are added by rbImport)</span>
+            <span class="k">yield</span> <span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">event_count</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="c1"># get buffer configuration</span>
+    <span class="n">sink_dict</span> <span class="o">=</span> <span class="n">sink_list</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">number_of_channels</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">sink_dict</span><span class="p">[</span><span class="s2">&quot;dtype&quot;</span><span class="p">])</span>
+    <span class="n">number_of_values</span> <span class="o">=</span> <span class="n">sink_dict</span><span class="p">[</span><span class="s2">&quot;values_per_slot&quot;</span><span class="p">]</span>
+    <span class="n">channel_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">sink_dict</span><span class="p">[</span><span class="s2">&quot;dtype&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">number_of_channels</span><span class="p">)]</span>
+    <span class="c1"># consistency check</span>
+    <span class="k">if</span> <span class="s2">&quot;number_of_samples&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">config_dict</span><span class="p">:</span>
+        <span class="k">pass</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">number_of_values</span> <span class="o">!=</span> <span class="n">config_dict</span><span class="p">[</span><span class="s2">&quot;number_of_samples&quot;</span><span class="p">]:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;! Config Error: requested number of samples does not match buffer size !&quot;</span><span class="p">)</span>
+            <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="s2">&quot;requested number of samples does not match buffer size !&quot;</span><span class="p">)</span>
+    <span class="n">source</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="n">number_of_channels</span><span class="p">,</span> <span class="n">number_of_values</span><span class="p">,</span> <span class="n">channel_names</span><span class="p">)</span>
+
+    <span class="c1"># instantiate buffer manager interface</span>
+    <span class="n">rbImporter</span> <span class="o">=</span> <span class="n">rbImport</span><span class="p">(</span><span class="n">config_dict</span><span class="o">=</span><span class="n">config_dict</span><span class="p">,</span> <span class="n">sink_list</span><span class="o">=</span><span class="n">sink_list</span><span class="p">,</span> <span class="n">ufunc</span><span class="o">=</span><span class="n">yield_data</span><span class="p">,</span> <span class="o">**</span><span class="n">rb_info</span><span class="p">)</span>
+    <span class="n">rbImporter</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;sub-process </span><span class="si">{</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> started&quot;</span><span class="p">)</span>
+    <span class="c1"># start __call__ method of rbImport instance</span>
+    <span class="n">rbImporter</span><span class="p">()</span>
+</pre></div>
+</div>
+<p><strong>Complex Example</strong></p>
+<p>In the second, more complex example discussed here we consider multiple
+pulses on the same channels, where, e. g. the first pulse originates from a
+detected muon and the second, later one from a decay electron of a muon
+that has been stopped in or near a detection layer.</p>
+<p>The raw data are analyzed, and accepted data with a double-pulse signature
+are selected and directly passed on to a second ring buffer. A third buffer
+contains only the information on found signal pulses; a result file
+in <em>csv</em> format contains the data extracted from this buffer.</p>
+<p>A graphical representation of the set-up is shown in the figure
+below [source: Master’s Thesis Christoph Mayer, ETP 2022].
+Note that the oscilloscope as the data-acquisition front-end is replaced
+by a signal simulation in the example provided.</p>
+<a class="reference internal image-reference" href="_images/mimoCoRB_lifetime.png"><img alt="The signal processing chain for the lifetime measurement" src="_images/mimoCoRB_lifetime.png" style="width: 650px;" /></a>
+<p>The buffer layout and the associated functions are defined in the main
+configuration file <cite>lifetime_setup.py</cite>, which serves as the input to
+the execution script <cite>run_daq.py</cite> in the top-level directory of the package.
+The <em>python</em> files <cite>simul_source.py</cite>, <cite>liftime_filter.py</cite> and
+<cite>exporters.py</cite> contain the user code for data generation, analysis
+and filtering and extraction of the finally accepted data to disk files.
+The <cite>.yaml</cite> files <cite>simulation_config.yaml</cite> and <cite>save_lifetimes.yaml</cite> contain
+configurable parameters provided to these functions.</p>
+<p>This example is executed form the directory <cite>examples/</cite> by entering:</p>
+<blockquote>
+<div><p><cite>../run_daq.py lifetime_setup.yaml</cite></p>
+</div></blockquote>
+<p>Again, the screen output gives an overwiew of the generated buffers
+and the functions writing to and reading from them:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">*==*</span> <span class="n">script</span> <span class="o">../</span><span class="n">run_daq</span><span class="o">.</span><span class="n">py</span> <span class="n">running</span>
+
+<span class="mi">3</span> <span class="n">buffers</span> <span class="n">created</span><span class="o">...</span>  <span class="n">List</span> <span class="n">of</span> <span class="n">buffers</span>
+<span class="n">RB_1</span> <span class="mi">128</span> <span class="mi">4250</span>
+<span class="n">RB_2</span> <span class="mi">128</span> <span class="mi">4250</span>
+<span class="n">RB_3</span> <span class="mi">32</span> <span class="mi">1</span>
+<span class="n">List</span> <span class="n">of</span> <span class="n">functions</span>
+<span class="n">FKT_1</span> <span class="n">simul_source</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span>   <span class="p">{</span><span class="s1">&#39;RB_1&#39;</span><span class="p">:</span> <span class="s1">&#39;write&#39;</span><span class="p">}</span>
+<span class="n">FKT_2</span> <span class="n">calculate_decay_time</span> <span class="p">(</span><span class="mi">2</span><span class="p">)</span>   <span class="p">{</span><span class="s1">&#39;RB_1&#39;</span><span class="p">:</span> <span class="s1">&#39;read&#39;</span><span class="p">,</span> <span class="s1">&#39;RB_2&#39;</span><span class="p">:</span> <span class="s1">&#39;write&#39;</span><span class="p">,</span> <span class="s1">&#39;RB_3&#39;</span><span class="p">:</span> <span class="s1">&#39;write&#39;</span><span class="p">}</span>
+<span class="n">FKT_3</span> <span class="n">save_to_txt</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span>   <span class="p">{</span><span class="s1">&#39;RB_3&#39;</span><span class="p">:</span> <span class="s1">&#39;read&#39;</span><span class="p">}</span>
+<span class="n">FKT_4</span> <span class="n">save_parquet</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span>   <span class="p">{</span><span class="s1">&#39;RB_2&#39;</span><span class="p">:</span> <span class="s1">&#39;read&#39;</span><span class="p">}</span>
+<span class="n">FKT_5</span> <span class="n">plot_waveform</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span>   <span class="p">{</span><span class="s1">&#39;RB_2&#39;</span><span class="p">:</span> <span class="s1">&#39;observe&#39;</span><span class="p">}</span>
+<span class="n">FKT_6</span> <span class="n">plot_histograms</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span>   <span class="p">{</span><span class="s1">&#39;RB_3&#39;</span><span class="p">:</span> <span class="s1">&#39;read&#39;</span><span class="p">}</span>
+</pre></div>
+</div>
+<p>The input <em>yaml</em> file for this example looks as follows:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1">#  Application example for mimoCoRB</span>
+<span class="c1">#  --------------------------------</span>
+<span class="c1">#</span>
+<span class="c1"># three buffers:</span>
+<span class="c1">#  - RB_1 for (simuated) raw waveforms</span>
+<span class="c1">#  - RB_2 for selected double-pulses</span>
+<span class="c1">#  - RB_3 for derived pulse parameters</span>
+<span class="c1">#</span>
+<span class="c1">#  data from RB_2 and RB_3 are saved to files in tarred parquet format</span>
+<span class="c1">#  or in text format.</span>
+<span class="c1">#</span>
+<span class="c1">#  data from RB_2 are passed to an observer process driving a real-time display</span>
+<span class="c1">#</span>
+<span class="c1"># Notes:</span>
+<span class="c1">#</span>
+<span class="c1">#    1. additional config files controlling the user functions are</span>
+<span class="c1">#       located in the subdirectory config/</span>
+<span class="c1">#    2. user necessary application-specific user code is located</span>
+<span class="c1">#       in the subdirectory modules/</span>
+<span class="c1">#</span>
+<span class="c1"># ----------------------------------------------------------------------------</span>
+<span class="c1">#</span>
+
+<span class="c1"># general control options</span>
+<span class="nt">output_directory</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">target</span><span class="w">     </span><span class="c1"># directory to store output data</span>
+<span class="nt">GUI_control</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">            </span><span class="c1"># control daq via Grapical User Interface</span>
+<span class="nt">KBD_control</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">            </span><span class="c1"># control daq via KeyBoarD</span>
+
+<span class="nt">RingBuffer</span><span class="p">:</span>
+<span class="w">  </span><span class="c1"># define ring buffers</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">RB_1</span><span class="p">:</span>
+<span class="w">      </span><span class="c1"># raw input data buffer (waveforms from PicoScope, file_source or simulation)</span>
+<span class="w">      </span><span class="nt">number_of_slots</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">128</span>
+<span class="w">      </span><span class="nt">channel_per_slot</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4250</span>
+<span class="w">      </span><span class="nt">data_type</span><span class="p">:</span>
+<span class="w">          </span><span class="nt">1</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;chA&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;float32&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">          </span><span class="nt">2</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;chB&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;float32&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">          </span><span class="nt">3</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;chC&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;float32&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">          </span><span class="nt">4</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;chD&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;float32&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">RB_2</span><span class="p">:</span>
+<span class="w">      </span><span class="c1"># buffer with accepted signatures (here double-pulses)</span>
+<span class="w">      </span><span class="nt">number_of_slots</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">128</span>
+<span class="w">      </span><span class="nt">channel_per_slot</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4250</span>
+<span class="w">      </span><span class="nt">data_type</span><span class="p">:</span>
+<span class="w">          </span><span class="nt">1</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;chA&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;float32&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">          </span><span class="nt">2</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;chB&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;float32&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">          </span><span class="nt">3</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;chC&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;float32&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">          </span><span class="nt">4</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;chD&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;float32&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">RB_3</span><span class="p">:</span>
+<span class="w">      </span><span class="c1"># buffer with pulse parameters (derived from waveforms)</span>
+<span class="w">      </span><span class="nt">number_of_slots</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">32</span>
+<span class="w">      </span><span class="nt">channel_per_slot</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="w">      </span><span class="nt">data_type</span><span class="p">:</span>
+<span class="w">          </span><span class="nt">1</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;decay_time&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;int32&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">          </span><span class="nt">3</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;1st_chA_h&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;float32&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">          </span><span class="nt">4</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;1st_chB_h&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;float32&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">          </span><span class="nt">5</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;1st_chC_h&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;float32&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">          </span><span class="nt">6</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;1st_chA_p&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;int32&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">          </span><span class="nt">7</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;1st_chB_p&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;int32&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">          </span><span class="nt">8</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;1st_chC_p&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;int32&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">          </span><span class="nt">9</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;1st_chA_int&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;float32&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">          </span><span class="nt">10</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;1st_chB_int&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;float32&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">          </span><span class="nt">11</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;1st_chC_int&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;float32&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">          </span><span class="nt">12</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;2nd_chA_h&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;float32&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">          </span><span class="nt">13</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;2nd_chB_h&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;float32&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">          </span><span class="nt">14</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;2nd_chC_h&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;float32&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">          </span><span class="nt">15</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;2nd_chA_p&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;int32&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">          </span><span class="nt">16</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;2nd_chB_p&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;int32&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">          </span><span class="nt">17</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;2nd_chC_p&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;int32&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">          </span><span class="nt">18</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;2nd_chA_int&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;float32&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">          </span><span class="nt">19</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;2nd_chB_int&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;float32&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">          </span><span class="nt">20</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;2nd_chC_int&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;float32&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">          </span><span class="nt">21</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;1st_chD_h&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;float32&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">          </span><span class="nt">22</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;1st_chD_p&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;int32&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">          </span><span class="nt">23</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;1st_chD_int&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;float32&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">          </span><span class="nt">24</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;2nd_chD_h&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;float32&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">          </span><span class="nt">25</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;2nd_chD_p&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;int32&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">          </span><span class="nt">26</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;2nd_chD_int&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;float32&quot;</span><span class="p p-Indicator">]</span>
+<span class="nt">Functions</span><span class="p">:</span>
+<span class="w">  </span><span class="c1"># define functions and assignments</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Fkt_main</span><span class="p">:</span>
+<span class="w">       </span><span class="nt">config_file</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;config/simulation_config.yaml&quot;</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Fkt_1</span><span class="p">:</span>
+<span class="w">       </span><span class="nt">file_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;modules/simul_source&quot;</span>
+<span class="w">       </span><span class="nt">fkt_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;simul_source&quot;</span>
+<span class="w">       </span><span class="nt">num_process</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="w">       </span><span class="nt">RB_assign</span><span class="p">:</span>
+<span class="w">           </span><span class="nt">RB_1</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;write&quot;</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Fkt_2</span><span class="p">:</span>
+<span class="w">       </span><span class="nt">file_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;modules/lifetime_filter&quot;</span>
+<span class="w">       </span><span class="nt">fkt_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;calculate_decay_time&quot;</span>
+<span class="w">       </span><span class="nt">num_process</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+<span class="w">       </span><span class="nt">RB_assign</span><span class="p">:</span>
+<span class="w">           </span><span class="nt">RB_1</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;read&quot;</span><span class="w">     </span><span class="c1"># input</span>
+<span class="w">           </span><span class="nt">RB_2</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;write&quot;</span><span class="w">    </span><span class="c1"># waveform to save (if double pulse was found)</span>
+<span class="w">           </span><span class="nt">RB_3</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;write&quot;</span><span class="w">    </span><span class="c1"># pulse data</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Fkt_3</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">file_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;modules/exporters&quot;</span>
+<span class="w">      </span><span class="nt">fkt_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;save_to_txt&quot;</span>
+<span class="w">      </span><span class="nt">config_file</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;config/save_lifetime.yaml&quot;</span>
+<span class="w">      </span><span class="nt">num_process</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="w">      </span><span class="nt">RB_assign</span><span class="p">:</span>
+<span class="w">           </span><span class="nt">RB_3</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;read&quot;</span><span class="w">     </span><span class="c1"># pulse data</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Fkt_4</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">file_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;modules/exporters&quot;</span>
+<span class="w">      </span><span class="nt">fkt_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;save_parquet&quot;</span>
+<span class="w">      </span><span class="nt">num_process</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="w">      </span><span class="nt">RB_assign</span><span class="p">:</span>
+<span class="w">           </span><span class="nt">RB_2</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;read&quot;</span><span class="w">     </span><span class="c1"># waveform to save</span>
+</pre></div>
+</div>
+<p>The functions for plotting result variables and for histogramming
+are not shown, but also contained in the example configuration
+provided as part of the package, in the same way as explained for
+the first example.</p>
+<p>In addition to the remarks concerning configuration files, it is worth
+noticing here that a dedicated configuration file is specified in a
+separate <em>yaml</em> file for function <em>Fkt_3</em>. This possibility
+is particularly useful if the same function code is used to
+handle data from different buffers, e.g. the file name and special
+formatting for writing buffer contents to a file in <em>csv</em> format.</p>
+<p><strong>Even more complex example</strong></p>
+<p>A similar, but even more complex case with two streams going to different
+output buffers and files is specified in the file <em>spin_setup.yaml</em>.
+Starting this example with
+<cite>&gt;  ../run_daq.py spin_setup.yaml</cite> leads to the following terminal output:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">*==*</span> <span class="n">script</span> <span class="o">../</span><span class="n">run_daq</span><span class="o">.</span><span class="n">py</span> <span class="n">running</span>
+
+ <span class="mi">4</span> <span class="n">buffers</span> <span class="n">created</span><span class="o">...</span>  <span class="n">List</span> <span class="n">of</span> <span class="n">buffers</span>
+ <span class="n">RB_1</span> <span class="mi">128</span> <span class="mi">4250</span>
+ <span class="n">RB_2</span> <span class="mi">128</span> <span class="mi">4250</span>
+ <span class="n">RB_3</span> <span class="mi">32</span> <span class="mi">1</span>
+ <span class="n">RB_4</span> <span class="mi">32</span> <span class="mi">1</span>
+ <span class="n">List</span> <span class="n">of</span> <span class="n">functions</span>
+ <span class="n">FKT_1</span> <span class="n">simul_source</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span>   <span class="p">{</span><span class="s1">&#39;RB_1&#39;</span><span class="p">:</span> <span class="s1">&#39;write&#39;</span><span class="p">}</span>
+ <span class="n">FKT_2</span> <span class="n">calculate_decay_time</span> <span class="p">(</span><span class="mi">2</span><span class="p">)</span>   <span class="p">{</span><span class="s1">&#39;RB_1&#39;</span><span class="p">:</span> <span class="s1">&#39;read&#39;</span><span class="p">,</span> <span class="s1">&#39;RB_2&#39;</span><span class="p">:</span> <span class="s1">&#39;write&#39;</span><span class="p">,</span> <span class="s1">&#39;RB_3&#39;</span><span class="p">:</span> <span class="s1">&#39;write&#39;</span><span class="p">,</span> <span class="s1">&#39;RB_4&#39;</span><span class="p">:</span> <span class="s1">&#39;write&#39;</span><span class="p">}</span>
+ <span class="n">FKT_3</span> <span class="n">save_to_txt</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span>   <span class="p">{</span><span class="s1">&#39;RB_3&#39;</span><span class="p">:</span> <span class="s1">&#39;read&#39;</span><span class="p">}</span>
+ <span class="n">FKT_4</span> <span class="n">save_to_txt</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span>   <span class="p">{</span><span class="s1">&#39;RB_4&#39;</span><span class="p">:</span> <span class="s1">&#39;read&#39;</span><span class="p">}</span>
+ <span class="n">FKT_5</span> <span class="n">save_parquet</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span>   <span class="p">{</span><span class="s1">&#39;RB_2&#39;</span><span class="p">:</span> <span class="s1">&#39;read&#39;</span><span class="p">}</span>
+ <span class="n">FKT_6</span> <span class="n">plot_waveform</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span>   <span class="p">{</span><span class="s1">&#39;RB_2&#39;</span><span class="p">:</span> <span class="s1">&#39;observe&#39;</span><span class="p">}</span>
+ <span class="n">FKT_7</span> <span class="n">plot_histograms</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span>   <span class="p">{</span><span class="s1">&#39;RB_3&#39;</span><span class="p">:</span> <span class="s1">&#39;read&#39;</span><span class="p">}</span>
+ <span class="n">FKT_8</span> <span class="n">plot_histograms</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span>   <span class="p">{</span><span class="s1">&#39;RB_4&#39;</span><span class="p">:</span> <span class="s1">&#39;read&#39;</span><span class="p">}</span>
+
+ <span class="n">Running</span> <span class="mi">260</span><span class="n">s</span> <span class="n">RB_1</span><span class="p">:</span> <span class="mi">76409</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="mi">302</span><span class="n">Hz</span> <span class="n">RB_2</span><span class="p">:</span> <span class="mi">6118</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="mi">19</span><span class="n">Hz</span> <span class="n">RB_3</span><span class="p">:</span> <span class="mi">2952</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="mf">9.99</span><span class="n">Hz</span> <span class="n">RB_4</span><span class="p">:</span> <span class="mi">3166</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="mf">8.99</span><span class="n">Hz</span>
+</pre></div>
+</div>
+<p>A screenshot of a data-acquisition run with input from simulated data is shown
+in the figure below.</p>
+<a class="reference internal image-reference" href="_images/mimoCoRB_screenshot.png"><img alt="Screenshot of a simulation run" src="_images/mimoCoRB_screenshot.png" style="width: 1024px;" /></a>
+</section>
+</section>
+</section>
+<section id="module-mimocorb">
+<span id="module-documentation"></span><h1>Module Documentation<a class="headerlink" href="#module-mimocorb" title="Link to this heading">¶</a></h1>
+<p id="module-mimocorb.mimo_buffer"><strong>mimo-ringbuffer</strong>:</p>
+<p>Module implementing a multiple-in multiple-out ringbuffer appropriate for multi-core multiprocessing.</p>
+<p>The ringbuffer creation and management is handled by the class <code class="docutils literal notranslate"><span class="pre">NewBuffer</span></code>.
+Buffer access is managed by the``Reader``, <code class="docutils literal notranslate"><span class="pre">Writer</span></code> and <code class="docutils literal notranslate"><span class="pre">Observer</span></code>  classes.</p>
+<p>classes:</p>
+<blockquote>
+<div><ul>
+<li><p>NewBuffer: create a new ringbuffer, assign writer(s) and reader(s) or observer(s)</p>
+<blockquote>
+<div><p>methods:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>new_writer</p></li>
+<li><p>new_reader_group</p></li>
+<li><p>new_observer</p></li>
+<li><p>buffer_staus</p></li>
+</ul>
+</div></blockquote>
+</div></blockquote>
+</li>
+<li><p>Writer:   write elements into a ringbuffer</p></li>
+<li><p>Reader:   read all elements from a ringbuffer</p></li>
+<li><p>Observer: read selected elements from a ringbuffer.</p></li>
+</ul>
+</div></blockquote>
+<dl class="py class">
+<dt class="sig sig-object py" id="mimocorb.mimo_buffer.NewBuffer">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mimocorb.mimo_buffer.</span></span><span class="sig-name descname"><span class="pre">NewBuffer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">number_of_slots</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">values_per_slot</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">debug</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.mimo_buffer.NewBuffer" title="Link to this definition">¶</a></dt>
+<dd><p>Class to create a new ringbuffer object according to the ‘FIFO’ principle (first-in first-out).</p>
+<p>Memory shares, IPC queues, lock and event objects as well as background threads are defined
+for the multiprocessing ringbuffer management. Methods are provided to build the setup dictionaries
+(necessary parameter objects) for the <code class="docutils literal notranslate"><span class="pre">Reader</span></code>, <code class="docutils literal notranslate"><span class="pre">Writer</span></code> or <code class="docutils literal notranslate"><span class="pre">Observer</span></code> instances, respectively.
+Further, methods are provided to allow an index processing (e.g. listeners) and to pause data processing.</p>
+<p>Index processing overview: to achieve a proper handling for writing and reading data into a
+ringbuffer slot regarding the possible definition of more than one reader for a ringbuffer
+(multiprocessing mode on function level) the determination of the correct slot index is essential.
+For a <code class="docutils literal notranslate"><span class="pre">Writer</span></code> or <code class="docutils literal notranslate"><span class="pre">Reader</span></code> two SimpleQueues are defined, respectively. In principle one queue
+contains the index to be used next and the other the index just processed. An <code class="docutils literal notranslate"><span class="pre">Observer</span></code> is
+treated in a simpler way by using an own global index variable for each instance.</p>
+<p>The queues are passed via the setup dictionary to the corresponding Reader or Writer instance,
+respectively, and processed there. In addition, the buffer manager provides methods to control
+the index determination (_writer/_reader/_observer_queue_listener()), started in own threads.</p>
+<p>Writer index:</p>
+<ul class="simple">
+<li><p>writer_empty_queue: contains the slot numbers (initially filled); defines the next free ringbuffer slot.</p>
+<ul>
+<li><p>fetched (removed) in the class Writer -&gt; get_new_buffer()</p></li>
+<li><p>last processed slot number is refilled in _increment_reader_pointer()</p></li>
+</ul>
+</li>
+<li><p>writer_filled_queue: empty; contains the last processed slot number (distributed to all defined readers).</p>
+<ul>
+<li><p>process_buffer()</p></li>
+</ul>
+</li>
+</ul>
+<p>Reader index:</p>
+<ul class="simple">
+<li><p>manually incremented in _increment_reader_pointer() via global variable read_pointer</p></li>
+<li><p>done_queue: empty; already processed slot number</p></li>
+</ul>
+<blockquote>
+<div><ul class="simple">
+<li><p>fetched in _reader_queue_listener()</p></li>
+<li><p>filled in the class Reader -&gt; get() via the global variable _last_get_index</p></li>
+</ul>
+</div></blockquote>
+<ul class="simple">
+<li><p>todo_queue: empty; slot number to be processed next</p></li>
+</ul>
+<blockquote>
+<div><ul class="simple">
+<li><p>fetched in the class Reader -&gt; get()</p></li>
+<li><p>filled in _writer_queue-listener (within the list reader_todo_queue_list)</p></li>
+</ul>
+</div></blockquote>
+<p>Observer index:</p>
+<ul class="simple">
+<li><p>the global variable obs_pointer is used; it is an early copy of the write_pointer variable</p>
+<ul>
+<li><p>defined in _writer_queue_listener()</p></li>
+<li><p>directly used as index in _observeQ_listener()</p></li>
+</ul>
+</li>
+</ul>
+<p>important methods:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>__init__() constructor to create a new ‘FIFO’ ringbuffer</p></li>
+<li><p>new_writer() create new writer</p></li>
+<li><p>new_reader_group() create reader group</p></li>
+<li><p>new_observer() create observer</p></li>
+<li><p>buffer_status() display status: event count, processing rate, occupied slots</p></li>
+<li><p>pause() disable writer(s) to ringbuffer</p></li>
+<li><p>resume() (re-)enable writers</p></li>
+<li><p>set_ending() stop data-taking (gives processes time to finish before shutdown)</p></li>
+<li><p>close() release shared memory</p></li>
+<li><p>shutdown() end connected processes, delete ringbuffer</p></li>
+</ul>
+</div></blockquote>
+<dl class="py method">
+<dt class="sig sig-object py" id="mimocorb.mimo_buffer.NewBuffer.buffer_status">
+<span class="sig-name descname"><span class="pre">buffer_status</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.mimo_buffer.NewBuffer.buffer_status" title="Link to this definition">¶</a></dt>
+<dd><p>Processing Rate and approximate number of free slots in this ringbuffer.
+This method is meant for user information purposes only, as the result may
+not be completely accurate due to race conditions.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>cumulative event count, number of free slots, processing rate, average deadtime</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>tuple</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mimocorb.mimo_buffer.NewBuffer.new_observer">
+<span class="sig-name descname"><span class="pre">new_observer</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.mimo_buffer.NewBuffer.new_observer" title="Link to this definition">¶</a></dt>
+<dd><p>Method to create a new (Queue based) observer.</p>
+<p>Method: a copy of the most recent data (latest write_pointer) is transferred via a
+Queue whenever the Queue (of size 1) is empty. Sending data through the Queue is handled
+in a sparate thread</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The <code class="docutils literal notranslate"><span class="pre">setup_dict</span></code> object passed to an <code class="docutils literal notranslate"><span class="pre">Observer</span></code>-instance to give access to
+the data Queue defined for this ringbuffer.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mimocorb.mimo_buffer.NewBuffer.new_reader_group">
+<span class="sig-name descname"><span class="pre">new_reader_group</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.mimo_buffer.NewBuffer.new_reader_group" title="Link to this definition">¶</a></dt>
+<dd><p>Method to create a new reader group.
+The processing workload of a group can be distributed to multiple processes by using
+the same setup dictionary (<code class="docutils literal notranslate"><span class="pre">setup_dict</span></code>) defined for a <code class="docutils literal notranslate"><span class="pre">Reader</span></code>-object.
+Each ringbuffer element is processed by one reader group process. It’s possible to create multiple
+reader groups per ringbuffer, where each reader group gets every element written to the ringbuffer.
+If a reader group is created, at least one <code class="docutils literal notranslate"><span class="pre">Reader</span></code>-class instance MUST steadily call its <code class="docutils literal notranslate"><span class="pre">get()</span></code>
+method to prevent the ringbuffer from blocking and to allow a safe shutdown.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The <code class="docutils literal notranslate"><span class="pre">setup_dict</span></code> object passed to a <code class="docutils literal notranslate"><span class="pre">Reader</span></code>-instance to grant read access to this ringbuffer.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mimocorb.mimo_buffer.NewBuffer.new_writer">
+<span class="sig-name descname"><span class="pre">new_writer</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.mimo_buffer.NewBuffer.new_writer" title="Link to this definition">¶</a></dt>
+<dd><p>Method to create a new writer.
+It is possible to create multiple writers and simply share a setup dictionary definition
+between different <code class="docutils literal notranslate"><span class="pre">Writer</span></code>-instances (analogues to the behavior of the <code class="docutils literal notranslate"><span class="pre">new_reader_group</span></code>).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The <code class="docutils literal notranslate"><span class="pre">setup_dict</span></code> object passed to a <code class="docutils literal notranslate"><span class="pre">Writer</span></code>-instance to grant write access to this ringbuffer.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mimocorb.mimo_buffer.NewBuffer.pause">
+<span class="sig-name descname"><span class="pre">pause</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.mimo_buffer.NewBuffer.pause" title="Link to this definition">¶</a></dt>
+<dd><p>Disable writing to ringbuffer (paused)</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mimocorb.mimo_buffer.NewBuffer.resume">
+<span class="sig-name descname"><span class="pre">resume</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.mimo_buffer.NewBuffer.resume" title="Link to this definition">¶</a></dt>
+<dd><p>(Re)enable  writing to ringbuffer (resume)</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mimocorb.mimo_buffer.NewBuffer.set_ending">
+<span class="sig-name descname"><span class="pre">set_ending</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.mimo_buffer.NewBuffer.set_ending" title="Link to this definition">¶</a></dt>
+<dd><p>Stop data flow (before shut-down)</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mimocorb.mimo_buffer.NewBuffer.shutdown">
+<span class="sig-name descname"><span class="pre">shutdown</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.mimo_buffer.NewBuffer.shutdown" title="Link to this definition">¶</a></dt>
+<dd><p>Shut down the ringbuffer(s): close background threads, terminate associated processes and
+release the shared memory definitions.</p>
+<p>Affect processes using a <code class="docutils literal notranslate"><span class="pre">Reader</span></code>, <code class="docutils literal notranslate"><span class="pre">Writer</span></code> or <code class="docutils literal notranslate"><span class="pre">Observer</span></code> instance to a ringbuffer.</p>
+<p>A ‘trickle down’ approach is used to have as few ringbuffer elements as possible unprocessed. This may not
+work correctly with more complex signal analysis chains. So always make sure to shut down the ringbuffers
+in data flow order (start with first element of the chain, the ringbuffer closest to the signal source).</p>
+<p><strong>CAUTION!</strong> If there are loops in the signal analysis chain, this method may end in an infinite loop!</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mimocorb.mimo_buffer.Observer">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mimocorb.mimo_buffer.</span></span><span class="sig-name descname"><span class="pre">Observer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">setup_dict</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.mimo_buffer.Observer" title="Link to this definition">¶</a></dt>
+<dd><p>Class for reading selected elements from a ringbuffer via q multiprocessing Queue</p>
+<p>The data transfer is implemented via a multiprocessing Queue and interfaces
+with the ringbuffer manager (<code class="docutils literal notranslate"><span class="pre">NewBuffer</span></code>-class).</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="mimocorb.mimo_buffer.Observer.get">
+<span class="sig-name descname"><span class="pre">get</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.mimo_buffer.Observer.get" title="Link to this definition">¶</a></dt>
+<dd><p>Get latest element from buffer: metadata  and data</p>
+<p>As new data is provided and transferred as soon as data is read from
+the Queue, the get() method must not be called too frequentls</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mimocorb.mimo_buffer.Reader">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mimocorb.mimo_buffer.</span></span><span class="sig-name descname"><span class="pre">Reader</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">setup_dict</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.mimo_buffer.Reader" title="Link to this definition">¶</a></dt>
+<dd><p>Class to read elements from a ringbuffer (multiple-out part).</p>
+<p>Ringbuffer elements are structured NumPy arrays and strictly <strong>read-only</strong>. The returned
+array won’t change until the next <code class="docutils literal notranslate"><span class="pre">Reader.get()</span></code> call is performed, blocking
+the ringbuffer element for the time being.
+A program design processing the ringbuffer content has to call the <code class="docutils literal notranslate"><span class="pre">Reader.get()</span></code>-method
+in a way that minimizes the ringbuffer lock time.</p>
+<p>methods:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>get()</p></li>
+<li><p>get_metadata():</p></li>
+</ul>
+</div></blockquote>
+<dl class="py method">
+<dt class="sig sig-object py" id="mimocorb.mimo_buffer.Reader.data_available">
+<span class="sig-name descname"><span class="pre">data_available</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.mimo_buffer.Reader.data_available" title="Link to this definition">¶</a></dt>
+<dd><p>Method to check for new data and avoid blocking of consumers</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mimocorb.mimo_buffer.Reader.get">
+<span class="sig-name descname"><span class="pre">get</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.mimo_buffer.Reader.get" title="Link to this definition">¶</a></dt>
+<dd><p>Get a new element from the ringbuffer.
+The last element obtained by calling this function is marked as “processing is done”.
+No memory views of old elements may be accessed after calling this function (memory
+might change, be corrupted or be inconsistent).
+This function blocks if there are no new elements in the ringbuffer.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>SystemExit</strong> – When the <code class="docutils literal notranslate"><span class="pre">shutdown()</span></code>-method of the <code class="docutils literal notranslate"><span class="pre">NewBuffer</span></code> object has been
+called, a SystemExit is raised which terminates the process.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>One element (structured numpy.ndarray) of the ringbuffer as specified in
+the <code class="docutils literal notranslate"><span class="pre">NewBuffer()-dtype</span></code>-object.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mimocorb.mimo_buffer.Reader.get_metadata">
+<span class="sig-name descname"><span class="pre">get_metadata</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.mimo_buffer.Reader.get_metadata" title="Link to this definition">¶</a></dt>
+<dd><p>Get the metadata defined for a ringbuffer element of the <code class="docutils literal notranslate"><span class="pre">Reader.get()</span></code>-method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><p>Currently a 3-tuple is returned with <code class="docutils literal notranslate"><span class="pre">(counter,</span> <span class="pre">timestamp</span> <span class="pre">,</span> <span class="pre">deadtime)</span></code>
+which is assigned to the latest element of the ringbuffer. The content of these
+variables is filled by the <code class="docutils literal notranslate"><span class="pre">Writer</span></code>-process.
+The current convention is:</p>
+<ul class="simple">
+<li><p>counter (int): a unique, 0 based, consecutive integer referencing this element</p></li>
+<li><p>timestamp (float): the UTC timestamp</p></li>
+<li><dl class="simple">
+<dt>deadtime (float): In a live-data environment, the dead time of the first</dt><dd><p>writer in the analyses chain. This is meant to be the fraction of dead
+time to active data capturing time (so 0.0 = no dead time whatsoever;
+0.99 = only 1% of the time between this and the last element was spent
+with active data capturing)</p>
+</dd>
+</dl>
+</li>
+</ul>
+</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>tuple</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mimocorb.mimo_buffer.Writer">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mimocorb.mimo_buffer.</span></span><span class="sig-name descname"><span class="pre">Writer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">setup_dict</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.mimo_buffer.Writer" title="Link to this definition">¶</a></dt>
+<dd><p>Class to write elements into a ringbuffer (multiple-in part).</p>
+<p>Ringbuffer elements are structured NumPy arrays. Writing is triggered by a call of
+<code class="docutils literal notranslate"><span class="pre">Writer.process_buffer()</span></code> or at the next call of <code class="docutils literal notranslate"><span class="pre">Writer.get_new_buffer()</span></code>.
+The ringbuffer element is blocked while writes to the NumPy array are permitted.
+A program design processing the ringbuffer content has to call the <code class="docutils literal notranslate"><span class="pre">Writer.process_buffer()</span></code>
+or <code class="docutils literal notranslate"><span class="pre">Writer.get_new_buffer()</span></code>-methods in a way that minimizes the ringbuffer lock time.</p>
+<p>methods:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>get_new_buffer()</p></li>
+<li><p>set_metadata()</p></li>
+<li><p>process_buffer()</p></li>
+</ul>
+</div></blockquote>
+<dl class="py method">
+<dt class="sig sig-object py" id="mimocorb.mimo_buffer.Writer.get_new_buffer">
+<span class="sig-name descname"><span class="pre">get_new_buffer</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.mimo_buffer.Writer.get_new_buffer" title="Link to this definition">¶</a></dt>
+<dd><dl class="simple">
+<dt>Get a new free element in the ringbuffer.</dt><dd><p>The last element obtained by calling this function is marked as “ready to be processed”.
+No memory views of old elements may be accessed after calling this function.
+This function blocks if there are no free elements in the ringbuffer and always returns
+a valid NumPy array that can be written to.</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>SystemExit</strong> – When the <code class="docutils literal notranslate"><span class="pre">shutdown()</span></code>-method of the <code class="docutils literal notranslate"><span class="pre">NewBuffer</span></code> object has been
+called, a SystemExit is raised which terminates the process.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>One free ringbuffer element (structured numpy.ndarray) as specified in the
+<code class="docutils literal notranslate"><span class="pre">NewBuffer()-dtype</span></code>-object. Free elements may contain older data, but they
+can be safely overwritten.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mimocorb.mimo_buffer.Writer.process_buffer">
+<span class="sig-name descname"><span class="pre">process_buffer</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.mimo_buffer.Writer.process_buffer" title="Link to this definition">¶</a></dt>
+<dd><p>Mark the current ringbuffer element as “ready to be processed”.</p>
+<p>The content of the array MUST NOT be changed after calling this function.
+If there is no current element, nothing happens.
+As the ringbuffer element is blocked while writing to the NumPy array it is
+recommended to call <code class="docutils literal notranslate"><span class="pre">Writer.process_buffer()</span></code> as soon as possible to
+minimize the ringbuffer lock time.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mimocorb.mimo_buffer.Writer.set_metadata">
+<span class="sig-name descname"><span class="pre">set_metadata</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">counter</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">deadtime</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.mimo_buffer.Writer.set_metadata" title="Link to this definition">¶</a></dt>
+<dd><p>Set the metadata defined for the current ringbuffer element.
+If there is no current ringbuffer element (e.g. because <code class="docutils literal notranslate"><span class="pre">process_buffer()</span></code> has been
+called or <code class="docutils literal notranslate"><span class="pre">get_new_buffer()</span></code> has not been called yet), nothing happens.
+Copying metadata from a <code class="docutils literal notranslate"><span class="pre">Reader</span></code> to a <code class="docutils literal notranslate"><span class="pre">Writer</span></code> object (here called <code class="docutils literal notranslate"><span class="pre">source</span></code>
+and <code class="docutils literal notranslate"><span class="pre">sink</span></code>) can be done with:</p>
+<blockquote>
+<div><p><code class="docutils literal notranslate"><span class="pre">sink.set_metadata(*source.get_metadata())</span></code></p>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>counter</strong> (<em>integer</em><em> (</em><em>np.longlong</em><em>)</em>) – a unique, 0 based, consecutive integer referencing this element</p></li>
+<li><p><strong>timestamp</strong> (<em>float</em><em> (</em><em>np.float64</em><em>)</em>) – the UTC timestamp</p></li>
+<li><p><strong>deadtime</strong> (<em>float</em><em> (</em><em>np.float64</em><em>)</em>) – In a live-data environment, the dead time of the first
+writer in the analyses chain. This is meant to be the fraction of dead
+time to active data capturing time (so 0.0 = no dead time whatsoever;
+0.99 = only 1% of the time between this and the last element was spent
+with active data capturing)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<p id="module-mimocorb.buffer_control">Collection of classes to set-up, manage and access ringbuffers
+and associated functions</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="mimocorb.buffer_control.buffer_control">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mimocorb.buffer_control.</span></span><span class="sig-name descname"><span class="pre">buffer_control</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">buffers_dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">functions_dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">function_config_dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_directory</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.buffer_control.buffer_control" title="Link to this definition">¶</a></dt>
+<dd><p>Set-up and management ringbuffers and associated sub-processes</p>
+<p>Class methods:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>setup_buffers()</p></li>
+<li><p>setup_workers()</p></li>
+<li><p>start_workers()</p></li>
+<li><p>pause()</p></li>
+<li><p>resume()</p></li>
+<li><p>shutdown()</p></li>
+</ul>
+</div></blockquote>
+<dl class="py method">
+<dt class="sig sig-object py" id="mimocorb.buffer_control.buffer_control.display_functions">
+<span class="sig-name descname"><span class="pre">display_functions</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.buffer_control.buffer_control.display_functions" title="Link to this definition">¶</a></dt>
+<dd><p>Print list of functions and buffer associations</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mimocorb.buffer_control.buffer_control.display_layout">
+<span class="sig-name descname"><span class="pre">display_layout</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.buffer_control.buffer_control.display_layout" title="Link to this definition">¶</a></dt>
+<dd><p>Print list of buffers</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mimocorb.buffer_control.buffer_control.pause">
+<span class="sig-name descname"><span class="pre">pause</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.buffer_control.buffer_control.pause" title="Link to this definition">¶</a></dt>
+<dd><p>Pause data acquisition</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mimocorb.buffer_control.buffer_control.resume">
+<span class="sig-name descname"><span class="pre">resume</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.buffer_control.buffer_control.resume" title="Link to this definition">¶</a></dt>
+<dd><p>Re-enable  data acquisition after pause</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mimocorb.buffer_control.buffer_control.setup_workers">
+<span class="sig-name descname"><span class="pre">setup_workers</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.buffer_control.buffer_control.setup_workers" title="Link to this definition">¶</a></dt>
+<dd><p>Set up all the (parallel) worker functions</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mimocorb.buffer_control.buffer_control.shutdown">
+<span class="sig-name descname"><span class="pre">shutdown</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.buffer_control.buffer_control.shutdown" title="Link to this definition">¶</a></dt>
+<dd><p>Delete buffers, stop processes by calling the shutdown()-Method of the buffer manager</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mimocorb.buffer_control.buffer_control.start_workers">
+<span class="sig-name descname"><span class="pre">start_workers</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.buffer_control.buffer_control.start_workers" title="Link to this definition">¶</a></dt>
+<dd><p>start all of the (parallel) worker functions</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mimocorb.buffer_control.buffer_control.stop">
+<span class="sig-name descname"><span class="pre">stop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.buffer_control.buffer_control.stop" title="Link to this definition">¶</a></dt>
+<dd><p>stop writing and reading data, allow processes to finish</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mimocorb.buffer_control.rbDrain">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mimocorb.buffer_control.</span></span><span class="sig-name descname"><span class="pre">rbDrain</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">source_list</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">rb_info</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.buffer_control.rbDrain" title="Link to this definition">¶</a></dt>
+<dd><p>read data from ring buffer and sent to null</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mimocorb.buffer_control.rbExport">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mimocorb.buffer_control.</span></span><span class="sig-name descname"><span class="pre">rbExport</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">source_list</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">rb_info</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.buffer_control.rbExport" title="Link to this definition">¶</a></dt>
+<dd><p>Read data from buffer and send to requesting client (via Python yield()).
+Data are provided by a generator function yielding data and metadata in
+the __call__() method of the class.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mimocorb.buffer_control.rbImport">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mimocorb.buffer_control.</span></span><span class="sig-name descname"><span class="pre">rbImport</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sink_list</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ufunc</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">rb_info</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.buffer_control.rbImport" title="Link to this definition">¶</a></dt>
+<dd><p>Read data from external source (e.g. front-end device, file, simulation, etc.)
+and put data in mimo_buffer. Data is read by calling a user-supplied generator
+function for data and metadata.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mimocorb.buffer_control.rbObserver">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mimocorb.buffer_control.</span></span><span class="sig-name descname"><span class="pre">rbObserver</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">observe_list</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">rb_info</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.buffer_control.rbObserver" title="Link to this definition">¶</a></dt>
+<dd><p>Deliver data from buffer to an observer process. A tuple (data, metadata)
+is provided by a generator function ( i.e. via yield()) implemented in
+the __call__() method of the class.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mimocorb.buffer_control.rbPut">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mimocorb.buffer_control.</span></span><span class="sig-name descname"><span class="pre">rbPut</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sink_list</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ufunc</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">rb_info</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.buffer_control.rbPut" title="Link to this definition">¶</a></dt>
+<dd><p>Recieve data from external source (e.g. front-end device, file, simulation, etc.)
+and put data in mimo_buffer.</p>
+<p>Returns False if sink is not active</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mimocorb.buffer_control.rbTransfer">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mimocorb.buffer_control.</span></span><span class="sig-name descname"><span class="pre">rbTransfer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">source_list</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sink_list</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ufunc</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">rb_info</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.buffer_control.rbTransfer" title="Link to this definition">¶</a></dt>
+<dd><p>Read data from input buffer, filter data and write to output buffer(s)
+Data is provided as the argument to a user-defined filter function
+returing None if data is to be rejected, a number if data is to
+be copied to another buffer, or a list of processed input data write
+to additional buffers.</p>
+<p>Args:</p>
+<ul>
+<li><p>buffer configurations (only one source and severals sinks, no observers!)</p></li>
+<li><p>function ufunc() must return</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>None if data to be rejected,</p></li>
+<li><p>int if only raw data to be copied to sink[0]</p></li>
+<li><p>list of parameterized data to be copied to sinks[]</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+<p>Action:</p>
+<blockquote>
+<div><p>store accepted data in buffers</p>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mimocorb.buffer_control.rbWSObserver">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mimocorb.buffer_control.</span></span><span class="sig-name descname"><span class="pre">rbWSObserver</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">observe_list</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">rb_info</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.buffer_control.rbWSObserver" title="Link to this definition">¶</a></dt>
+<dd><p>Deliver data from buffer to an observer process</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mimocorb.buffer_control.rb_toParquetfile">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mimocorb.buffer_control.</span></span><span class="sig-name descname"><span class="pre">rb_toParquetfile</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">source_list</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">rb_info</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.buffer_control.rb_toParquetfile" title="Link to this definition">¶</a></dt>
+<dd><p>Save data a set of parquet-files packed as a tar archive</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mimocorb.buffer_control.rb_toTxtfile">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mimocorb.buffer_control.</span></span><span class="sig-name descname"><span class="pre">rb_toTxtfile</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">source_list</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">rb_info</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.buffer_control.rb_toTxtfile" title="Link to this definition">¶</a></dt>
+<dd><p>Save data to file in csv-format</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mimocorb.buffer_control.run_mimoDAQ">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mimocorb.buffer_control.</span></span><span class="sig-name descname"><span class="pre">run_mimoDAQ</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">setup_filename</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">debug</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.buffer_control.run_mimoDAQ" title="Link to this definition">¶</a></dt>
+<dd><p>Setup and run Data Aquisition suite with mimoCoRB buffer manager</p>
+<p>The layout of ringbuffers and associated functions is defined
+in a configuration file in yaml format.</p>
+<p>Functions:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>setup()</p></li>
+<li><p>run()</p></li>
+<li><p>end()</p></li>
+</ul>
+</div></blockquote>
+<p>Data acquisition stops when either of the following conditions is met:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>number of requested events processed</p></li>
+<li><p>requested run-time reached</p></li>
+<li><p>inuput source exhausted</p></li>
+<li><p>end command issued from Keyboard or graphical interface</p></li>
+</ul>
+</div></blockquote>
+<dl class="py method">
+<dt class="sig sig-object py" id="mimocorb.buffer_control.run_mimoDAQ.end">
+<span class="sig-name descname"><span class="pre">end</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">twait</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3.0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.buffer_control.run_mimoDAQ.end" title="Link to this definition">¶</a></dt>
+<dd><p>clean shutdown of daq suite</p>
+<p>Arg:</p>
+<blockquote>
+<div><p>twait: waiting time for processes to finish before shutdown</p>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mimocorb.buffer_control.run_mimoDAQ.keyboard_input">
+<span class="sig-name descname"><span class="pre">keyboard_input</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cmd_queue</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.buffer_control.run_mimoDAQ.keyboard_input" title="Link to this definition">¶</a></dt>
+<dd><p>Read keyboard input and send to Qeueu, runing as background-thread to avoid blocking</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mimocorb.buffer_control.run_mimoDAQ.tc">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">tc</span></span><a class="headerlink" href="#mimocorb.buffer_control.run_mimoDAQ.tc" title="Link to this definition">¶</a></dt>
+<dd><p>define terminal color codes</p>
+</dd></dl>
+
+</dd></dl>
+
+<p id="module-mimocorb.bufferinfoGUI"><em>bufferInfoGUI</em>
+Graphical display of buffer status</p>
+<p>code adapted from <a class="reference external" href="https://github.com/GuenterQuast/picoDAQ">https://github.com/GuenterQuast/picoDAQ</a></p>
+<dl class="py function">
+<dt class="sig sig-object py" id="mimocorb.bufferinfoGUI.bufferinfoGUI">
+<span class="sig-prename descclassname"><span class="pre">mimocorb.bufferinfoGUI.</span></span><span class="sig-name descname"><span class="pre">bufferinfoGUI</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Qcmd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Qlog</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Qinfo</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">RBnames</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">['RB_1']</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">maxRate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interval</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000.0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.bufferinfoGUI.bufferinfoGUI" title="Link to this definition">¶</a></dt>
+<dd><p>Show Buffer Manager logging messages and rate history and command buttons</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Qcmd</strong> – multiprocessing.Queue for command passing to calling process</p></li>
+<li><p><strong>Qlog</strong> – multiprocessing.Queue() for logging-info</p></li>
+<li><p><strong>Qinfo</strong> – multiprocessing.Queue() for status info</p></li>
+<li><p><strong>RBnames</strong> – list, buffer names, used as line labels</p></li>
+<li><p><strong>maxrate</strong> – maximum rate for y-axis</p></li>
+<li><p><strong>interval</strong> – update interval for graphics in ms</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mimocorb.bufferinfoGUI.plot_bufferinfo">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mimocorb.bufferinfoGUI.</span></span><span class="sig-name descname"><span class="pre">plot_bufferinfo</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Q</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">RBnames</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">maxRate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1500.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interval</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000.0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.bufferinfoGUI.plot_bufferinfo" title="Link to this definition">¶</a></dt>
+<dd><p>display statistics from Buffer Manager</p>
+<p>uses multiprocessing.Queue() to display buffer information:
+total number of events, data acquisition rate, buffer filling level</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Q</strong> – multiprocessing.Queue() for status info</p></li>
+<li><p><strong>RBnames</strong> – list, buffer names, used as line labels</p></li>
+<li><p><strong>maxrate</strong> – maximum rate for y-axis</p></li>
+<li><p><strong>interval</strong> – graphics update interval in ms</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<p id="module-mimocorb.plot_buffer"><strong>plot_buffer</strong> Collection of classes with graphics functions to plot buffer data</p>
+<p>The class animWaveFormPlotter is used by the class plotBuffer().
+The _call__() method of this latter class is the entry point to the package.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="mimocorb.plot_buffer.animWaveformPlotter">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mimocorb.plot_buffer.</span></span><span class="sig-name descname"><span class="pre">animWaveformPlotter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">conf_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtypes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fig</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.plot_buffer.animWaveformPlotter" title="Link to this definition">¶</a></dt>
+<dd><p>Oscilloscope-like display of wave from buffer data</p>
+<p>The __call__ method of this class receives input data and
+updates and redraws only the new elements of the figure
+created in __init__</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="mimocorb.plot_buffer.animWaveformPlotter.init">
+<span class="sig-name descname"><span class="pre">init</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.plot_buffer.animWaveformPlotter.init" title="Link to this definition">¶</a></dt>
+<dd><p>plot initial line objects to be animated</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mimocorb.plot_buffer.plot_buffer">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mimocorb.plot_buffer.</span></span><span class="sig-name descname"><span class="pre">plot_buffer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">source_list</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sink_list</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">observe_list</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">rb_info</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.plot_buffer.plot_buffer" title="Link to this definition">¶</a></dt>
+<dd><p>Plot data using a mimiCoRB Observer</p>
+</dd></dl>
+
+<p id="module-mimocorb.histogram_buffer"><strong>histogram_buffer</strong> collection of classes to produce histograms</p>
+<p>Show animated histogram(s) of scalar buffer variable(s)</p>
+<p>Because this process runs as a ‘Reader’ process, the plotting function
+is executed as a background task in order to avoid blockingn of the main task.</p>
+<p>The entry point is either the __call__() function of class histogram_buffer,
+which connects to a mimocorb buffer via the rbExport class, or directly the
+function plot_Histograms(), which receives data to be histogrammed via a
+multiprocessing Queue().</p>
+<p>code adapted from <a class="reference external" href="https://github.com/GuenterQuast/picoDAQ">https://github.com/GuenterQuast/picoDAQ</a></p>
+<dl class="py class">
+<dt class="sig sig-object py" id="mimocorb.histogram_buffer.animHists">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mimocorb.histogram_buffer.</span></span><span class="sig-name descname"><span class="pre">animHists</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Hdescr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Histograms'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fig</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.histogram_buffer.animHists" title="Link to this definition">¶</a></dt>
+<dd><p>display histograms, as normalised frequency distibutions</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mimocorb.histogram_buffer.histogram_buffer">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mimocorb.histogram_buffer.</span></span><span class="sig-name descname"><span class="pre">histogram_buffer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">source_list</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sink_list</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">observe_list</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">rb_info</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.histogram_buffer.histogram_buffer" title="Link to this definition">¶</a></dt>
+<dd><p>Produce Histograms of (scalar) variables in buffer.</p>
+<p>Read data from mimiCoRB buffer using the interface class mimo_control.rbExport
+and show histograms of scalar variables selected in the configuration dictionary</p>
+<p>Plotting is done by means of the class plot_Histograms() running as background process</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>input</strong> – configuration dictionaries</p></li>
+<li><p><strong>config_dict</strong> – <p>must contain a block with name ‘histograms’, formatted as</p>
+<p>&lt;name&gt;:  [&lt;min&gt;, &lt;max&gt;, &lt;nbins&gt;, &lt;ymax&gt;, &lt;label&gt;,   &lt;0/1 for lin/log&gt;]</p>
+</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="mimocorb.histogram_buffer.plot_Histograms">
+<span class="sig-prename descclassname"><span class="pre">mimocorb.histogram_buffer.</span></span><span class="sig-name descname"><span class="pre">plot_Histograms</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Q</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Hdescripts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interval</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Histograms'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.histogram_buffer.plot_Histograms" title="Link to this definition">¶</a></dt>
+<dd><p>show animated histogram(s)</p>
+<p>Args:</p>
+<ul>
+<li><p>Q:    multiprocessing.Queue()</p></li>
+<li><p>Hdescripts:  list of histogram descriptors, where each descriptor is a list:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>min:   minimum value</p></li>
+<li><p>max:   maximum value</p></li>
+<li><p>nbins: nubmer of bins</p></li>
+<li><p>ymax:  scale factor for highest bin (1. = 1/Nbins)</p></li>
+<li><p>name:  name of the quantity being histogrammed</p></li>
+<li><p>type:  0 linear, 1 for logarithmic y scale</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p>interval: time (in s) between updates</p></li>
+<li><p>name: name of histogram window</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py class" id="module-mimocorb.pulseSimulator">
+<dt class="sig sig-object py" id="mimocorb.pulseSimulator.pulseSimulator">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mimocorb.pulseSimulator.</span></span><span class="sig-name descname"><span class="pre">pulseSimulator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config_dict</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.pulseSimulator.pulseSimulator" title="Link to this definition">¶</a></dt>
+<dd><p>generate wavevorm data of typical pulses from particle detectors,
+characterised by an exponential shape with parameters height and
+mean length tau and a noise contribution.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="mimocorb.pulseSimulator.pulseSimulator.init">
+<span class="sig-name descname"><span class="pre">init</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">number_of_channels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">number_of_values</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">channel_names</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.pulseSimulator.pulseSimulator.init" title="Link to this definition">¶</a></dt>
+<dd><p>set parameters from buffer configuration and initialize</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class" id="module-mimocorb.parquetReader">
+<dt class="sig sig-object py" id="mimocorb.parquetReader.parquetReader">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mimocorb.parquetReader.</span></span><span class="sig-name descname"><span class="pre">parquetReader</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.parquetReader.parquetReader" title="Link to this definition">¶</a></dt>
+<dd><p>read wavefoem data from parquet file</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="mimocorb.parquetReader.parquetReader.init">
+<span class="sig-name descname"><span class="pre">init</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">number_of_channels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">number_of_values</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">channel_names</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mimocorb.parquetReader.parquetReader.init" title="Link to this definition">¶</a></dt>
+<dd><p>set parameters from buffer configuration and initialize</p>
+</dd></dl>
+
+</dd></dl>
+
+<p id="module-rb_unittest"><strong>rb_unittest:</strong> application example for mimo_buffer</p>
+<p>This code may serve as a very basic starting point for own projects</p>
+<p>Set-up: 2 ring buffers are defined:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>input Buffer  RB_1: 10 ch x 1024 slots (int32)</p></li>
+<li><p>output Buffer RB_2: 10 ch x 2 slots/ch (float64)</p></li>
+</ul>
+</div></blockquote>
+<p id="module-simul_source"><strong>external_source</strong>:
+Template for data import in a mimoCoRB buffer from an external source</p>
+<p>Input data is provided as a numpy-arry of shape (number_of_channels, number_of_samples).</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="simul_source.simulation_source">
+<span class="sig-prename descclassname"><span class="pre">simul_source.</span></span><span class="sig-name descname"><span class="pre">simulation_source</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">source_list</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sink_list</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">observe_list</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">rb_info</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#simul_source.simulation_source" title="Link to this definition">¶</a></dt>
+<dd><p>General example for data import from external source
+(here: generation of simulated data with module pulseSimulator)</p>
+<p>Uses class mimocorb.buffer_control/rbImport to interface to the
+newBuffer and Writer classes of the package mimoCoRB.mimo_buffer</p>
+<p>mimiCoRB interacts with this code via a generator (<em>yield_data()</em>),
+which itself received data via the <em>__call__</em> function of the class
+<em>dataSource</em> providing the input data. Configuration parametes
+in the dictionary <em>config_dict</em> are passed to this class during
+initialistation. Parameters of the configured buffers are set after
+after initialisation.</p>
+<p>This example may serve as a template for other data sources</p>
+</dd></dl>
+
+<p id="module-lifetime_filter">Module <strong>lifetime_filter</strong></p>
+<p>This (rather complex) module filters waveform data to search for valid
+signal pulses in the channel data. The goal is to clearly identify coincidences
+of signals in different layers (indiating the passage of a cosmic ray particle,
+a muon) and find double-pulse signatures that a muon was stopped in
+or near a detection layer where the resulting decay-electron produced a delayed
+pulse. The time difference between the initial and the delayed pulses is
+the individual lifetime of the muon.</p>
+<p>Wave forms passing this filter-criterion an passed on to a new buffer; the
+decay time and the properties of the signal pulses (height, integral and
+postition in time) are written to another buffer.</p>
+<p>The relevant configuration parameters can be found in the section
+<em>calculate_decay_time:</em> of the configuration file.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="lifetime_filter.calculate_decay_time">
+<span class="sig-prename descclassname"><span class="pre">lifetime_filter.</span></span><span class="sig-name descname"><span class="pre">calculate_decay_time</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">source_list</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sink_list</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">observe_list</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">rb_info</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#lifetime_filter.calculate_decay_time" title="Link to this definition">¶</a></dt>
+<dd><p>Calculate decay time as time between double pulses</p>
+<dl>
+<dt>Input:</dt><dd><p>pulse wave forms</p>
+</dd>
+<dt>Returns:</dt><dd><p>None if failed, int or list of pulse parameters if successful</p>
+<p>Note: output produced when filter is passed depends on number of defined sinks:</p>
+<ul class="simple">
+<li><p>one sink:   input data</p></li>
+<li><p>two sinks:  input data and double-pulse parameters</p></li>
+<li><p>three sinks: input data and double-pulse parameters separately for upwards and
+for downwards going decay electrons</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<p id="module-plot_waveform"><strong>plot</strong>: plotting waveforms from buffer using mimoCoRB.buffer_control.OberserverData</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="plot_waveform.plot_waveform">
+<span class="sig-prename descclassname"><span class="pre">plot_waveform.</span></span><span class="sig-name descname"><span class="pre">plot_waveform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">source_list</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sink_list</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">observe_list</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">rb_info</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#plot_waveform.plot_waveform" title="Link to this definition">¶</a></dt>
+<dd><p>Plot waveform data from mimiCoRB buffer</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>input</strong> – <p>configuration dictionary</p>
+<ul class="simple">
+<li><p>plot_title: graphics title to be shown on graph</p></li>
+<li><p>min_sleeptime: time between updates</p></li>
+<li><p>sample_time_ns, channel_range, pretrigger_samples and analogue_offset
+describe the waveform data as for oscilloscope setup</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<p id="module-plot_histograms"><strong>plot_histograms</strong>: histogram variable(s) from buffer using mimoCoRB.histogram_buffer</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="plot_histograms.plot_histograms">
+<span class="sig-prename descclassname"><span class="pre">plot_histograms.</span></span><span class="sig-name descname"><span class="pre">plot_histograms</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">source_list</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sink_list</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">observe_list</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">rb_info</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#plot_histograms.plot_histograms" title="Link to this definition">¶</a></dt>
+<dd><p>Online display of histogram(s) of variable(s) from mimiCoRB buffer</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>input</strong> – configuration dictionary</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="#">mimoCoRB</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="#">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.2.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.13</a>
+      
+      |
+      <a href="_sources/index.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
