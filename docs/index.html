@@ -383,13 +383,13 @@ user interface; pre-defined conditions on the total number of events processed,
 the duration of the data taking run or finishing of the writer process to the first buffer
 due to source exhaustion can also be defined to end data taking. The class structure
 and dependencies are shown in the figure below.</p>
-<a class="reference internal image-reference" href="_images/class_structure.png"><img alt="The structure of a mimoCoRB project" src="_images/class_structure.png" style="width: 1024px;" /></a>
+<a class="reference internal image-reference" href="class_structure.png"><img alt="The structure of a mimoCoRB project" src="class_structure.png" style="width: 1024px;" /></a>
 <p>A sequence diagram of a a typical application, shown below, illustrates
 the interplay and dependencies of the classes described above.
 The script <em>run_daq.py</em> creates an instance of <em>run_mimoDAQ</em> and
 starts its <em>run()</em>-method. The interaction with the user-supplied filter
 functions is handled by methods of the class <em>buffer_control</em>.</p>
-<a class="reference internal image-reference" href="_images/mimoCoRB_sequence.png"><img alt="Sequence diagram of a general mimoCoRB application" src="_images/mimoCoRB_sequence.png" style="width: 1024px;" /></a>
+<a class="reference internal image-reference" href="mimoCoRB_sequence.png"><img alt="Sequence diagram of a general mimoCoRB application" src="mimoCoRB_sequence.png" style="width: 1024px;" /></a>
 <p>For complex setups and longer data-taking periods it is important to gain
 a quick overview of the status of all buffers and to monitor long-term stability.
 Therefore, a graphical display with the processing rate of all buffers is provided
@@ -704,7 +704,7 @@ in <em>csv</em> format contains the data extracted from this buffer.</p>
 below [source: Master’s Thesis Christoph Mayer, ETP 2022].
 Note that the oscilloscope as the data-acquisition front-end is replaced
 by a signal simulation in the example provided.</p>
-<a class="reference internal image-reference" href="_images/mimoCoRB_lifetime.png"><img alt="The signal processing chain for the lifetime measurement" src="_images/mimoCoRB_lifetime.png" style="width: 650px;" /></a>
+<a class="reference internal image-reference" href="mimoCoRB_lifetime.png"><img alt="The signal processing chain for the lifetime measurement" src="mimoCoRB_lifetime.png" style="width: 650px;" /></a>
 <p>The buffer layout and the associated functions are defined in the main
 configuration file <cite>lifetime_setup.py</cite>, which serves as the input to
 the execution script <cite>run_daq.py</cite> in the top-level directory of the package.
@@ -883,7 +883,7 @@ Starting this example with
 </div>
 <p>A screenshot of a data-acquisition run with input from simulated data is shown
 in the figure below.</p>
-<a class="reference internal image-reference" href="_images/mimoCoRB_screenshot.png"><img alt="Screenshot of a simulation run" src="_images/mimoCoRB_screenshot.png" style="width: 1024px;" /></a>
+<a class="reference internal image-reference" href="mimoCoRB_screenshot.png"><img alt="Screenshot of a simulation run" src="mimoCoRB_screenshot.png" style="width: 1024px;" /></a>
 </section>
 </section>
 </section>

@@ -74,5 +74,3 @@ line-ending = "lf"
 # allow imports not at top
 "__init__.py" = ["E402"]
 "builddoc/conf.py" = ["E402"]
-
-
