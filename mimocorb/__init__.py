@@ -14,9 +14,7 @@
 from ._version_info import *
 
 # and set version
-_version_suffix = "rc1"  # for suffixes such as 'rc' or 'beta' or 'alpha'
 __version__ = _version_info._get_version_string()
-__version__ += _version_suffix
 
 __all__ = [
     "mimo_buffer",
