@@ -8,7 +8,7 @@ universal = false
 [project]
 name = "mimocorb"
 dynamic = ["version"]
-description = "multi-in multi-out Configurable Ring Buffer for DAQ"
+description = "multi-in multi-out Configurable Ring Buffer for Data Acquisition and Visualisation"
 authors = [
     {name = "Günter Quast", email = "Guenter.Quast@online.de"},
     {name = "Klaus Heitlinger", email = "HeitILNK@t-online.de"},
@@ -21,14 +21,13 @@ keywords = ["karlsruhe", "data", "lab", "laboratory", "practical course",
             "education", "acquisition", "university", "students", "physics"]
 
 classifiers = [
-    "License :: OSI Approved :: MIT BSD 2-Clause License",
+    "License :: OSI Approved :: MIT License",
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Education",
     "Intended Audience :: Science/Research",
     "Topic :: Education",
     "Topic :: Scientific/Engineering",
     "Topic :: Scientific/Engineering :: Physics",
-    "Topic :: Scientific/Engineering :: Data Acquisition",
     "Topic :: Scientific/Engineering :: Visualization",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
