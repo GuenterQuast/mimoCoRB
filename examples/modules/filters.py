@@ -74,8 +74,8 @@ def match_signature(peak_matrix, signature):
         return False
     # Boolean array with found peaks
     input_peaks = rfn.structured_to_unstructured(peak_matrix) >= 0
-    must_have_peak = np.array(signature, dtype=np.str0) == "+"
-    must_not_have_peak = np.array(signature, dtype=np.str0) == "-"
+    must_have_peak = np.array(signature, dtype=np.str_) == "+"
+    must_not_have_peak = np.array(signature, dtype=np.str_) == "-"
     match = True
     # Check the signature for each peak (1st peak with 1st signature, 2nd peak with 2nd signature, ...)
     for idx in range(len(signature)):
