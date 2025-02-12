@@ -3,8 +3,8 @@ import time
 
 
 class pulseSimulator:
-    """generate wavevorm data of typical pulses from particle detectors,
-    characterised by an exponential shape with parameters height and
+    """generate waveform data of typical pulses from particle detectors,
+    characterized by an exponential shape with parameters height and
     mean length tau and a noise contribution.
     """
 
@@ -42,6 +42,8 @@ class pulseSimulator:
         self.pulse_template = np.exp(-np.float32(np.linspace(0.0, self.plen, self.plen, endpoint=False)) / self.tau)
         self.noise = self.pulse_height.mean() / 30.0
         self.tau_mu = 2197  # muon life time in ns
+        self.T_spin = 0.85 * self.tau_mu  # spin precession time
+        self.A_spin = 0.10  # (relative) amplitude of precession signal
 
     def __call__(self):
         nchan = self.number_of_channels
@@ -71,14 +73,14 @@ class pulseSimulator:
             # add delayed pulse(s)
             t_mu = -self.tau_mu * np.log(np.random.rand())  # muon life time
             pos2 = int(t_mu / self.sample_time_ns) + self.pre_trigger_samples
-            if np.random.rand() > 0.5:  # upward decay electron
+            if np.random.rand() < 0.5 + 0.5 * self.A_spin * np.cos(2* np.pi * t_mu / self.T_spin):  # upward decay electron
                 for i_layer in range(0, min(nchan, 2)):
                     # random pulse height and position for 2nd pulse
                     ## pheight2 = np.random.rand()*maxheight
                     pheight2 = np.random.choice(self.pulse_height) + self.pulse_spread * np.random.normal()
                     if np.random.rand() < self.detector_efficiency and pos2 < self.mx_position:
                         pulse[i_layer, pos2 : pos2 + self.plen] += pheight2 * self.pulse_template
-            else:
+            else:  # downwards decay electron
                 for i_layer in range(min(nchan, 2), min(nchan, 4)):
                     # random pulse height and position for 2nd pulse
                     ## pheight2 = np.random.rand()*maxheight
