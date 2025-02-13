@@ -1,11 +1,14 @@
 import numpy as np
 import time
 
-
 class pulseSimulator:
     """generate waveform data of typical pulses from particle detectors,
     characterized by an exponential shape with parameters height and
     mean length tau and a noise contribution.
+
+    This example simulates the decay of stopped cosmic muons in a magnetic field,
+    leading to the observation of spin precession before the decay. This expresses
+    itself as a time-dependent asymmetry of upwards and downwards going decay eletrons.
     """
 
     def __init__(self, config_dict):
@@ -43,7 +46,7 @@ class pulseSimulator:
         self.noise = self.pulse_height.mean() / 30.0
         self.tau_mu = 2197  # muon life time in ns
         self.T_spin = 0.85 * self.tau_mu  # spin precession time
-        self.A_spin = 0.10  # (relative) amplitude of precession signal
+        self.A_spin = 0.05  # (relative) amplitude of precession signal
 
     def __call__(self):
         nchan = self.number_of_channels
@@ -73,7 +76,7 @@ class pulseSimulator:
             # add delayed pulse(s)
             t_mu = -self.tau_mu * np.log(np.random.rand())  # muon life time
             pos2 = int(t_mu / self.sample_time_ns) + self.pre_trigger_samples
-            if np.random.rand() < 0.5 + 0.5 * self.A_spin * np.cos(2* np.pi * t_mu / self.T_spin):  # upward decay electron
+            if np.random.rand() > 0.5 + 0.5 * self.A_spin * np.cos(2* np.pi * t_mu / self.T_spin):  # upward decay electron
                 for i_layer in range(0, min(nchan, 2)):
                     # random pulse height and position for 2nd pulse
                     ## pheight2 = np.random.rand()*maxheight
