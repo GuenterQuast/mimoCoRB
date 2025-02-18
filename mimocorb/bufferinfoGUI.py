@@ -143,18 +143,14 @@ class plot_bufferinfo(object):
             self.animlines[i].set_ydata(np.concatenate((R[k + 1 :], R[: k + 1])))
 
         self.animtxts[0].set_text(
-            "Time active: {:.1f}s    Number of Events: {:d}    Deadtime: {:.1f}%".format(
-                active_time, Nevents, 100 * deadtime
-            )
+            "Time active: {:.1f}s    Number of Events: {:d}    Deadtime: {:.1f}%".format(active_time, Nevents, 100 * deadtime)
             + 8 * " "
             + "Status: {:s}  ".format(status)
         )
 
         worker_status = "√" if all_workers_active else "!!!"
         self.animtxts[1].set_text(
-            "current rate: {:.3g}Hz    in buffer: {:d}    workers {:s}".format(
-                RBinfo[self.RBnames[0]][2], RBinfo[self.RBnames[0]][1], worker_status
-            )
+            "current rate: {:.3g}Hz    in buffer: {:d}    workers {:s}".format(RBinfo[self.RBnames[0]][2], RBinfo[self.RBnames[0]][1], worker_status)
         )
 
         return self.animlines + self.animtxts

@@ -111,14 +111,8 @@ class buffer_control:
         config_dict_common = None
 
         # get configuration file and time or events per run
-        self.runtime = (
-            0 if "runtime" not in self.functions_dict[0]["Fkt_main"] else self.functions_dict[0]["Fkt_main"]["runtime"]
-        )
-        self.runevents = (
-            0
-            if "runevents" not in self.functions_dict[0]["Fkt_main"]
-            else self.functions_dict[0]["Fkt_main"]["runevents"]
-        )
+        self.runtime = 0 if "runtime" not in self.functions_dict[0]["Fkt_main"] else self.functions_dict[0]["Fkt_main"]["runtime"]
+        self.runevents = 0 if "runevents" not in self.functions_dict[0]["Fkt_main"] else self.functions_dict[0]["Fkt_main"]["runevents"]
 
         if "config_file" in self.functions_dict[0]["Fkt_main"]:
             cfg_common = self.functions_dict[0]["Fkt_main"]["config_file"]
@@ -919,9 +913,7 @@ class rb_toTxtfile:
             raise ValueError("Faulty ring buffer configuration passed. No source found!")
 
         if not (self.source.values_per_slot == 1):
-            raise ValueError(
-                "LogToTxt can only save single buffer lines! " + "(Make sure: bm.Reader.values_per_slot == 1 )"
-            )
+            raise ValueError("LogToTxt can only save single buffer lines! " + "(Make sure: bm.Reader.values_per_slot == 1 )")
 
         self.filename = config_dict["directory_prefix"] + "/" + config_dict["filename"] + ".txt"
         if "header_alias" in config_dict:
@@ -1274,9 +1266,7 @@ class run_mimoDAQ:
 
         # set general options from input dictionary
         # - output directory prefix
-        self.output_directory = (
-            "target" if "output_directory" not in self.setup_dict else self.setup_dict["output_directory"]
-        )
+        self.output_directory = "target" if "output_directory" not in self.setup_dict else self.setup_dict["output_directory"]
         # - allow keyboard control ?
         self.kbdcontrol = True if "KBD_control" not in self.setup_dict else self.setup_dict["KBD_control"]
         # - enable GUI ?
@@ -1442,18 +1432,9 @@ class run_mimoDAQ:
                             deadtime = av_deadtime
                         RBinfo[RB_name] = [Nevents, n_filled, rate]
                         buffer_status_color += (
-                            col_k
-                            + RB_name
-                            + E
-                            + ": "
-                            + col_p
-                            + "{:d}".format(Nevents)
-                            + E
-                            + "({:d}) {:.3g}Hz ".format(n_filled, rate)
+                            col_k + RB_name + E + ": " + col_p + "{:d}".format(Nevents) + E + "({:d}) {:.3g}Hz ".format(n_filled, rate)
                         )
-                        buffer_status += (
-                            RB_name + ": " + "{:d}".format(Nevents) + "({:d}) {:.3g}Hz ".format(n_filled, rate)
-                        )
+                        buffer_status += RB_name + ": " + "{:d}".format(Nevents) + "({:d}) {:.3g}Hz ".format(n_filled, rate)
                     if self.verbose > 1:
                         print(
                             " > {}  ".format(animation[animstep]) + buffer_status_color + 10 * " ",

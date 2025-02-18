@@ -59,7 +59,7 @@ line-length = 120
 
 [tool.ruff]
 # only differences from default 
-line-length = 120
+line-length = 150
 
 [tool.ruff.lint]
 # ignore "unable to detect undefined names", "name may be undefined",

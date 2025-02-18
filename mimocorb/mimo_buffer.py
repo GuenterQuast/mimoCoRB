@@ -174,9 +174,7 @@ class NewBuffer:
         self.writers_paused.clear()
 
         # Setup filled buffer dispatcher (in background thread)
-        self._writer_queue_thread = threading.Thread(
-            target=self._writer_queue_listener, name="Main writer queue listener"
-        )
+        self._writer_queue_thread = threading.Thread(target=self._writer_queue_listener, name="Main writer queue listener")
         self._writer_queue_thread.start()
         self.writer_created = False
         self.reader_queue_listener_thread_list = []
@@ -276,11 +274,7 @@ class NewBuffer:
                 # All reader groups are done processing the oldest buffer element...
                 if self._debug:
                     with self.write_pointer_lock:
-                        print(
-                            "?> pop last element: {:d} (writer right now: {:d})".format(
-                                self.read_pointer, self.write_pointer
-                            )
-                        )
+                        print("?> pop last element: {:d} (writer right now: {:d})".format(self.read_pointer, self.write_pointer))
                     for reader_heap in self.reader_done_heap_list:
                         print(reader_heap)
                 # ... so remove it from each heap ...
@@ -326,11 +320,7 @@ class NewBuffer:
                     else:
                         self.write_pointer = max(new_data_index, self.write_pointer)
                 # define observer index
-                self.obs_pointer = (
-                    self.write_pointer
-                    if self.write_pointer < self.number_of_slots
-                    else self.write_pointer % self.number_of_slots
-                )
+                self.obs_pointer = self.write_pointer if self.write_pointer < self.number_of_slots else self.write_pointer % self.number_of_slots
                 # spy on metadata
                 self.sum_deadtimes += self._metadata[new_data_index]["deadtime"]
                 # counter = self._metadata[new_data_index]['counter']
@@ -418,9 +408,7 @@ class NewBuffer:
             "debug": self._debug,
         }
 
-        self.observerQ_listener_thread = threading.Thread(
-            target=self._observerQ_listener, name="observer_queue_listener"
-        )
+        self.observerQ_listener_thread = threading.Thread(target=self._observerQ_listener, name="observer_queue_listener")
         self.observerQ_listener_thread.start()
 
         return setup_dict
@@ -445,11 +433,7 @@ class NewBuffer:
             actually_read = self.read_pointer - 1
         with self.write_pointer_lock:
             actually_written = self.write_pointer
-        n_filled = (
-            actually_written - actually_read
-            if actually_written >= actually_read
-            else self.number_of_slots - actually_read + actually_written
-        )
+        n_filled = actually_written - actually_read if actually_written >= actually_read else self.number_of_slots - actually_read + actually_written
 
         # determine event rate handled by this buffer
         T = time.time()
@@ -510,11 +494,7 @@ class NewBuffer:
             # while processing an element, while the following element was already done processing!
             # This could cause an infinite loop! (Only possible if the reader closes prematurely, eg.
             # due to unconventional signal chains!)
-            print(
-                "Shutdown is waiting for processing to end!\n" "  processing: {:d}, target: {:d}".format(
-                    self.read_pointer, latest_observed_index
-                )
-            )
+            print("Shutdown is waiting for processing to end!\n" "  processing: {:d}, target: {:d}".format(self.read_pointer, latest_observed_index))
             time.sleep(0.5)
             # We have to update latest_observed_index since self.write_pointer might change
             # in case self.read_pointer lapped the ring buffer

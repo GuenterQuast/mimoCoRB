@@ -1,6 +1,7 @@
 import numpy as np
 import time
 
+
 class pulseSimulator:
     """generate waveform data of typical pulses from particle detectors,
     characterized by an exponential shape with parameters height and
@@ -15,9 +16,7 @@ class pulseSimulator:
         # evaluate configuration dictionary providing settings of recording device
         self.number_of_samples = config_dict["number_of_samples"]  # not needed here, taken from buffer configuration
         self.analogue_offset_mv = config_dict["analogue_offset"] * 1000.0
-        self.trigger_level = (
-            0.0 if "trigger_level" not in config_dict else config_dict["trigger_level"] - self.analogue_offset_mv
-        )
+        self.trigger_level = 0.0 if "trigger_level" not in config_dict else config_dict["trigger_level"] - self.analogue_offset_mv
         self.sample_time_ns = config_dict["sample_time_ns"]
         self.pre_trigger_samples = config_dict["pre_trigger_samples"]
         self.events_required = 1000 if "eventcount" not in config_dict else config_dict["eventcount"]
@@ -76,7 +75,7 @@ class pulseSimulator:
             # add delayed pulse(s)
             t_mu = -self.tau_mu * np.log(np.random.rand())  # muon life time
             pos2 = int(t_mu / self.sample_time_ns) + self.pre_trigger_samples
-            if np.random.rand() < 0.5 + 0.5 * self.A_spin * np.cos(2* np.pi * t_mu / self.T_spin):  # upward decay electron
+            if np.random.rand() < 0.5 + 0.5 * self.A_spin * np.cos(2 * np.pi * t_mu / self.T_spin):  # upward decay electron
                 for i_layer in range(0, min(nchan, 2)):
                     # random pulse height and position for 2nd pulse
                     ## pheight2 = np.random.rand()*maxheight
