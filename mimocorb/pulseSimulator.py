@@ -46,7 +46,7 @@ class pulseSimulator:
         self.noise = self.pulse_height.mean() / 30.0
         self.tau_mu = 2197  # muon life time in ns
         self.T_spin = 0.85 * self.tau_mu  # spin precession time
-        self.A_spin = 0.05  # (relative) amplitude of precession signal
+        self.A_spin = 0.03  # (relative) amplitude of precession signal
 
     def __call__(self):
         nchan = self.number_of_channels
@@ -76,7 +76,7 @@ class pulseSimulator:
             # add delayed pulse(s)
             t_mu = -self.tau_mu * np.log(np.random.rand())  # muon life time
             pos2 = int(t_mu / self.sample_time_ns) + self.pre_trigger_samples
-            if np.random.rand() > 0.5 + 0.5 * self.A_spin * np.cos(2* np.pi * t_mu / self.T_spin):  # upward decay electron
+            if np.random.rand() < 0.5 + 0.5 * self.A_spin * np.cos(2* np.pi * t_mu / self.T_spin):  # upward decay electron
                 for i_layer in range(0, min(nchan, 2)):
                     # random pulse height and position for 2nd pulse
                     ## pheight2 = np.random.rand()*maxheight
