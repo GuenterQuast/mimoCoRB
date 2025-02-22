@@ -1375,7 +1375,7 @@ class run_mimoDAQ:
         if self.GUIcontrol:
             self.logQ = Queue()  # Queue for logging to buffer manager info display
             self.RBinfoQ = Queue(1)  # Queue Buffer manager info display
-            self.maxrate = 1500.0
+            self.maxrate = 4500.0
             self.interval = 1000.0  # update interval in ms
             self.RBinfo_proc = Process(
                 name="bufferinfoGUI",

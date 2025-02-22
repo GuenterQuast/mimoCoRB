@@ -36,7 +36,7 @@ class plot_bufferinfo(object):
     :param interval: graphics update interval in ms
     """
 
-    def __init__(self, Q, RBnames, maxRate=1500.0, interval=1000.0):
+    def __init__(self, Q, RBnames, maxRate=4500.0, interval=1000.0):
         self.Q = Q
         self.RBnames = RBnames
         self.line_names = RBnames
@@ -156,7 +156,7 @@ class plot_bufferinfo(object):
         return self.animlines + self.animtxts
 
 
-def bufferinfoGUI(Qcmd, Qlog, Qinfo, RBnames=["RB_1"], maxRate=100.0, interval=1000.0):
+def bufferinfoGUI(Qcmd, Qlog, Qinfo, RBnames=["RB_1"], maxRate=4500.0, interval=1000.0):
     """
     Show Buffer Manager logging messages and rate history and command buttons
 
